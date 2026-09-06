@@ -43,15 +43,14 @@ export default async function StranicaPrijave({
             citace ekrana i trazilice. `priority` jer je ovo prvo sto se vidi. */}
         <h1 className="sr-only">Memorijalni termin</h1>
 
-        {/* Logo ide na SVIJETLU podlogu. Postojeca datoteka ima tamnozelen
-            tekst i svijetao obris stita — na tamnoj podlozi tekst nestane.
-            Probano, ne radi. Ako ikad stigne verzija za tamnu podlogu,
-            ovdje je mjesto za nju. */}
+        {/* Novi znak nosi vlastitu tamnu plocicu ispod teksta, pa radi i na
+            svijetloj i na tamnoj podlozi — za razliku od prethodnog, kojem je
+            tekst bio tamnozelen i nestajao na tamnom. */}
         <Image
           src="/logo.png"
           alt="Memorijalni termin"
-          width={1600}
-          height={489}
+          width={1200}
+          height={400}
           priority
           className="h-auto w-full max-w-[19rem]"
         />
