@@ -1,0 +1,53 @@
+# --- Varijable okoline ---
+# .env* hvata sve, pa se .env.example izuzima jer je predlozak bez tajni.
+.env*
+!.env.example
+
+# --- Ovisnosti ---
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# --- Next.js ---
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# --- Testovi ---
+/coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# --- Supabase (lokalni Docker volumeni i privremene datoteke) ---
+supabase/.branches/
+supabase/.temp/
+
+# --- Vercel ---
+.vercel
+
+# --- Zapisi gresaka ---
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Kljucevi i certifikati ---
+*.pem
+
+# --- macOS ---
+.DS_Store
+
+# --- Urednici ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
