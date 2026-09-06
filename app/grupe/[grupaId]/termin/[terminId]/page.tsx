@@ -194,8 +194,9 @@ export default async function StranicaTermina({
           <GumbPokreni grupaId={grupaId} terminId={terminId} vecUTijeku={false} />
         ) : (
           <p className="mt-8 rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">
-            Termin se pokreće <strong>{MINUTA_PRIJE_POCETKA} minuta prije početka</strong> —
-            od {formatirajTermin(odKadaSePokrece(termin.starts_at).toISOString())}.
+            Termin ne kreće sam — pokreće ga netko od igrača, a to je moguće{" "}
+            <strong>{MINUTA_PRIJE_POCETKA} minuta prije početka</strong>, od{" "}
+            {formatirajTermin(odKadaSePokrece(termin.starts_at).toISOString())}.
           </p>
         ))}
 
