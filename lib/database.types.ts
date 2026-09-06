@@ -78,6 +78,7 @@ export type Database = {
           created_at: string
           created_by: string
           default_capacity: number
+          default_min_players: number
           description: string | null
           id: string
           invite_code: string
@@ -87,6 +88,7 @@ export type Database = {
           created_at?: string
           created_by: string
           default_capacity?: number
+          default_min_players?: number
           description?: string | null
           id?: string
           invite_code?: string
@@ -96,6 +98,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           default_capacity?: number
+          default_min_players?: number
           description?: string | null
           id?: string
           invite_code?: string
@@ -309,6 +312,7 @@ export type Database = {
           id: string
           location_id: string | null
           location_text: string | null
+          min_players: number
           notes: string | null
           paused_at: string | null
           score_a: number
@@ -328,6 +332,7 @@ export type Database = {
           id?: string
           location_id?: string | null
           location_text?: string | null
+          min_players?: number
           notes?: string | null
           paused_at?: string | null
           score_a?: number
@@ -347,6 +352,7 @@ export type Database = {
           id?: string
           location_id?: string | null
           location_text?: string | null
+          min_players?: number
           notes?: string | null
           paused_at?: string | null
           score_a?: number

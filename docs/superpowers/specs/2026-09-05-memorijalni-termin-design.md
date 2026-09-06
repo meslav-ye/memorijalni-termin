@@ -707,6 +707,42 @@ Napomena: `gh` CLI nije instaliran na ovom računalu. Nije nužan — sve gore r
 
 ---
 
+## 13.1 Zabilježeno tijekom izrade — dodavanje termina u kalendar
+
+**Zapisano 2026-09-06.**
+
+Kad se na termin skupi dovoljno ljudi da se sigurno igra, igrači trebaju moći
+dodati termin u **osobni kalendar** na mobitelu (Google Calendar, Apple Calendar).
+
+Izvedba: gumb **Dodaj u kalendar** koji nudi `.ics` datoteku (radi svugdje) ili
+izravni link na Google Calendar. Podsjetnik se postavlja na, recimo, 2 sata prije.
+Ovo rješava dio problema koji bi inače tražio push obavijesti, a puno je jeftinije —
+podsjetnik šalje kalendar, ne mi.
+
+### Što ovo otkriva o modelu podataka
+
+Termin zapravo ima **dva praga**, a spec ih trenutno miješa u jedan (`capacity`):
+
+| Prag | Vrijednost | Značenje |
+|---|---|---|
+| **Dovoljno za igru** | 10 | 5v5 bez zamjena. Ispod ovoga termin je upitan. |
+| **Najviše mjesta** | 12 | Igra se s jednom zamjenom po ekipi. Preko toga ide lista čekanja. |
+
+Trenutna implementacija ima samo `matches.capacity`, koji odgovara **gornjem**
+pragu (12). Donji prag (10) ne postoji, a treba za:
+
+- gumb *Dodaj u kalendar* — pojavljuje se tek kad je skupljeno 10
+- oznaku stanja na kartici termina: *"Fali još 3"* → *"Igra se!"* → *"Popunjeno"*
+
+**Prijedlog:** dodati `matches.min_players` (default 10) uz postojeći `capacity`
+(default 12), oboje nasljeđeno iz postavki grupe. To je jedan stupac i jedna
+migracija — jeftino sada, bolno kasnije kad postoje odigrani termini.
+
+**Otvoreno pitanje za Mislava:** je li 12 stvarni maksimum za svaki termin, ili
+ovisi o dvorani? Ako ovisi, ostaje po terminu; ako ne, može biti postavka grupe.
+
+---
+
 ## 14. Otvorena pitanja za kasnije
 
 Ništa ne blokira početak izrade. Za dogovoriti kad MVP proradi:
