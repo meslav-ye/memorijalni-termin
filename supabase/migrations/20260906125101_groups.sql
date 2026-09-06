@@ -5,9 +5,15 @@ create table groups (
   id               uuid primary key default gen_random_uuid(),
   name             text        not null,
   description      text,
-  -- Kod pozivnice. 12 hex znakova (6 nasumicnih bajtova) — dovoljno da se ne pogodi,
+  -- Kod pozivnice: 12 nasumicnih hex znakova — dovoljno da se ne pogodi,
   -- dovoljno kratko da stane u link koji se salje u WhatsApp.
-  invite_code      text        not null unique default encode(gen_random_bytes(6), 'hex'),
+  --
+  -- Izvodi se iz gen_random_uuid(), koji je UGRADJEN u Postgres. Ranija
+  -- verzija je koristila gen_random_bytes() iz prosirenja pgcrypto — lokalno
+  -- je radilo jer Supabase ondje ima pgcrypto na putanji, ali na produkciji
+  -- je migracija pukla s "function gen_random_bytes(integer) does not exist".
+  invite_code      text        not null unique
+                     default substr(replace(gen_random_uuid()::text, '-', ''), 1, 12),
   default_capacity int         not null default 10,
   created_by       uuid        not null references profiles on delete restrict,
   created_at       timestamptz not null default now(),
