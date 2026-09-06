@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import { dohvatiLjestvicu } from "@/lib/podaci/statistika";
 
 export default async function StranicaLjestvice({
@@ -10,10 +11,7 @@ export default async function StranicaLjestvice({
   const { grupaId } = await params;
   const upit = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await dohvatiKorisnika();
   if (!user) redirect("/prijava");
 
   const trazenaSezona = typeof upit.sezona === "string" ? upit.sezona : null;

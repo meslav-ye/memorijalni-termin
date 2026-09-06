@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import { formatirajTermin } from "@/lib/format";
 import { dohvatiTermine, type TerminSaPrijavama } from "@/lib/podaci/termini";
 import type { Ton } from "@/lib/domain/popunjenost";
@@ -59,18 +59,10 @@ export default async function StranicaTermina({
 }: PageProps<"/grupe/[grupaId]">) {
   const { grupaId } = await params;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await dohvatiKorisnika();
   if (!user) redirect("/prijava");
 
-  const { data: clanstvo } = await supabase
-    .from("group_members")
-    .select("role")
-    .eq("group_id", grupaId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const clanstvo = await dohvatiClanstvo(grupaId);
 
   const admin = clanstvo?.role === "admin";
   const { nadolazeci, prosli } = await dohvatiTermine(grupaId, user.id);

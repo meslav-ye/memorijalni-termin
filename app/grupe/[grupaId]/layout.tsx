@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import { Tabovi } from "./Tabovi";
 
 export default async function LayoutGrupe({
@@ -9,12 +10,12 @@ export default async function LayoutGrupe({
 }: LayoutProps<"/grupe/[grupaId]">) {
   const { grupaId } = await params;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Korisnik i clanstvo idu kroz cache() — stranica ispod pita isto,
+  // a ovako se prema bazi ode samo jednom po zahtjevu.
+  const korisnik = await dohvatiKorisnika();
+  if (!korisnik) redirect("/prijava");
 
-  if (!user) redirect("/prijava");
+  const supabase = await createClient();
 
   // RLS vec ogranicava vidljivost na grupe cijim si aktivnim clanom,
   // pa prazan rezultat znaci "nisi clan" jednako kao i "ne postoji".
@@ -26,14 +27,8 @@ export default async function LayoutGrupe({
 
   if (!grupa) notFound();
 
-  const { data: clanstvo } = await supabase
-    .from("group_members")
-    .select("role")
-    .eq("group_id", grupaId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const admin = clanstvo?.role === "admin";
+  const clanstvo = await dohvatiClanstvo(grupaId);
+  const admin = clanstvo?.role === "admin" && clanstvo.status === "active";
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-5 py-8">

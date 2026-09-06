@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+import { oznakaLjestvice } from "@/lib/podaci/statistika";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findRecentDuplicate, secondsAgo, DUPLICATE_WINDOW_SECONDS } from "@/lib/domain/duplicates";
@@ -366,6 +367,10 @@ export async function zavrsiTermin(grupaId: string, terminId: string): Promise<O
   if (error) return { greska: "Završavanje nije uspjelo. Pokušaj ponovno." };
 
   await obracunajRating(grupaId, terminId);
+
+  // Ljestvica se drzi u predmemoriji; ovo je jedini trenutak kad se stvarno
+  // promijeni, pa se ovdje ponistava.
+  updateTag(oznakaLjestvice(grupaId));
 
   revalidatePath(`/grupe/${grupaId}`);
   revalidatePath(`/grupe/${grupaId}/termin/${terminId}`);

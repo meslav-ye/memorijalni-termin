@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import { formatirajKratko } from "@/lib/format";
 import { dohvatiLjestvicu } from "@/lib/podaci/statistika";
 
@@ -9,18 +10,11 @@ export default async function StranicaIgraca({
 }: PageProps<"/grupe/[grupaId]/igrac/[igracId]">) {
   const { grupaId, igracId } = await params;
 
+  const user = await dohvatiKorisnika();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   if (!user) redirect("/prijava");
 
-  const { data: clanstvo } = await supabase
-    .from("group_members")
-    .select("status")
-    .eq("group_id", grupaId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const clanstvo = await dohvatiClanstvo(grupaId);
   if (clanstvo?.status !== "active") notFound();
 
   const { data: profil } = await supabase

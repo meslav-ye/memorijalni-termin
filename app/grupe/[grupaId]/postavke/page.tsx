@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import { baznaAdresa } from "@/lib/adresa";
 import { LinkPozivnice } from "./LinkPozivnice";
 import { obnoviKodPozivnice, spremiPostavke } from "./akcije";
@@ -9,18 +10,11 @@ export default async function StranicaPostavki({
 }: PageProps<"/grupe/[grupaId]/postavke">) {
   const { grupaId } = await params;
 
+  const user = await dohvatiKorisnika();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   if (!user) redirect("/prijava");
 
-  const { data: clanstvo } = await supabase
-    .from("group_members")
-    .select("role, status")
-    .eq("group_id", grupaId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const clanstvo = await dohvatiClanstvo(grupaId);
 
   // Postavke su iskljucivo adminove. Obicnom clanu se ponasa kao da ne postoje.
   if (clanstvo?.role !== "admin" || clanstvo.status !== "active") notFound();

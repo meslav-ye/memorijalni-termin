@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import { dohvatiLjestvicu, type RedakLjestvice } from "@/lib/podaci/statistika";
 
 /** Vodeci po jednoj kategoriji; null kad jos nitko nema nista. */
@@ -67,10 +68,7 @@ export default async function StranicaStatistike({
   const { grupaId } = await params;
   const upit = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await dohvatiKorisnika();
   if (!user) redirect("/prijava");
 
   const trazenaSezona = typeof upit.sezona === "string" ? upit.sezona : null;

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { odbijClana, odobriClana, izbaciClana, promijeniUlogu } from "./akcije";
 
@@ -11,18 +12,11 @@ export default async function StranicaClanova({
 }: PageProps<"/grupe/[grupaId]/clanovi">) {
   const { grupaId } = await params;
 
+  const user = await dohvatiKorisnika();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   if (!user) redirect("/prijava");
 
-  const { data: ja } = await supabase
-    .from("group_members")
-    .select("role")
-    .eq("group_id", grupaId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const ja = await dohvatiClanstvo(grupaId);
 
   const admin = ja?.role === "admin";
 

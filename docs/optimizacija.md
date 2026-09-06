@@ -9,7 +9,7 @@ razumnog limita za društvo od 15–40 ljudi:
 
 | Radnja | Zahtjeva prema Supabaseu |
 |---|---|
-| Otvaranje ljestvice / statistike | **9** (11 s odigranim terminima) |
+| Otvaranje ljestvice / statistike | ~~**9**~~ → **5** nakon popravka 2 (10 prvi put nakon termina) |
 | Otvaranje popisa termina | ~6 |
 | Otvaranje ekrana uživo | ~7 |
 | **Svaki događaj uživo** (gol, poništavanje) | **3 × broj spojenih mobitela** |
@@ -45,7 +45,14 @@ raditi po brojkama iz ovog dokumenta.
 
 ## Popravci, poredani po omjeru koristi i truda
 
-### 1. Ukloni dvostruke upite (30 min, −20% zahtjeva)
+### 1. Ukloni dvostruke upite — ✅ napravljeno (procijenjeno −20%, izmjereno ~−1 upit)
+
+> **Ishod je bio slabiji od procjene.** Napravljeno je `lib/podaci/korisnik.ts` s
+> Reactovim `cache()`, ali dobitak je oko **jedan upit po stranici**, ne 20%.
+> Razlog: dva `group_members` upita nisu isti upit („jesam li ja admin" iz layouta
+> naspram „tko je sve u grupi" iz ljestvice), a drugi `auth/v1/user` dolazi iz
+> `proxy.ts` koji se izvršava u zasebnom kontekstu i `cache()` ga ne doseže.
+> Popravak je i dalje ispravan i ostaje, samo nije bio ono što je obećavao.
 
 Mjerenje je pokazalo da se **isto pita dvaput** pri svakom otvaranju stranice grupe:
 
@@ -58,7 +65,40 @@ preko Reactovog `cache()` iz `react`. Omotati dohvat korisnika i članstva u
 
 Nema promjene u ponašanju, samo manje upita.
 
-### 2. Predmemorija ljestvice (1 h, −80% na najtežoj stranici)
+### 2. Predmemorija ljestvice — ✅ napravljeno (procijenjeno −80%, izmjereno −50%)
+
+> **Izmjereno na produkcijskoj gradnji** (`next start`), ne na dev serveru — dev
+> zaobilazi predmemoriju i dao bi lažan broj:
+>
+> | | Zahtjeva prema Supabaseu |
+> |---|---|
+> | hladno (prvo otvaranje nakon završenog termina) | **10** |
+> | toplo (svako sljedeće) | **5** |
+>
+> Preostalih 5 su namjerno **izvan** predmemorije: 2 × `auth/v1/user` (layout +
+> `proxy.ts`), `groups` (ime grupe u layoutu), `group_members` (provjera članstva —
+> stoji izvan predmemorije *zbog sigurnosti*, da se tuđa ljestvica ne posluži iz
+> predmemorije) i `seasons` (izbornik sezone).
+>
+> Nije −80% jer procjena nije računala te fiksne upite. Ali dobitak **raste s
+> podacima**: hladna cijena raste kako se gomilaju odigrani termini, topla ostaje 5.
+>
+> Provjereno oboje, ne samo da se ne ruši:
+> 1. rating promijenjen izravno u bazi na 1234 → stranica i dalje pokazuje 1000
+>    (dokaz da predmemorija stvarno služi);
+> 2. pokrenut server action koji zove `updateTag` → stranica pokazuje 1234
+>    (dokaz da se poništavanje okida).
+>
+> Upotrijebljen je `updateTag`, ne `revalidateTag`: u Nextu 16 `revalidateTag` bez
+> drugog argumenta je zastario, a `updateTag(tag)` je isti poziv bez upozorenja
+> (oboje zovu istu `revalidate()` u `next/dist/server/web/spec-extension/revalidate.js`,
+> pa uredno poništava i `unstable_cache` oznake) uz „vidi vlastitu promjenu odmah",
+> što je točno ono što treba onome tko je upravo završio termin.
+>
+> `use cache` je **odbačen**: traži `cacheComponents: true`, što mijenja pravila
+> predmemorije u cijeloj aplikaciji — prevelik rizik za popravak koji nije hitan.
+
+### 2b. Kako je bilo procijenjeno (1 h, −80% na najtežoj stranici)
 
 Statistika se **preračunava iz sirovih događaja pri svakom otvaranju**. A mijenja
 se samo kad termin završi — dakle jednom tjedno.

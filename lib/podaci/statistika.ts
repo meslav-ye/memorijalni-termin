@@ -1,6 +1,12 @@
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { notFound } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { aggregateStats, aggregateDolaznost } from "@/lib/domain/stats";
+import { jeClan } from "@/lib/podaci/korisnik";
 import type { MatchForStats, PlayerStats, Team } from "@/lib/domain/types";
+
+/** Oznaka predmemorije po grupi — po njoj se ponistava kad termin zavrsi. */
+export const oznakaLjestvice = (grupaId: string) => `ljestvica-${grupaId}`;
 
 export type RedakLjestvice = PlayerStats & {
   nadimak: string;
@@ -21,7 +27,13 @@ export type PodaciLjestvice = {
 };
 
 /**
- * Sve za tab "Ljestvica". Racuna se iz ZAVRSENIH termina i nepobrisanih dogadjaja.
+ * Sve za tab "Ljestvica" i "Statistika".
+ *
+ * PRAVO PRISTUPA se provjerava ovdje, a ne unutar izracuna. Izracun ide preko
+ * tajnog kljuca (zaobilazi RLS) jer se rezultat sprema u predmemoriju i dijeli
+ * medju svim clanovima grupe — svi ionako vide istu ljestvicu. Da izracun
+ * koristi korisnikov klijent, ne bi se mogao spremiti: predmemorija ne smije
+ * citati kolacice.
  *
  * @param sezonaId id sezone, ili null za "sve vrijeme"
  */
@@ -29,7 +41,34 @@ export async function dohvatiLjestvicu(
   grupaId: string,
   sezonaId: string | null,
 ): Promise<PodaciLjestvice> {
-  const supabase = await createClient();
+  if (!(await jeClan(grupaId))) notFound();
+
+  return spremljenaLjestvica(grupaId, sezonaId);
+}
+
+/**
+ * Predmemorirani izracun.
+ *
+ * Koristi se `unstable_cache`, a ne novija direktiva `use cache`, jer ona trazi
+ * ukljucivanje `cacheComponents: true` — a to mijenja semantiku predmemorije
+ * CIJELE aplikacije. Prevelik zahvat za dobitak koji ovdje nije hitan.
+ *
+ * Rok je 5 minuta kao sigurnosna mreza; pravo osvjezavanje ide preko oznake,
+ * kad termin zavrsi ili se promijeni sastav clanova.
+ */
+function spremljenaLjestvica(grupaId: string, sezonaId: string | null) {
+  return unstable_cache(
+    () => izracunajLjestvicu(grupaId, sezonaId),
+    ["ljestvica", grupaId, sezonaId ?? "sve"],
+    { tags: [oznakaLjestvice(grupaId)], revalidate: 300 },
+  )();
+}
+
+async function izracunajLjestvicu(
+  grupaId: string,
+  sezonaId: string | null,
+): Promise<PodaciLjestvice> {
+  const supabase = createAdminClient();
 
   const { data: sezone } = await supabase
     .from("seasons")
@@ -204,7 +243,9 @@ async function praznaLjestvica(
 ): Promise<RedakLjestvice[]> {
   if (clanIdevi.length === 0) return [];
 
-  const supabase = await createClient();
+  // Isti razlog kao u izracunu: ovo se vrti unutar predmemorije, gdje se
+  // kolacici ne smiju citati.
+  const supabase = createAdminClient();
 
   const [{ data: profili }, { data: ratinzi }] = await Promise.all([
     supabase.from("profiles").select("id, nickname, is_goalkeeper").in("id", clanIdevi),

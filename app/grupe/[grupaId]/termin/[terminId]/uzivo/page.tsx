@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import type { Team } from "@/lib/domain/types";
 import { razlikujNadimke } from "@/lib/domain/nadimak";
 import { EkranUzivo, type Dogadjaj, type IgracPostave } from "./EkranUzivo";
@@ -10,18 +11,11 @@ export default async function StranicaUzivo({
 }: PageProps<"/grupe/[grupaId]/termin/[terminId]/uzivo">) {
   const { grupaId, terminId } = await params;
 
+  const user = await dohvatiKorisnika();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   if (!user) redirect("/prijava");
 
-  const { data: clanstvo } = await supabase
-    .from("group_members")
-    .select("status")
-    .eq("group_id", grupaId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const clanstvo = await dohvatiClanstvo(grupaId);
   if (clanstvo?.status !== "active") notFound();
 
   const { data: termin } = await supabase
