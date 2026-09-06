@@ -5,6 +5,22 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+
+  {
+    rules: {
+      // Server actioni imaju potpis koji propisuje useActionState: (stanje, formData).
+      // Kad se argument ne koristi, prefiks _ je namjeran znak toga, a ne propust.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -12,6 +28,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generirano iz sheme baze — ne uredjuje se rucno.
+    "lib/database.types.ts",
   ]),
 ]);
 

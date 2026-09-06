@@ -2,11 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-/**
- * PRIVREMENA verzija — M3 dodaje kreiranje grupe, pozivnice i odobravanje clanova.
- * Zasad sluzi kao dokaz da prijava i RLS rade zajedno: prikazuje tocno one grupe
- * kojih je prijavljeni korisnik aktivni clan, i nijednu vise.
- */
 export default async function StranicaGrupa() {
   const supabase = await createClient();
   const {
@@ -20,8 +15,13 @@ export default async function StranicaGrupa() {
     .select("status, groups(id, name)")
     .eq("user_id", user.id);
 
-  const aktivne = (clanstva ?? []).filter((c) => c.status === "active");
-  const naCekanju = (clanstva ?? []).filter((c) => c.status === "pending");
+  const aktivne = (clanstva ?? []).filter((c) => c.status === "active" && c.groups);
+  const naCekanju = (clanstva ?? []).filter((c) => c.status === "pending" && c.groups);
+
+  // Tko je clan tocno jedne grupe nema sto birati — vodimo ga ravno u nju.
+  if (aktivne.length === 1 && naCekanju.length === 0) {
+    redirect(`/grupe/${aktivne[0].groups!.id}`);
+  }
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
@@ -33,31 +33,48 @@ export default async function StranicaGrupa() {
       </header>
 
       {aktivne.length === 0 && naCekanju.length === 0 && (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
+        <div className="mb-8 rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
           <p className="font-medium">Još nisi ni u jednoj grupi</p>
           <p className="mt-1 text-sm text-slate-500">
-            Zamoli organizatora za link pozivnice.
+            Otvori svoju ili se pridruži preko linka koji ti je netko poslao.
           </p>
         </div>
       )}
 
-      <ul className="space-y-3">
+      <ul className="mb-8 space-y-3">
         {aktivne.map((c) => (
           <li key={c.groups!.id}>
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <span className="font-medium">{c.groups!.name}</span>
-            </div>
+            <Link
+              href={`/grupe/${c.groups!.id}`}
+              className="block rounded-lg border border-slate-200 bg-white p-4 font-medium
+                         transition active:scale-[0.99] hover:border-slate-400"
+            >
+              {c.groups!.name}
+            </Link>
           </li>
         ))}
         {naCekanju.map((c) => (
-          <li key={c.groups!.id}>
-            <div className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-slate-500">
-              <span className="font-medium">{c.groups!.name}</span>
-              <span className="block text-sm">Čeka se odobrenje admina</span>
-            </div>
+          <li
+            key={c.groups!.id}
+            className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-slate-500"
+          >
+            <span className="font-medium">{c.groups!.name}</span>
+            <span className="block text-sm">Čeka se odobrenje admina</span>
           </li>
         ))}
       </ul>
+
+      <Link
+        href="/grupe/nova"
+        className="flex h-14 w-full items-center justify-center rounded-lg bg-slate-900
+                   text-base font-semibold text-white transition active:scale-[0.98]"
+      >
+        Otvori novu grupu
+      </Link>
+
+      <p className="mt-4 text-center text-sm text-slate-500">
+        U postojeću grupu ulaziš preko linka pozivnice koji ti pošalje organizator.
+      </p>
     </main>
   );
 }

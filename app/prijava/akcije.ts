@@ -1,19 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { baznaAdresa } from "@/lib/adresa";
 
 /** Zajednicki oblik odgovora svake akcije prijave. */
 export type StanjePrijave = {
   greska?: string;
   poruka?: string;
 };
-
-async function baznaAdresa() {
-  const h = await headers();
-  return h.get("origin") ?? `https://${h.get("host")}`;
-}
 
 function ispravanEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
