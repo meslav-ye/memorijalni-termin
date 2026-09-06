@@ -27,10 +27,13 @@ export default async function StranicaGrupa() {
 
   const smijemOtvarati = mojProfil?.can_create_groups ?? false;
 
-  // Tko je clan tocno jedne grupe nema sto birati — vodimo ga ravno u nju.
-  if (aktivne.length === 1 && naCekanju.length === 0) {
-    redirect(`/grupe/${aktivne[0].groups!.id}`);
-  }
+  // OVDJE se NE preusmjerava, iako je clan mozda samo u jednoj grupi.
+  //
+  // Prvo je ovdje stajao precac "jedna grupa -> udji ravno u nju". Posljedica
+  // je bila da se popis grupa nije mogao ni vidjeti: svaki klik na "Moje grupe"
+  // vracao je natrag u istu grupu, pa ni gumb za otvaranje nove nije bio
+  // dostupan. Precac je ostao, ali na ulazu (app/page.tsx) — ondje je korisnik
+  // "nekamo krenuo", a ovdje je izricito trazio popis.
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">

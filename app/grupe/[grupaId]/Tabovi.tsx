@@ -11,6 +11,7 @@ export function Tabovi({ grupaId, admin }: { grupaId: string; admin: boolean }) 
 
   const tabovi: Tab[] = [
     { oznaka: "Termini", put: korijen },
+    { oznaka: "Statistika", put: `${korijen}/statistika` },
     { oznaka: "Ljestvica", put: `${korijen}/ljestvica` },
     { oznaka: "Članovi", put: `${korijen}/clanovi` },
     ...(admin ? [{ oznaka: "Postavke", put: `${korijen}/postavke` }] : []),

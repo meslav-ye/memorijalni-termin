@@ -52,6 +52,13 @@ from auth.users u;
 
 -- Profili su vec stvoreni okidacem handle_new_user; dopunjavamo nadimke.
 -- Golmani su IGRAC (2), IGRAC05 i IGRAC09 — tri, da se testira i visak golmana.
+-- Dopustenje za otvaranje grupa: samo prvi korisnik (admin).
+-- Migracije se izvrsavaju PRIJE seeda, pa ih backfill iz migracije
+-- 20260906250000 ne moze uhvatiti — postavlja se ovdje.
+update profiles
+   set can_create_groups = true
+ where id = '00000000-0000-0000-0000-000000000001';
+
 update profiles p
 set nickname = case
       when p.id = '00000000-0000-0000-0000-000000000001' then 'ADMIN'
