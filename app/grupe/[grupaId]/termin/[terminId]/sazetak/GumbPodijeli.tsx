@@ -31,7 +31,7 @@ export function GumbPodijeli({ tekst }: { tekst: string }) {
       <button
         type="button"
         onClick={podijeli}
-        className="h-12 w-full rounded-lg bg-slate-900 text-sm font-semibold text-white
+        className="h-12 w-full rounded-lg bg-marka text-sm font-semibold text-white
                    transition active:scale-[0.98]"
       >
         {status === "kopirano" ? "Kopirano ✓" : "Podijeli sažetak"}

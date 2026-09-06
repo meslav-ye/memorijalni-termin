@@ -148,7 +148,7 @@ export default async function StranicaTermina({
                 key={id}
                 className={
                   "flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 " +
-                  (id === user.id ? "ring-2 ring-slate-900/15" : "")
+                  (id === user.id ? "ring-2 ring-marka/15" : "")
                 }
               >
                 <span className="w-5 text-right text-sm tabular-nums text-slate-400">{i + 1}</span>
@@ -198,7 +198,7 @@ export default async function StranicaTermina({
         <Link
           href={`/grupe/${grupaId}/termin/${terminId}/sazetak`}
           className="mt-8 flex h-14 w-full items-center justify-center rounded-lg
-                     bg-slate-900 text-base font-semibold text-white
+                     bg-marka text-base font-semibold text-white
                      transition active:scale-[0.98]"
         >
           Sažetak termina
@@ -238,7 +238,7 @@ export default async function StranicaTermina({
                   "h-14 w-full rounded-lg text-base font-semibold transition active:scale-[0.98] " +
                   (prijavljen
                     ? "border-2 border-red-600 bg-white text-red-700"
-                    : "bg-slate-900 text-white")
+                    : "bg-marka text-white")
                 }
               >
                 {prijavljen

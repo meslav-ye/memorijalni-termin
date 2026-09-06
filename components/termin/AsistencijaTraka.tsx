@@ -39,7 +39,7 @@ export function AsistencijaTraka({
   }, [onIstek]);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-slate-700 bg-slate-900 p-3 text-white shadow-2xl">
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-slate-700 bg-marka p-3 text-white shadow-2xl">
       <div className="mx-auto max-w-2xl">
         <div className="mb-2 flex items-center justify-between gap-3">
           <p className="min-w-0 truncate font-bold">

@@ -31,7 +31,7 @@ export default function Greska({
         <button
           type="button"
           onClick={reset}
-          className="mt-6 h-12 w-full rounded-lg bg-slate-900 text-sm font-semibold text-white
+          className="mt-6 h-12 w-full rounded-lg bg-marka text-sm font-semibold text-white
                      transition active:scale-[0.98]"
         >
           Pokušaj ponovno

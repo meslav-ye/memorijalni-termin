@@ -31,14 +31,14 @@ function Poruka({ stanje }: { stanje: StanjePrijave }) {
 
 const POLJE =
   "w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base " +
-  "placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20";
+  "placeholder:text-slate-400 focus:border-marka focus:outline-none focus:ring-2 focus:ring-marka/20";
 
 const GUMB_GLAVNI =
-  "w-full h-14 rounded-lg bg-slate-900 text-base font-semibold text-white " +
+  "w-full h-14 rounded-lg bg-marka text-base font-semibold text-white " +
   "transition active:scale-[0.98] disabled:opacity-50";
 
 const GUMB_SPOREDNI =
-  "w-full h-14 rounded-lg border-2 border-slate-900 bg-white text-base font-semibold " +
+  "w-full h-14 rounded-lg border-2 border-marka bg-white text-base font-semibold " +
   "text-slate-900 transition active:scale-[0.98] disabled:opacity-50";
 
 export function ObrazacPrijave({ googleDostupan }: { googleDostupan: boolean }) {

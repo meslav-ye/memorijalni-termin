@@ -248,7 +248,7 @@ export default async function StranicaEkipa({
           <input type="hidden" name="grupaId" value={grupaId} />
           <input type="hidden" name="terminId" value={terminId} />
           <button
-            className="h-14 w-full rounded-lg bg-slate-900 text-base font-semibold text-white
+            className="h-14 w-full rounded-lg bg-marka text-base font-semibold text-white
                        transition active:scale-[0.98]"
           >
             {postavaPostoji ? "Promiješaj ponovno" : "Predloži ekipe"}

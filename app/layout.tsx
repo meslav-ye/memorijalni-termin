@@ -35,7 +35,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  // Tamnozelena iz logotipa — boji traku preglednika na mobitelu.
+  themeColor: "#0c300c",
   width: "device-width",
   initialScale: 1,
   // maximumScale se namjerno NE postavlja: zakljucavanje zooma otezava

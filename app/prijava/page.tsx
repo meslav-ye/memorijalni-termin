@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { dohvatiDostupneMetode } from "@/lib/auth-postavke";
@@ -38,8 +39,18 @@ export default async function StranicaPrijave({
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-10">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Memorijalni termin</h1>
-        <p className="mt-2 text-slate-600">Prijavi se da vidiš termine svoje grupe.</p>
+        {/* Logo nosi naziv aplikacije, pa je h1 skriven — ostaje samo za
+            citace ekrana i trazilice. `priority` jer je ovo prvo sto se vidi. */}
+        <h1 className="sr-only">Memorijalni termin</h1>
+        <Image
+          src="/logo.png"
+          alt="Memorijalni termin"
+          width={1600}
+          height={489}
+          priority
+          className="h-auto w-full max-w-[19rem]"
+        />
+        <p className="mt-4 text-slate-600">Prijavi se da vidiš termine svoje grupe.</p>
       </header>
 
       {greskaIzUrla && (

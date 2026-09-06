@@ -80,7 +80,7 @@ export default async function StranicaPostavki({
               minLength={2}
               maxLength={60}
               className="w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base
-                         focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                         focus:border-marka focus:outline-none focus:ring-2 focus:ring-marka/20"
             />
           </div>
 
@@ -98,7 +98,7 @@ export default async function StranicaPostavki({
               max={30}
               required
               className="w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base
-                         focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                         focus:border-marka focus:outline-none focus:ring-2 focus:ring-marka/20"
             />
             <p className="text-sm text-slate-500">
               Prijedlog za nove termine. Svaki termin može imati svoj broj.
@@ -107,7 +107,7 @@ export default async function StranicaPostavki({
 
           <button
             type="submit"
-            className="h-12 rounded-lg bg-slate-900 px-6 text-sm font-semibold text-white
+            className="h-12 rounded-lg bg-marka px-6 text-sm font-semibold text-white
                        transition active:scale-[0.98]"
           >
             Spremi

@@ -32,7 +32,7 @@ export function Tabovi({ grupaId, admin }: { grupaId: string; admin: boolean }) 
                 className={
                   "block whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition " +
                   (aktivan
-                    ? "border-slate-900 text-slate-900"
+                    ? "border-marka text-slate-900"
                     : "border-transparent text-slate-500 hover:text-slate-800")
                 }
               >

@@ -17,7 +17,7 @@ export default function NijePronadjeno() {
         <Link
           href="/"
           className="mt-6 inline-flex h-12 items-center justify-center rounded-lg
-                     bg-slate-900 px-6 text-sm font-semibold text-white
+                     bg-marka px-6 text-sm font-semibold text-white
                      transition active:scale-[0.98]"
         >
           Natrag na početak

@@ -122,7 +122,7 @@ export default async function StranicaSazetka({
       <header className="mt-4 text-center">
         <p className="text-sm text-slate-500">{formatirajTermin(termin.starts_at)}</p>
 
-        <div className="mt-3 rounded-xl bg-slate-900 p-5 text-white">
+        <div className="mt-3 rounded-xl bg-marka p-5 text-white">
           <div className="flex items-center justify-center gap-4">
             <span className="flex-1 text-right text-sm font-semibold uppercase text-slate-400">
               Ekipa A

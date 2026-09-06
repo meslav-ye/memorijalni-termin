@@ -29,7 +29,7 @@ export function ObrazacProfila({
           required
           autoComplete="nickname"
           className="w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base uppercase
-                     focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                     focus:border-marka focus:outline-none focus:ring-2 focus:ring-marka/20"
         />
         <p className="text-sm text-slate-500">
           Ovo se prikazuje na ekranu uživo dok traje termin — neka bude kratko, najviše 12 znakova.
@@ -55,7 +55,7 @@ export function ObrazacProfila({
       <button
         type="submit"
         disabled={ceka}
-        className="w-full h-14 rounded-lg bg-slate-900 text-base font-semibold text-white
+        className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
         {ceka ? "Spremam…" : "Spremi"}

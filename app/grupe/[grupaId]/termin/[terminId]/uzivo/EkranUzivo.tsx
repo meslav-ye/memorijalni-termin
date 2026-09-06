@@ -317,7 +317,7 @@ export function EkranUzivo({
       )}
 
       {/* Rezultat i stoperica */}
-      <div className="rounded-xl bg-slate-900 p-4 text-center text-white">
+      <div className="rounded-xl bg-marka p-4 text-center text-white">
         <div className="flex items-center justify-center gap-4">
           <span className="flex-1 text-right text-sm font-semibold uppercase text-slate-400">
             Ekipa A
@@ -495,7 +495,7 @@ export function EkranUzivo({
                   postaviDuplikat(null);
                   void gol(igrac, true);
                 }}
-                className="h-12 flex-1 rounded-lg bg-slate-900 font-semibold text-white
+                className="h-12 flex-1 rounded-lg bg-marka font-semibold text-white
                            transition active:scale-[0.98]"
               >
                 Da, upiši
@@ -526,7 +526,7 @@ export function EkranUzivo({
                 type="button"
                 onClick={() => void zavrsi()}
                 disabled={radim}
-                className="h-12 flex-1 rounded-lg bg-slate-900 font-semibold text-white
+                className="h-12 flex-1 rounded-lg bg-marka font-semibold text-white
                            transition active:scale-[0.98] disabled:opacity-50"
               >
                 Da, završi

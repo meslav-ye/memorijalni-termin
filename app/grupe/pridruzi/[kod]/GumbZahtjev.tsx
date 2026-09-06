@@ -24,7 +24,7 @@ export function GumbZahtjev({ kod }: { kod: string }) {
       <button
         type="submit"
         disabled={ceka}
-        className="w-full h-14 rounded-lg bg-slate-900 text-base font-semibold text-white
+        className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
         {ceka ? "Šaljem…" : "Pošalji zahtjev za članstvo"}

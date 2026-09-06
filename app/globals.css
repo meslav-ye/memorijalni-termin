@@ -3,6 +3,16 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /*
+    Boje logotipa. Nisu pogodjene od oka — ocitane su iz same datoteke logotipa
+    kao dvije najzastupljenije nijanse.
+
+    marka       tamnozelena sa stita i traga; nosi gumbe i plocu s rezultatom
+    marka-svijetla  srednja zelena; naglasci (golman, potvrde)
+  */
+  --color-marka: #0c300c;
+  --color-marka-svijetla: #307830;
 }
 
 /*

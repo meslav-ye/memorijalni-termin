@@ -80,7 +80,7 @@ export default async function StranicaTermina({
       {admin && (
         <Link
           href={`/grupe/${grupaId}/termin/novi`}
-          className="flex h-12 w-full items-center justify-center rounded-lg bg-slate-900
+          className="flex h-12 w-full items-center justify-center rounded-lg bg-marka
                      text-sm font-semibold text-white transition active:scale-[0.98]"
         >
           Novi termin

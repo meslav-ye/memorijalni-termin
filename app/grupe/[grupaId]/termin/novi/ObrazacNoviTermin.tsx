@@ -7,7 +7,7 @@ const PRAZNO: StanjeTermina = {};
 
 const POLJE =
   "w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base " +
-  "focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20";
+  "focus:border-marka focus:outline-none focus:ring-2 focus:ring-marka/20";
 
 type Lokacija = { id: string; name: string };
 
@@ -143,7 +143,7 @@ export function ObrazacNoviTermin({
       <button
         type="submit"
         disabled={ceka}
-        className="w-full h-14 rounded-lg bg-slate-900 text-base font-semibold text-white
+        className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
         {ceka ? "Otvaram…" : "Otvori termin"}

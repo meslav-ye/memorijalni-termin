@@ -55,7 +55,7 @@ export default async function StranicaLjestvice({
             className={
               "h-9 rounded-lg border px-3 text-sm font-medium leading-9 transition " +
               (trazenaSezona === s.id || (!trazenaSezona && !sveVrijeme)
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? "border-marka bg-marka text-white"
                 : "border-slate-300 bg-white text-slate-700")
             }
           >
@@ -67,7 +67,7 @@ export default async function StranicaLjestvice({
           className={
             "h-9 rounded-lg border px-3 text-sm font-medium leading-9 transition " +
             (sveVrijeme
-              ? "border-slate-900 bg-slate-900 text-white"
+              ? "border-marka bg-marka text-white"
               : "border-slate-300 bg-white text-slate-700")
           }
         >

@@ -80,7 +80,7 @@ export default async function StranicaGrupa() {
         <>
           <Link
             href="/grupe/nova"
-            className="flex h-14 w-full items-center justify-center rounded-lg bg-slate-900
+            className="flex h-14 w-full items-center justify-center rounded-lg bg-marka
                        text-base font-semibold text-white transition active:scale-[0.98]"
           >
             Otvori novu grupu

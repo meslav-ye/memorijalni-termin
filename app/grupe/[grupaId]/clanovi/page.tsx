@@ -87,7 +87,7 @@ export default async function StranicaClanova({
                   <form action={odobriClana}>
                     <input type="hidden" name="grupaId" value={grupaId} />
                     <input type="hidden" name="korisnikId" value={z.user_id} />
-                    <button className={`${GUMB_MALI} bg-slate-900 text-white`}>Odobri</button>
+                    <button className={`${GUMB_MALI} bg-marka text-white`}>Odobri</button>
                   </form>
                   <form action={odbijClana}>
                     <input type="hidden" name="grupaId" value={grupaId} />
@@ -129,7 +129,7 @@ export default async function StranicaClanova({
                       </span>
                     )}
                     {c.role === "admin" && (
-                      <span className="ml-2 rounded bg-slate-900 px-1.5 py-0.5 text-xs font-semibold text-white">
+                      <span className="ml-2 rounded bg-marka px-1.5 py-0.5 text-xs font-semibold text-white">
                         admin
                       </span>
                     )}

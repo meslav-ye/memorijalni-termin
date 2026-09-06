@@ -23,8 +23,8 @@ export function ObrazacNovaGrupa() {
           maxLength={60}
           placeholder="npr. Utorak 20h"
           className="w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base
-                     placeholder:text-slate-400 focus:border-slate-900 focus:outline-none
-                     focus:ring-2 focus:ring-slate-900/20"
+                     placeholder:text-slate-400 focus:border-marka focus:outline-none
+                     focus:ring-2 focus:ring-marka/20"
         />
         <p className="text-sm text-slate-500">
           Ovo ljudi vide u popisu — dan i vrijeme su obično najkorisniji.
@@ -45,7 +45,7 @@ export function ObrazacNovaGrupa() {
           max={30}
           required
           className="w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base
-                     focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                     focus:border-marka focus:outline-none focus:ring-2 focus:ring-marka/20"
         />
         <p className="text-sm text-slate-500">
           Za 5v5 je to 10. Tko se prijavi preko toga ide na listu čekanja i
@@ -56,7 +56,7 @@ export function ObrazacNovaGrupa() {
       <button
         type="submit"
         disabled={ceka}
-        className="w-full h-14 rounded-lg bg-slate-900 text-base font-semibold text-white
+        className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
         {ceka ? "Otvaram…" : "Otvori grupu"}
