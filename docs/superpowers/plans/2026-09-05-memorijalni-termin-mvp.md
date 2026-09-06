@@ -3391,6 +3391,19 @@ Predloženi commit: `feat: stranica o privatnosti i objava Google OAuth aplikaci
 
 ---
 
+## Nakon MVP-a: optimizacija potrošnje
+
+Mjerenje potrošnje i plan smanjenja stoje odvojeno, u
+[docs/optimizacija.md](../../optimizacija.md).
+
+Sažetak: izmjereno je **9–11 zahtjeva prema Supabaseu po otvaranju ljestvice** i
+**3 zahtjeva po spojenom mobitelu za svaki događaj uživo**. Za društvo od 15–40
+ljudi to je ~10 000 zahtjeva mjesečno — daleko ispod bilo kojeg limita, pa se
+**ne optimizira sada**. Dokument navodi znakove po kojima se prepoznaje da je
+vrijeme, i popravke poredane po omjeru koristi i truda.
+
+---
+
 ## Provjera pokrivenosti specifikacije
 
 | Zahtjev iz specifikacije | Gdje se ispunjava |
