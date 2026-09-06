@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { godinaTermina, osiguraSezonu } from "@/lib/sezone";
 import { zagrebUIso } from "@/lib/format";
+import { splitSignups } from "@/lib/domain/waitlist";
+import { suggestTeams } from "@/lib/domain/teams";
 
 export type StanjeTermina = {
   greska?: string;
@@ -135,6 +137,152 @@ export async function odjaviSe(formData: FormData) {
 
   revalidatePath(`/grupe/${grupaId}/termin/${terminId}`);
   revalidatePath(`/grupe/${grupaId}`);
+}
+
+/**
+ * Slaze prijedlog ekipa i sprema ga kao postavu.
+ *
+ * Postojeca postava se brise i pise ispocetka — gumb je zamisljen kao
+ * "promijesaj ponovno", pa svaki poziv daje cist prijedlog.
+ */
+export async function predloziEkipe(formData: FormData) {
+  const grupaId = String(formData.get("grupaId") ?? "");
+  const terminId = String(formData.get("terminId") ?? "");
+
+  const kontekst = await clanstvo(grupaId);
+  if (!kontekst) return;
+
+  const { supabase } = kontekst;
+
+  const { data: termin } = await supabase
+    .from("matches")
+    .select("capacity, status")
+    .eq("id", terminId)
+    .maybeSingle();
+
+  // Nakon pokretanja termina postava se vise ne premjesa.
+  if (!termin || termin.status === "zavrsen" || termin.status === "otkazan") return;
+
+  const { data: prijave } = await supabase
+    .from("match_signups")
+    .select("user_id, signed_up_at, manual_order, cancelled_at")
+    .eq("match_id", terminId);
+
+  const { confirmed } = splitSignups(
+    (prijave ?? []).map((p) => ({
+      userId: p.user_id,
+      signedUpAt: p.signed_up_at,
+      manualOrder: p.manual_order,
+      cancelledAt: p.cancelled_at,
+    })),
+    termin.capacity,
+  );
+
+  if (confirmed.length === 0) return;
+
+  const { data: profili } = await supabase
+    .from("profiles")
+    .select("id, is_goalkeeper")
+    .in("id", confirmed);
+
+  const { data: ratinzi } = await supabase
+    .from("player_ratings")
+    .select("user_id, rating")
+    .eq("group_id", grupaId)
+    .in("user_id", confirmed);
+
+  const igraci = confirmed.map((userId) => ({
+    userId,
+    rating: ratinzi?.find((r) => r.user_id === userId)?.rating ?? 1000,
+    isGoalkeeper: profili?.find((p) => p.id === userId)?.is_goalkeeper ?? false,
+  }));
+
+  const { count } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("group_id", grupaId)
+    .eq("status", "zavrsen");
+
+  const { teamA, teamB } = suggestTeams(igraci, count ?? 0);
+
+  await supabase.from("match_lineup").delete().eq("match_id", terminId);
+  await supabase.from("match_lineup").insert([
+    ...teamA.map((p, i) => ({
+      match_id: terminId,
+      user_id: p.userId,
+      team: "A" as const,
+      // Golman je onaj koji je i u prijedlogu bio golman, i to samo prvi.
+      is_goalkeeper: i === 0 && p.isGoalkeeper,
+    })),
+    ...teamB.map((p, i) => ({
+      match_id: terminId,
+      user_id: p.userId,
+      team: "B" as const,
+      is_goalkeeper: i === 0 && p.isGoalkeeper,
+    })),
+  ]);
+
+  revalidatePath(`/grupe/${grupaId}/termin/${terminId}/ekipe`);
+}
+
+export async function premjestiIgraca(formData: FormData) {
+  const grupaId = String(formData.get("grupaId") ?? "");
+  const terminId = String(formData.get("terminId") ?? "");
+  const korisnikId = String(formData.get("korisnikId") ?? "");
+  const ekipa = String(formData.get("ekipa") ?? "");
+
+  if (ekipa !== "A" && ekipa !== "B") return;
+
+  const kontekst = await clanstvo(grupaId);
+  if (!kontekst) return;
+
+  // Igrac koji mijenja ekipu vise nije golman te ekipe.
+  await kontekst.supabase
+    .from("match_lineup")
+    .update({ team: ekipa, is_goalkeeper: false })
+    .eq("match_id", terminId)
+    .eq("user_id", korisnikId);
+
+  revalidatePath(`/grupe/${grupaId}/termin/${terminId}/ekipe`);
+}
+
+export async function postaviGolmana(formData: FormData) {
+  const grupaId = String(formData.get("grupaId") ?? "");
+  const terminId = String(formData.get("terminId") ?? "");
+  const korisnikId = String(formData.get("korisnikId") ?? "");
+  const ekipa = String(formData.get("ekipa") ?? "");
+
+  if (ekipa !== "A" && ekipa !== "B") return;
+
+  const kontekst = await clanstvo(grupaId);
+  if (!kontekst) return;
+
+  const { data: trenutni } = await kontekst.supabase
+    .from("match_lineup")
+    .select("is_goalkeeper")
+    .eq("match_id", terminId)
+    .eq("user_id", korisnikId)
+    .maybeSingle();
+
+  // Ponovni klik na istog golmana skida oznaku.
+  const postaje = !trenutni?.is_goalkeeper;
+
+  // U svakoj ekipi je najvise jedan oznaceni golman.
+  await kontekst.supabase
+    .from("match_lineup")
+    .update({ is_goalkeeper: false })
+    .eq("match_id", terminId)
+    .eq("team", ekipa);
+
+  if (postaje) {
+    await kontekst.supabase
+      .from("match_lineup")
+      .update({ is_goalkeeper: true })
+      .eq("match_id", terminId)
+      .eq("user_id", korisnikId);
+  }
+
+  revalidatePath(`/grupe/${grupaId}/termin/${terminId}/ekipe`);
 }
 
 export async function otkaziTermin(formData: FormData) {

@@ -174,6 +174,17 @@ export default async function StranicaTermina({
         </section>
       )}
 
+      {termin.status !== "otkazan" && (
+        <Link
+          href={`/grupe/${grupaId}/termin/${terminId}/ekipe`}
+          className="mt-8 flex h-12 w-full items-center justify-center rounded-lg
+                     border border-slate-300 bg-white text-sm font-semibold
+                     transition active:scale-[0.98] hover:border-slate-400"
+        >
+          Ekipe
+        </Link>
+      )}
+
       {admin && termin.status !== "otkazan" && (
         <form action={otkaziTermin} className="mt-10 border-t border-slate-200 pt-6">
           <input type="hidden" name="grupaId" value={grupaId} />
