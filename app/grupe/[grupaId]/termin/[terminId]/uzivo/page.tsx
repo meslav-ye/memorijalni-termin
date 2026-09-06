@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Team } from "@/lib/domain/types";
+import { razlikujNadimke } from "@/lib/domain/nadimak";
 import { EkranUzivo, type Dogadjaj, type IgracPostave } from "./EkranUzivo";
 
 export default async function StranicaUzivo({
@@ -44,12 +45,26 @@ export default async function StranicaUzivo({
 
   const { data: profili } = await supabase
     .from("profiles")
-    .select("id, nickname")
+    .select("id, nickname, full_name")
     .in("id", idevi.length ? idevi : ["-"]);
+
+  // Ako dvoje u postavi ima isti nadimak, oznaka dobiva razlikovni dodatak
+  // (prezime). Racuna se OVDJE, pri dohvatu, pa ekran uzivo dobije gotov
+  // tekst i ne mora nista znati o kolizijama.
+  const oznake = razlikujNadimke(
+    (postavaRedci ?? []).map((p) => {
+      const profil = profili?.find((x) => x.id === p.user_id);
+      return {
+        userId: p.user_id,
+        nadimak: profil?.nickname || "?",
+        fullName: profil?.full_name ?? null,
+      };
+    }),
+  );
 
   const postava: IgracPostave[] = (postavaRedci ?? []).map((p) => ({
     userId: p.user_id,
-    nadimak: profili?.find((x) => x.id === p.user_id)?.nickname || "?",
+    nadimak: oznake.get(p.user_id) ?? "?",
     team: p.team as Team,
     jeGolman: p.is_goalkeeper,
   }));
