@@ -46,6 +46,10 @@ yarn-error.log*
 # --- macOS ---
 .DS_Store
 
+# --- Alati ---
+# Lokalna konfiguracija za pokretanje dev servera; README dokumentira `pnpm dev`.
+.claude/
+
 # --- Urednici ---
 .idea/
 .vscode/*
