@@ -4,6 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { formatirajTermin } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { popunjenost, type Ton } from "@/lib/domain/popunjenost";
+import {
+  mozeSePokrenuti,
+  odKadaSePokrece,
+  MINUTA_PRIJE_POCETKA,
+} from "@/lib/domain/pokretanje";
 import { odjaviSe, otkaziTermin, prijaviSe } from "../akcije";
 import { GumbPokreni } from "./GumbPokreni";
 
@@ -83,6 +88,7 @@ export default async function StranicaTermina({
     .maybeSingle();
 
   const jaSamUPostavi = Boolean(mojaPostava);
+  const smijemPokrenuti = mozeSePokrenuti(termin.starts_at, new Date());
 
   return (
     <div className="pb-28">
@@ -185,10 +191,19 @@ export default async function StranicaTermina({
         </section>
       )}
 
-      {/* Termin uzivo: pokrece ga bilo tko iz postave, i to tek na dan igranja. */}
-      {jaSamUPostavi && (termin.status === "zakljucan" || termin.status === "najavljen") && (
-        <GumbPokreni grupaId={grupaId} terminId={terminId} vecUTijeku={false} />
-      )}
+      {/* Termin uzivo pokrece bilo tko iz postave, ali tek pola sata prije
+          pocetka. Prije toga se gumb NE prikazuje — bolje nego da ga korisnik
+          klikne pa dobije odbijenicu. */}
+      {jaSamUPostavi &&
+        (termin.status === "zakljucan" || termin.status === "najavljen") &&
+        (smijemPokrenuti ? (
+          <GumbPokreni grupaId={grupaId} terminId={terminId} vecUTijeku={false} />
+        ) : (
+          <p className="mt-8 rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">
+            Termin se pokreće <strong>{MINUTA_PRIJE_POCETKA} minuta prije početka</strong> —
+            od {formatirajTermin(odKadaSePokrece(termin.starts_at).toISOString())}.
+          </p>
+        ))}
 
       {termin.status === "u_tijeku" && (
         <GumbPokreni grupaId={grupaId} terminId={terminId} vecUTijeku />

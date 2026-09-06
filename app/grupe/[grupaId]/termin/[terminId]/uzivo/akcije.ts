@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findRecentDuplicate, secondsAgo, DUPLICATE_WINDOW_SECONDS } from "@/lib/domain/duplicates";
 import { computeElo, POCETNI_RATING } from "@/lib/domain/elo";
+import { mozeSePokrenuti, MINUTA_PRIJE_POCETKA } from "@/lib/domain/pokretanje";
 import type { Team } from "@/lib/domain/types";
 
 /**
@@ -77,10 +78,12 @@ export async function pokreniTermin(grupaId: string, terminId: string): Promise<
   if (termin.status === "otkazan") return { greska: "Termin je otkazan." };
   if (termin.status === "u_tijeku") return { ok: true };
 
-  // Najranije 2 sata prije pocetka — da se ne pokrene slucajno danima ranije.
-  const dvaSataPrije = new Date(termin.starts_at).getTime() - 2 * 60 * 60 * 1000;
-  if (Date.now() < dvaSataPrije) {
-    return { greska: "Termin se može pokrenuti najranije 2 sata prije početka." };
+  // Najranije pola sata prije pocetka — inace netko dan ranije slucajno
+  // pokrene termin i stoperica vrti cijelu noc.
+  if (!mozeSePokrenuti(termin.starts_at, new Date())) {
+    return {
+      greska: `Termin se može pokrenuti tek ${MINUTA_PRIJE_POCETKA} minuta prije početka.`,
+    };
   }
 
   const { error } = await kontekst.supabase
