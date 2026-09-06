@@ -9,8 +9,11 @@ export const metadata: Metadata = {
 /** Zadnja izmjena ovog teksta. Mijenja se RUCNO kad se tekst promijeni. */
 const ZADNJA_IZMJENA = "6. rujna 2026.";
 
-/** Kontakt na koji se salju zahtjevi za uvid i brisanje. */
-const KONTAKT = "meslav.ye@gmail.com";
+/**
+ * Kontakt na koji se salju zahtjevi za uvid i brisanje.
+ * JAVNO je vidljiv na stranici i Google ga provjerava pri objavi OAuth aplikacije.
+ */
+const KONTAKT = "misso998@gmail.com";
 
 function Odjeljak({ naslov, children }: { naslov: string; children: React.ReactNode }) {
   return (
