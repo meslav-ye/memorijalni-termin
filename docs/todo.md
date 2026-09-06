@@ -53,3 +53,47 @@ jednog linka na `/igrac/`.
 - Profil čita `dohvatiLjestvicu`, koja je od nedavno u predmemoriji s oznakom po
   grupi. To je u redu i ništa ne treba mijenjati — samo znati da se brojke na
   profilu osvježavaju kad završi termin, ne pri svakom otvaranju.
+
+---
+
+## 2. Prikaz učitavanja pri prelasku s kartice na karticu
+
+Kad se s Ljestvice skoči na Članove, klik izgleda kao da se ništa nije dogodilo —
+stara kartica stoji na ekranu dok se nova ne dovrši. Na mobitelu s lošijom vezom
+to je dovoljno dugo da čovjek stisne drugi put.
+
+**Uzrok nije sporost nego nedostatak granice učitavanja.** U cijeloj aplikaciji
+nema **ni jednog** `loading.tsx` ni jednog `Suspense`. Bez toga App Router čeka da
+se serverska komponenta dovrši prije nego išta iscrta, pa nema čega prikazati u
+međuvremenu.
+
+### Dva odvojena problema, dva različita rješenja
+
+Treba oboje — rješavaju različite dojmove:
+
+| Što fali | Rješenje |
+|---|---|
+| Nema povratne informacije na sam klik | `useLinkStatus()` u `Tabovi.tsx` — kartica koju si stisnuo odmah pokaže da radi |
+| Nema ničega na ekranu dok se učitava | `loading.tsx` sa skeletonom |
+
+`useLinkStatus` postoji u Nextu 16 i vraća `{ pending }`, ali radi **samo iz
+komponente unutar `<Link>`** — dakle treba mala komponenta koja se ubaci u tab,
+ne hook u samom `Tabovi`. Dokumentacija je u
+`node_modules/next/dist/docs/01-app/03-api-reference/04-functions/use-link-status.md`.
+
+### Gdje staviti `loading.tsx`
+
+Najmanji zahvat je jedan zajednički na `app/grupe/[grupaId]/loading.tsx` — hvata
+sve kartice odjednom. Ako se pokaže da skeleton treba izgledati različito po
+karticama, tek onda praviti zasebne.
+
+### Na što paziti
+
+- **Skeleton mora imati istu visinu kao sadržaj koji zamjenjuje**, inače stranica
+  poskoči kad se učita. Ljestvica ima tablicu poznate visine po članu, pa je to
+  izvedivo.
+- Ljestvica je od nedavno u predmemoriji i vraća se za 5 upita umjesto 10, pa je
+  ona među bržima. **Članovi su sporiji** jer nisu predmemorirani — ondje se
+  dobitak najviše osjeti.
+- Ne dodavati spinner koji se vrti na sredini praznog ekrana. Skeleton koji ima
+  oblik sadržaja djeluje brže, iako traje jednako.
