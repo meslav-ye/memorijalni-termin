@@ -297,7 +297,7 @@ export function EkranUzivo({
       postaviPotvrdu(false);
       return;
     }
-    router.push(`/grupe/${grupaId}/termin/${terminId}`);
+    router.push(`/grupe/${grupaId}/termin/${terminId}/sazetak`);
   }
 
   // --- Prikaz ---------------------------------------------------------------

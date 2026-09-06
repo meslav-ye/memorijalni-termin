@@ -196,12 +196,12 @@ export default async function StranicaTermina({
 
       {termin.status === "zavrsen" && (
         <Link
-          href={`/grupe/${grupaId}/termin/${terminId}/uzivo`}
-          className="mt-8 flex h-12 w-full items-center justify-center rounded-lg
-                     border border-slate-300 bg-white text-sm font-semibold
-                     transition active:scale-[0.98] hover:border-slate-400"
+          href={`/grupe/${grupaId}/termin/${terminId}/sazetak`}
+          className="mt-8 flex h-14 w-full items-center justify-center rounded-lg
+                     bg-slate-900 text-base font-semibold text-white
+                     transition active:scale-[0.98]"
         >
-          Pogledaj tijek termina
+          Sažetak termina
         </Link>
       )}
 

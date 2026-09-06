@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { findRecentDuplicate, secondsAgo, DUPLICATE_WINDOW_SECONDS } from "@/lib/domain/duplicates";
+import { computeElo, POCETNI_RATING } from "@/lib/domain/elo";
 import type { Team } from "@/lib/domain/types";
 
 /**
@@ -256,10 +258,87 @@ export async function ponistiDogadjaj(terminId: string, dogadjajId: string): Pro
 }
 
 /**
- * Zatvara termin i zaustavlja unos.
+ * Obracun Elo ratinga za zavrseni termin.
  *
- * M7 ovdje dodaje obracun Elo ratinga — zato je izdvojeno u zasebnu akciju,
- * a ne skriveno u nekom gumbu.
+ * Ide preko tajnog kljuca jer player_ratings namjerno nema pravilo za pisanje —
+ * nitko iz preglednika ne smije dirati rating, ni svoj ni tudji.
+ *
+ * Idempotentno je: ako za termin vec postoji zapis u rating_history, znaci da
+ * je obracun vec napravljen i drugi poziv ne radi nista. Bez toga bi dva
+ * istovremena klika na "Zavrsi" dvaput pomaknula rating.
+ */
+async function obracunajRating(grupaId: string, terminId: string) {
+  const admin = createAdminClient();
+
+  const { data: vecObracunato } = await admin
+    .from("rating_history")
+    .select("id")
+    .eq("match_id", terminId)
+    .limit(1);
+
+  if (vecObracunato && vecObracunato.length > 0) return;
+
+  const { data: termin } = await admin
+    .from("matches")
+    .select("score_a, score_b")
+    .eq("id", terminId)
+    .maybeSingle();
+
+  const { data: postava } = await admin
+    .from("match_lineup")
+    .select("user_id, team")
+    .eq("match_id", terminId);
+
+  if (!termin || !postava?.length) return;
+
+  const { data: ratinzi } = await admin
+    .from("player_ratings")
+    .select("user_id, rating")
+    .eq("group_id", grupaId)
+    .in(
+      "user_id",
+      postava.map((p) => p.user_id),
+    );
+
+  const ekipa = (strana: Team) =>
+    postava
+      .filter((p) => p.team === strana)
+      .map((p) => ({
+        userId: p.user_id,
+        rating: ratinzi?.find((r) => r.user_id === p.user_id)?.rating ?? POCETNI_RATING,
+      }));
+
+  const rezultat = computeElo({
+    teamA: ekipa("A"),
+    teamB: ekipa("B"),
+    scoreA: termin.score_a,
+    scoreB: termin.score_b,
+  });
+
+  if (rezultat.updates.length === 0) return;
+
+  // Povijest prva: ako upis ratinga zapne na pola, po njoj se zna gdje se stalo.
+  await admin.from("rating_history").upsert(
+    rezultat.updates.map((u) => ({
+      match_id: terminId,
+      user_id: u.userId,
+      rating_before: u.ratingBefore,
+      rating_after: u.ratingAfter,
+    })),
+    { onConflict: "match_id,user_id" },
+  );
+
+  for (const u of rezultat.updates) {
+    await admin.rpc("apply_rating", {
+      p_group: grupaId,
+      p_user: u.userId,
+      p_rating: u.ratingAfter,
+    });
+  }
+}
+
+/**
+ * Zatvara termin, zaustavlja unos i obracunava rating.
  */
 export async function zavrsiTermin(grupaId: string, terminId: string): Promise<Odgovor> {
   const kontekst = await pristup(terminId);
@@ -282,6 +361,8 @@ export async function zavrsiTermin(grupaId: string, terminId: string): Promise<O
     .eq("id", terminId);
 
   if (error) return { greska: "Završavanje nije uspjelo. Pokušaj ponovno." };
+
+  await obracunajRating(grupaId, terminId);
 
   revalidatePath(`/grupe/${grupaId}`);
   revalidatePath(`/grupe/${grupaId}/termin/${terminId}`);
