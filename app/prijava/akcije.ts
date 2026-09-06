@@ -10,6 +10,26 @@ export type StanjePrijave = {
   poruka?: string;
 };
 
+/**
+ * Poruka koja kaze STO se dogodilo, umjesto opceg "pokusaj kasnije".
+ *
+ * Ovo postoji jer je "pokusaj za koju minutu" bila stetna poruka: kad je
+ * potrosena kvota za slanje mailova, cekanje ne pomaze i covjek samo pokusava
+ * u krug. Bolje mu je reci da koristi Google ili lozinku.
+ */
+function porukaZaGreskuMaila(kod: string | undefined): string {
+  if (kod === "over_email_send_rate_limit" || kod === "over_request_rate_limit") {
+    return (
+      "Potrošena je kvota za slanje mailova (ograničenje besplatnog plana). " +
+      "Prijavi se Googleom ili lozinkom — to ne ovisi o mailu."
+    );
+  }
+  if (kod === "email_address_invalid") {
+    return "Ta email adresa nije prihvaćena. Provjeri je li točno upisana.";
+  }
+  return "Slanje linka nije uspjelo. Prijavi se Googleom ili lozinkom.";
+}
+
 function ispravanEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
@@ -47,7 +67,8 @@ export async function posaljiMagicLink(
   });
 
   if (error) {
-    return { greska: "Slanje linka nije uspjelo. Pokušaj za koju minutu." };
+    console.error("[prijava] signInWithOtp:", error.code, error.message);
+    return { greska: porukaZaGreskuMaila(error.code) };
   }
 
   return { poruka: `Poslali smo link na ${email}. Otvori ga na ovom uređaju.` };
@@ -93,6 +114,11 @@ export async function registracijaLozinkom(
   });
 
   if (error) {
+    console.error("[prijava] signUp:", error.code, error.message);
+
+    if (error.code === "over_email_send_rate_limit") {
+      return { greska: porukaZaGreskuMaila(error.code) };
+    }
     return { greska: "Registracija nije uspjela. Možda već imaš račun s tim emailom?" };
   }
 
