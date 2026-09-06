@@ -5,6 +5,7 @@ import { formatirajTermin } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { popunjenost, type Ton } from "@/lib/domain/popunjenost";
 import { odjaviSe, otkaziTermin, prijaviSe } from "../akcije";
+import { GumbPokreni } from "./GumbPokreni";
 
 const BOJA_TONA: Record<Ton, string> = {
   malo: "border-amber-200 bg-amber-50 text-amber-900",
@@ -72,6 +73,16 @@ export default async function StranicaTermina({
   const otvorenoZaPrijave = termin.status === "najavljen";
 
   const lokacija = termin.locations;
+
+  // Termin uzivo pokrece i vodi netko tko je u postavi, ne nuzno admin.
+  const { data: mojaPostava } = await supabase
+    .from("match_lineup")
+    .select("user_id")
+    .eq("match_id", terminId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const jaSamUPostavi = Boolean(mojaPostava);
 
   return (
     <div className="pb-28">
@@ -172,6 +183,26 @@ export default async function StranicaTermina({
             ))}
           </ol>
         </section>
+      )}
+
+      {/* Termin uzivo: pokrece ga bilo tko iz postave, i to tek na dan igranja. */}
+      {jaSamUPostavi && (termin.status === "zakljucan" || termin.status === "najavljen") && (
+        <GumbPokreni grupaId={grupaId} terminId={terminId} vecUTijeku={false} />
+      )}
+
+      {termin.status === "u_tijeku" && (
+        <GumbPokreni grupaId={grupaId} terminId={terminId} vecUTijeku />
+      )}
+
+      {termin.status === "zavrsen" && (
+        <Link
+          href={`/grupe/${grupaId}/termin/${terminId}/uzivo`}
+          className="mt-8 flex h-12 w-full items-center justify-center rounded-lg
+                     border border-slate-300 bg-white text-sm font-semibold
+                     transition active:scale-[0.98] hover:border-slate-400"
+        >
+          Pogledaj tijek termina
+        </Link>
       )}
 
       {termin.status !== "otkazan" && (
