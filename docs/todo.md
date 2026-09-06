@@ -3,6 +3,10 @@
 Zabilježene ideje i sitnice koje nisu dio MVP-a. Ovo je popis *što* i *zašto* —
 kako se izvodi piše se tek kad se uzme u rad.
 
+> Stavka se briše odavde tek kad je **odrađena, istestirana i na produkciji**.
+> Ne kad je kod napisan i ne kad je commitan. Pravilo stoji u
+> [README-u](../README.md#kako-se-vodi-docstodomd).
+
 Veće odgođene stvari žive drugdje i ovdje se samo navode, da se ne traži na dva
 mjesta:
 
