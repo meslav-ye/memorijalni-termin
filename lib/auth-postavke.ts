@@ -1,38 +1,40 @@
 /**
  * Koje su metode prijave stvarno ukljucene na Supabase projektu.
  *
- * Postoji jer se lokalni Docker Supabase i onaj u oblaku razlikuju: Google je
- * podesen samo u oblaku. Bez ove provjere lokalno bi se nudio gumb koji ne moze
- * raditi, a korisnik bi zavrsio natrag na prijavi bez ijednog objasnjenja.
+ * Postoji samo zato da lokalni razvoj ne nudi gumb koji ne moze raditi:
+ * Google je podesen u oblaku, a lokalni Docker Supabase o njemu ne zna nista.
+ *
+ * VAZNO — u neizvjesnosti se gumb PRIKAZUJE, ne skriva.
+ * Prva verzija ove funkcije radila je obrnuto i sakrila Google na produkciji
+ * cim dohvat postavki nije uspio, cime je prijava postala nemoguca. Kriva
+ * strana opreza: neuspjela prijava barem javi gresku, a gumb kojeg nema
+ * ne moze se ni pokusati.
  */
 export type DostupneMetode = {
   google: boolean;
-  email: boolean;
 };
 
 export async function dohvatiDostupneMetode(): Promise<DostupneMetode> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const kljuc = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!url || !kljuc) return { google: false, email: true };
+  // Ne znamo — prikazi.
+  if (!url || !kljuc) return { google: true };
 
   try {
     const odgovor = await fetch(`${url}/auth/v1/settings`, {
       headers: { apikey: kljuc },
-      // Postavke se rijetko mijenjaju; ne treba ih dohvacati pri svakom prikazu.
-      next: { revalidate: 300 },
+      cache: "no-store",
+      signal: AbortSignal.timeout(3000),
     });
 
-    if (!odgovor.ok) return { google: false, email: true };
+    if (!odgovor.ok) return { google: true };
 
     const podaci = (await odgovor.json()) as { external?: Record<string, boolean> };
 
-    return {
-      google: podaci.external?.google === true,
-      email: podaci.external?.email !== false,
-    };
+    // Skrivamo ISKLJUCIVO kad je Supabase izricito rekao da je iskljucen.
+    return { google: podaci.external?.google !== false };
   } catch {
-    // Ako se ne moze doznati, ne skrivamo email prijavu — ona radi uvijek.
-    return { google: false, email: true };
+    return { google: true };
   }
 }
