@@ -41,7 +41,7 @@ const GUMB_SPOREDNI =
   "w-full h-14 rounded-lg border-2 border-slate-900 bg-white text-base font-semibold " +
   "text-slate-900 transition active:scale-[0.98] disabled:opacity-50";
 
-export function ObrazacPrijave() {
+export function ObrazacPrijave({ googleDostupan }: { googleDostupan: boolean }) {
   const [stanjeGoogle, akcijaGoogle, cekaGoogle] = useActionState(prijavaGoogle, PRAZNO);
   const [stanjeLink, akcijaLink, cekaLink] = useActionState(posaljiMagicLink, PRAZNO);
   const [stanjeLozinka, akcijaLozinka, cekaLozinka] = useActionState(prijavaLozinkom, PRAZNO);
@@ -55,19 +55,30 @@ export function ObrazacPrijave() {
 
   return (
     <div className="space-y-6">
-      {/* 1. Google — najmanje trenja na mobitelu, zato je prvi */}
-      <form action={akcijaGoogle} className="space-y-2">
-        <button type="submit" disabled={cekaBiloSto} className={GUMB_SPOREDNI}>
-          {cekaGoogle ? "Otvaram Google…" : "Prijavi se Googleom"}
-        </button>
-        <Poruka stanje={stanjeGoogle} />
-      </form>
+      {/* 1. Google — najmanje trenja na mobitelu, zato je prvi.
+          Prikazuje se SAMO ako je stvarno ukljucen na Supabase projektu:
+          lokalni Docker Supabase ga nema, pa bi gumb tiho vracao na prijavu. */}
+      {googleDostupan ? (
+        <>
+          <form action={akcijaGoogle} className="space-y-2">
+            <button type="submit" disabled={cekaBiloSto} className={GUMB_SPOREDNI}>
+              {cekaGoogle ? "Otvaram Google…" : "Prijavi se Googleom"}
+            </button>
+            <Poruka stanje={stanjeGoogle} />
+          </form>
 
-      <div className="flex items-center gap-3 text-sm text-slate-400">
-        <span className="h-px flex-1 bg-slate-200" />
-        ili
-        <span className="h-px flex-1 bg-slate-200" />
-      </div>
+          <div className="flex items-center gap-3 text-sm text-slate-400">
+            <span className="h-px flex-1 bg-slate-200" />
+            ili
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+        </>
+      ) : (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          Prijava Googleom ovdje nije dostupna — radi samo na objavljenoj adresi.
+          Za lokalno testiranje koristi email i lozinku.
+        </p>
+      )}
 
       {/* 2. Magic link */}
       <form action={akcijaLink} className="space-y-2">
