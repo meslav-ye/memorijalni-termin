@@ -9,7 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:types": "supabase gen types typescript --local > lib/database.types.ts",
+    "db:reset": "supabase db reset && pnpm db:types"
   },
   "dependencies": {
     "next": "16.3.4",
