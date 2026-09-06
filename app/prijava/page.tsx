@@ -42,6 +42,11 @@ export default async function StranicaPrijave({
         {/* Logo nosi naziv aplikacije, pa je h1 skriven — ostaje samo za
             citace ekrana i trazilice. `priority` jer je ovo prvo sto se vidi. */}
         <h1 className="sr-only">Memorijalni termin</h1>
+
+        {/* Logo ide na SVIJETLU podlogu. Postojeca datoteka ima tamnozelen
+            tekst i svijetao obris stita — na tamnoj podlozi tekst nestane.
+            Probano, ne radi. Ako ikad stigne verzija za tamnu podlogu,
+            ovdje je mjesto za nju. */}
         <Image
           src="/logo.png"
           alt="Memorijalni termin"
@@ -50,6 +55,7 @@ export default async function StranicaPrijave({
           priority
           className="h-auto w-full max-w-[19rem]"
         />
+
         <p className="mt-4 text-slate-600">Prijavi se da vidiš termine svoje grupe.</p>
       </header>
 
