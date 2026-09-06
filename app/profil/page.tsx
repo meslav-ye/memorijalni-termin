@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ObrazacProfila } from "./ObrazacProfila";
@@ -21,7 +22,15 @@ export default async function StranicaProfila() {
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
-      <header className="mb-8">
+      {/* Pri prvom postavljanju nadimka nema kamo natrag — vratar bi te
+          ionako vratio ovamo dok nadimak ne postoji. */}
+      {!prviPut && (
+        <Link href="/" className="text-sm text-slate-500 underline underline-offset-4">
+          ← Natrag
+        </Link>
+      )}
+
+      <header className="mb-8 mt-4">
         <h1 className="text-2xl font-bold tracking-tight">
           {prviPut ? "Još samo nadimak" : "Tvoj profil"}
         </h1>

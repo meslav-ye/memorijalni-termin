@@ -57,6 +57,21 @@ export async function kreirajGrupu(
 
   if (!user) return { greska: "Nisi prijavljen." };
 
+  // Otvaranje grupe trazi izricito odobrenje. Provjeravamo prije upisa da
+  // korisnik dobije razumljivo objasnjenje umjesto opce greske iz baze.
+  const { data: mojProfil } = await supabase
+    .from("profiles")
+    .select("can_create_groups")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!mojProfil?.can_create_groups) {
+    return {
+      greska:
+        "Tvoj račun još nema dopuštenje za otvaranje grupa. Ako te je netko pozvao u postojeću grupu, otvori link pozivnice koji si dobio.",
+    };
+  }
+
   const { data: grupa, error } = await supabase
     .from("groups")
     .insert({ name, default_capacity: kvota, created_by: user.id })

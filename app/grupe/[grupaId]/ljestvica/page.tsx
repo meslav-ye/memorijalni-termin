@@ -29,12 +29,14 @@ export default async function StranicaLjestvice({
     sezonaZaPrikaz,
   );
 
-  if (odigranihTermina === 0) {
+  // Kad jos nema odigranih termina, tablica se svejedno prikazuje — sa svim
+  // clanovima na nuli. Prazan ekran ne bi rekao ni tko je u grupi ni sto se prati.
+  if (redci.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
-        <p className="font-medium">Još nema odigranih termina</p>
+        <p className="font-medium">Grupa još nema članova</p>
         <p className="mt-1 text-sm text-slate-500">
-          Ljestvica se puni sama čim se odigra prvi termin.
+          Pošalji link pozivnice iz taba Postavke.
         </p>
       </div>
     );
@@ -73,9 +75,16 @@ export default async function StranicaLjestvice({
         </Link>
       </div>
 
-      <p className="mb-3 text-sm text-slate-500">
-        {odigranihTermina} {odigranihTermina === 1 ? "odigran termin" : "odigranih termina"}
-      </p>
+      {odigranihTermina === 0 ? (
+        <p className="mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+          Još nema odigranih termina — svi kreću od ratinga 1000. Brojke se pune
+          same čim se odigra prvi.
+        </p>
+      ) : (
+        <p className="mb-3 text-sm text-slate-500">
+          {odigranihTermina} {odigranihTermina === 1 ? "odigran termin" : "odigranih termina"}
+        </p>
+      )}
 
       {/* Tablica: uska na mobitelu, sire kolone se skrivaju */}
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">

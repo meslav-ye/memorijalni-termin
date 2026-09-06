@@ -37,6 +37,17 @@ export async function dohvatiLjestvicu(
     .eq("group_id", grupaId)
     .order("name", { ascending: false });
 
+  // Clanovi se dohvacaju UVIJEK, neovisno o terminima. Ljestvica tako od prvog
+  // dana pokazuje tko je u grupi i sve na nuli, umjesto poruke da nema nicega —
+  // odmah se vidi sto ce se puniti.
+  const { data: clanovi } = await supabase
+    .from("group_members")
+    .select("user_id")
+    .eq("group_id", grupaId)
+    .eq("status", "active");
+
+  const clanIdevi = (clanovi ?? []).map((c) => c.user_id);
+
   let upit = supabase
     .from("matches")
     .select("id, score_a, score_b, starts_at")
@@ -49,14 +60,14 @@ export async function dohvatiLjestvicu(
   const { data: termini } = await upit;
   const sviTermini = termini ?? [];
 
-  const prazno: PodaciLjestvice = {
-    redci: [],
-    sezone: (sezone ?? []).map((s) => ({ id: s.id, naziv: s.name })),
-    odigranihTermina: 0,
-    rekordi: [],
-  };
-
-  if (sviTermini.length === 0) return prazno;
+  if (sviTermini.length === 0) {
+    return {
+      redci: await praznaLjestvica(grupaId, clanIdevi),
+      sezone: (sezone ?? []).map((s) => ({ id: s.id, naziv: s.name })),
+      odigranihTermina: 0,
+      rekordi: [],
+    };
+  }
 
   const terminIdevi = sviTermini.map((t) => t.id);
 
@@ -100,10 +111,14 @@ export async function dohvatiLjestvicu(
 
   const dolaznost = aggregateDolaznost(terminIdevi, postavePoTerminu, igraci);
 
+  // Clanovi koji jos nisu odigrali nijedan termin ne pojavljuju se u statistici,
+  // ali moraju biti na ljestvici — inace novopridosli "nestanu" dok ne zaigraju.
+  const sviZaPrikaz = [...new Set([...igraci, ...clanIdevi])];
+
   const { data: profili } = await supabase
     .from("profiles")
     .select("id, nickname, is_goalkeeper")
-    .in("id", igraci.length ? igraci : ["-"]);
+    .in("id", sviZaPrikaz.length ? sviZaPrikaz : ["-"]);
 
   const redci: RedakLjestvice[] = statistika.map((s) => {
     const d = dolaznost.find((x) => x.userId === s.userId);
@@ -120,12 +135,96 @@ export async function dohvatiLjestvicu(
     };
   });
 
+  const bezOdigranih = clanIdevi
+    .filter((id) => !igraci.includes(id))
+    .map((id) =>
+      prazanRedak(
+        id,
+        profili?.find((p) => p.id === id)?.nickname || "(bez nadimka)",
+        profili?.find((p) => p.id === id)?.is_goalkeeper ?? false,
+        ratinzi?.find((r) => r.user_id === id)?.rating ?? 1000,
+      ),
+    );
+
+  const sviRedci = [...redci, ...bezOdigranih].sort(
+    (a, b) =>
+      b.goals - a.goals ||
+      b.assists - a.assists ||
+      b.matches - a.matches ||
+      a.nadimak.localeCompare(b.nadimak, "hr"),
+  );
+
   return {
-    redci: redci.sort((a, b) => b.goals - a.goals || b.assists - a.assists),
+    redci: sviRedci,
     sezone: (sezone ?? []).map((s) => ({ id: s.id, naziv: s.name })),
     odigranihTermina: sviTermini.length,
     rekordi: izracunajRekorde(zaStatistiku, redci),
   };
+}
+
+/**
+ * Redak ljestvice za igraca koji jos nije odigrao nijedan termin.
+ * Sve na nuli, rating onakav kakav mu stoji (pocetnih 1000).
+ */
+function prazanRedak(
+  userId: string,
+  nadimak: string,
+  golman: boolean,
+  rating: number,
+): RedakLjestvice {
+  return {
+    userId,
+    nadimak,
+    golman,
+    rating,
+    goals: 0,
+    assists: 0,
+    ownGoals: 0,
+    matches: 0,
+    wins: 0,
+    draws: 0,
+    losses: 0,
+    goalsPerMatch: 0,
+    winRate: 0,
+    postotakDolaznosti: 0,
+    trenutniNiz: 0,
+    najduziNiz: 0,
+  };
+}
+
+/**
+ * Ljestvica prije nego je odigran ijedan termin: svi clanovi grupe s nulama.
+ *
+ * Postoji jer prazan ekran ne govori nista. Ovako se od prvog dana vidi tko je
+ * u grupi, da svi krecu od 1000 i koje se kolone uopce prate.
+ */
+async function praznaLjestvica(
+  grupaId: string,
+  clanIdevi: string[],
+): Promise<RedakLjestvice[]> {
+  if (clanIdevi.length === 0) return [];
+
+  const supabase = await createClient();
+
+  const [{ data: profili }, { data: ratinzi }] = await Promise.all([
+    supabase.from("profiles").select("id, nickname, is_goalkeeper").in("id", clanIdevi),
+    supabase
+      .from("player_ratings")
+      .select("user_id, rating")
+      .eq("group_id", grupaId)
+      .in("user_id", clanIdevi),
+  ]);
+
+  return clanIdevi
+    .map((id) =>
+      prazanRedak(
+        id,
+        profili?.find((p) => p.id === id)?.nickname || "(bez nadimka)",
+        profili?.find((p) => p.id === id)?.is_goalkeeper ?? false,
+        ratinzi?.find((r) => r.user_id === id)?.rating ?? 1000,
+      ),
+    )
+    .sort((a, b) => a.nadimak.localeCompare(b.nadimak, "hr"));
 }
 
 function izracunajRekorde(

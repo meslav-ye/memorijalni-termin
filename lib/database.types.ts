@@ -436,6 +436,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          can_create_groups: boolean
           created_at: string
           full_name: string
           id: string
@@ -444,6 +445,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          can_create_groups?: boolean
           created_at?: string
           full_name?: string
           id: string
@@ -452,6 +454,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          can_create_groups?: boolean
           created_at?: string
           full_name?: string
           id?: string
@@ -540,10 +543,12 @@ export type Database = {
         Args: { p_group: string; p_rating: number; p_user: string }
         Returns: undefined
       }
+      broj_mojih_grupa: { Args: never; Returns: number }
       is_group_admin: { Args: { g: string }; Returns: boolean }
       is_group_member: { Args: { g: string }; Returns: boolean }
       is_in_lineup: { Args: { m: string }; Returns: boolean }
       match_group: { Args: { m: string }; Returns: string }
+      smijem_otvarati_grupe: { Args: never; Returns: boolean }
     }
     Enums: {
       event_type: "goal" | "own_goal" | "keeper_change" | "pause" | "resume"
