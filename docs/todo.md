@@ -454,3 +454,52 @@ pravilu. Ako se ne odluči, dogodit će se svađa oko toga tko je 12. a tko 13.
   `splitSignups`.
 - Isti ekran neka omogući i **odjavu tuđe prijave**, jer je to zrcalni slučaj i
   DELETE pravilo ga već dopušta.
+
+---
+
+## 8. Preimenovanje ekipa pri slaganju
+
+Kad se slažu ekipe, treba im se moći dati ime umjesto „Ekipa A" i „Ekipa B" —
+npr. „Bijeli" i „Šareni", ili kako se ekipa te večeri prozove.
+
+### Ime je oznaka, ne identitet — ne dirati enum
+
+U bazi postoji enum **`team_side` s vrijednostima `A` i `B`**. Na njemu stoji
+`match_lineup.team`, `match_events.team` i `score_a` / `score_b`.
+
+**Taj enum ostaje kakav je.** Preimenovanje mijenja samo ono što se ispisuje.
+Tko pokuša preimenovati same vrijednosti enuma, ruši svaki dosad upisani gol i
+svaku postavu.
+
+Imena idu u dva nova stupca (npr. `team_a_name`, `team_b_name`), oba prazna po
+zadanom, s ispisom „Ekipa A" / „Ekipa B" kad nisu postavljena.
+
+### Tri mjesta gdje je „Ekipa A" zakucana
+
+Sve tri treba prebaciti na isti izvor imena:
+
+| Gdje | Datoteka |
+|---|---|
+| slaganje ekipa | `app/grupe/[grupaId]/termin/[terminId]/ekipe/page.tsx` (`naslov="Ekipa A"`, `"Ekipa B"`) |
+| ekran uživo | `app/grupe/[grupaId]/termin/[terminId]/uzivo/EkranUzivo.tsx` |
+| sažetak | `app/grupe/[grupaId]/termin/[terminId]/sazetak/page.tsx` — ispisuje `Ekipa {strana}`, dakle slovo iz enuma; treba mu isto pretraživanje imena |
+
+### Ograničenje duljine nije kozmetika
+
+Ekran uživo je pravljen za korištenje **jednom rukom pored terena**, s dvije ploče
+ekipa jednu uz drugu. Dugo ime razbija taj raspored na užem mobitelu.
+
+Zato ime treba **ograničiti u duljini** (nešto poput 12–14 znakova) i skraćivati
+pri ispisu, a ne pustiti slobodan tekst. Provjeriti na 375 px širine, koliko je
+iPhone SE.
+
+### Na što paziti
+
+- **Sudar sa stavkom 6.** Ako se uvedu više utakmica po terminu, ekipe se
+  između utakmica premiješaju — pa imena onda pripadaju **utakmici, ne terminu**.
+  Ako se radi prvo ova stavka, stupce staviti tako da se lako premjeste; ako se
+  prvo radi stavka 6, imena odmah staviti na utakmicu.
+- Preimenovanje smije **bilo koji član grupe**, isto kao i ispravljanje ekipa —
+  tako je već postavljeno pa nema razloga za drukčije.
+- Ako se ekipa preimenuje nakon odigranog termina, mijenja se i ispis u sažetku
+  starog termina. To je u redu, samo neka se zna.
