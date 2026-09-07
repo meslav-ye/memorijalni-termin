@@ -349,3 +349,108 @@ Prelazak na zimsko vrijeme je 25.10.2026., dan prije te pojave. Ekipa bi došla 
   ugasi i u jesen mora ponovno unositi dan, satnicu i dvoranu.
 - Sezona se veže po datumu termina, pa pojava stvorena u siječnju automatski ide u
   novu sezonu — to već radi i ne treba ništa dodavati.
+
+---
+
+## 6. Ponovno pokretanje utakmice unutar termina
+
+Mogućnost da se utakmica pokrene ispočetka: **rezultat, minutaža, golovi i
+asistencije kreću od nule**, a dotadašnje stanje se spremi. Nakon toga se igrači
+smiju izmiješati u nove ekipe, ali ne moraju.
+
+### Ovo nije „reset" nego više utakmica po terminu
+
+Zahtjev kaže da se dotadašnje stanje **spremi**. To znači da stara utakmica ostaje
+kao zapis — dakle jedan termin sadrži N utakmica. **Ta razina u modelu ne
+postoji.**
+
+Sada je jedan red u `matches` istovremeno termin *i* utakmica. Na njemu stoji
+sve: `score_a`, `score_b`, `started_at`, `paused_at`, `total_paused_seconds`,
+`status`. Događaji gledaju u `match_id`, a postava je `match_lineup(match_id,
+user_id, team)` — **jedna postava po terminu**.
+
+Treba razina između termina i događaja: tablica utakmica, a rezultat, sat, događaji
+i postava vise o njoj, ne o terminu.
+
+### Najveće pitanje je rating
+
+`apply_rating` po završetku digne `matches_played + 1` i upiše **jedan red u
+`rating_history` po igraču**. `rating_history` je keyed na `(match_id, user_id)` i
+**nema stupac za utakmicu**.
+
+Iz toga slijede dvije stvari:
+
+1. **Računa li se svaka utakmica zasebno za rating?** Ako se ekipe izmiješaju
+   između utakmica, **mora** — inače se rating računa protiv protivnika s kojima
+   igrač te utakmice nije igrao, što je jednostavno pogrešno.
+2. Ako se računa zasebno, `rating_history` dobiva N redova po igraču po terminu
+   koji izgledaju **identično**, i „zadnjih 10 termina s promjenom ratinga" na
+   profilu igrača postaje neupotrebljivo. Isti nedostatak je već zapisan u
+   stavci 3 — riješiti ga jednom, za oba slučaja.
+
+### Statistika mijenja značenje
+
+`aggregateStats` broji `matches += 1` po redu utakmice i iz toga izvodi
+`goalsPerMatch` i `winRate`. S više utakmica po terminu „matches" postaje
+dvosmisleno:
+
+- **Dolaznost** je po terminu — čovjek je došao ili nije.
+- **Golovi po utakmici** i **postotak pobjeda** su po utakmici.
+
+To su različiti brojevi i moraju se svjesno razdvojiti. Paziti da promjena
+**retroaktivno mijenja postojeće brojke** — dosadašnji termini imaju po jednu
+utakmicu, pa se brojke ne smiju razići.
+
+### Na što paziti
+
+- **Postava nove utakmice mora biti kopija, ne referenca.** Ako druga utakmica
+  gleda u istu postavu, izmjena ekipa za drugu utakmicu prepiše povijest prve.
+  Zadana vrijednost je kopija prethodne postave, pa se smije mijenjati.
+- Sat se vodi iz `started_at` po utakmici, ne po terminu — inače druga utakmica
+  počinje na minutaži prve. Vidi `lib/domain/timer.ts`.
+- Ako se ekipe **ne** izmiješaju, ovo je i dalje nova utakmica s vlastitim
+  rezultatom, ne nastavak stare.
+
+---
+
+## 7. Ručno dodavanje ljudi u termin
+
+Netko potvrdi u WhatsAppu da dolazi, a zaboravi se prijaviti u aplikaciji. Treba
+ga se moći prijaviti umjesto njega.
+
+### Konkretna prepreka
+
+RLS pravilo za unos prijava je **`prijave: prijavi samo sebe`** (INSERT). Pravila
+za UPDATE i DELETE su „svoju ili kao admin".
+
+Znači: **admin već sad može nekoga odjaviti, ali ga ne može prijaviti.** Ta
+asimetrija je cijeli posao — treba INSERT pravilo koje dopušta unos tuđe prijave.
+
+### Treba odlučiti kome se to dopušta
+
+Aplikacija je dosad namjerno popustljiva: termin pokreće bilo tko iz postave,
+ekipe ispravlja bilo tko u grupi. Ali dodavanje **tuđe** prijave zauzima mjesto u
+postavi, što je drugačije od ispravljanja ekipa.
+
+Predlažem prvo **samo admin**, jer je to uža promjena i poklapa se s postojećim
+pravilima za UPDATE i DELETE. Proširiti na sve članove je poslije lako; suziti
+nije.
+
+### Mjesto na listi čekanja
+
+`splitSignups` poredak vodi po `signed_up_at`, uz `manual_order` kad postoji.
+Ručno dodan igrač zato završi **na kraju**, što je i ispravno kad se doda u
+zadnji trenutak.
+
+Ali ako je čovjek u WhatsAppu potvrdio tri dana ranije, zaslužuje li svoje mjesto?
+`manual_order` to već može izraziti — treba samo odlučiti radi li se to i po kojem
+pravilu. Ako se ne odluči, dogodit će se svađa oko toga tko je 12. a tko 13.
+
+### Na što paziti
+
+- **Dodani čovjek to ne zna.** Nema notifikacija, pa saznaje samo ako otvori
+  aplikaciju. Ako je dodan greškom, može se odjaviti sam — DELETE to već dopušta.
+- Preko kapaciteta ne treba ništa: 13. prijava sama ide na čekanje kroz
+  `splitSignups`.
+- Isti ekran neka omogući i **odjavu tuđe prijave**, jer je to zrcalni slučaj i
+  DELETE pravilo ga već dopušta.
