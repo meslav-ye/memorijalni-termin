@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aggregateStats, aggregateDolaznost } from "@/lib/domain/stats";
+import { formatirajKratko } from "@/lib/format";
 import { jeClan } from "@/lib/podaci/korisnik";
 import type { MatchForStats, PlayerStats, Team } from "@/lib/domain/types";
 
@@ -124,6 +125,7 @@ async function izracunajLjestvicu(
     matchId: t.id,
     scoreA: t.score_a,
     scoreB: t.score_b,
+    startsAt: t.starts_at,
     lineup: (postave ?? [])
       .filter((p) => p.match_id === t.id)
       .map((p) => ({ userId: p.user_id, team: p.team as Team })),
@@ -296,21 +298,38 @@ function izracunajRekorde(
   }
 
   // Najveca pobjeda po razlici u golovima.
+  //
+  // Ovaj rekord se vezu na TERMIN, ne na igraca, pa u `tko` ide datum termina.
+  // Prije je ostajao prazan, a kartica prazan `tko` tumaci kao "nema rekorda" —
+  // pa se stvaran rezultat prikazivao posivljeno, uz "jos nitko".
   const najveca = termini.reduce(
     (naj, t) => {
       const razlika = Math.abs(t.scoreA - t.scoreB);
       return razlika > naj.razlika
-        ? { razlika, rezultat: `${Math.max(t.scoreA, t.scoreB)}:${Math.min(t.scoreA, t.scoreB)}` }
+        ? {
+            razlika,
+            rezultat: `${Math.max(t.scoreA, t.scoreB)}:${Math.min(t.scoreA, t.scoreB)}`,
+            kada: t.startsAt ?? "",
+          }
         : naj;
     },
-    { razlika: 0, rezultat: "" },
+    { razlika: 0, rezultat: "", kada: "" },
   );
   if (najveca.razlika > 0) {
-    rekordi.push({ naslov: "Najveća pobjeda", vrijednost: najveca.rezultat, tko: "" });
+    rekordi.push({
+      naslov: "Najveća pobjeda",
+      vrijednost: najveca.rezultat,
+      tko: najveca.kada ? formatirajKratko(najveca.kada) : "—",
+    });
   }
 
-  const najduziNiz = redci.reduce((naj, r) => (r.najduziNiz > naj.najduziNiz ? r : naj), redci[0]);
-  if (najduziNiz && najduziNiz.najduziNiz > 1) {
+  // Niz od jednog termina je i dalje niz. Prag je prije bio `> 1`, pa se nakon
+  // prvog odigranog termina nije prikazivao nitko.
+  const najduziNiz = redci.reduce(
+    (naj, r) => (naj && r.najduziNiz > naj.najduziNiz ? r : (naj ?? r)),
+    redci[0] as RedakLjestvice | undefined,
+  );
+  if (najduziNiz && najduziNiz.najduziNiz > 0) {
     rekordi.push({
       naslov: "Najviše termina zaredom",
       vrijednost: String(najduziNiz.najduziNiz),
@@ -318,14 +337,10 @@ function izracunajRekorde(
     });
   }
 
-  const najboljiStrijelac = redci[0];
-  if (najboljiStrijelac?.goals > 0) {
-    rekordi.push({
-      naslov: "Najbolji strijelac",
-      vrijednost: String(najboljiStrijelac.goals),
-      tko: najboljiStrijelac.nadimak,
-    });
-  }
+  // "Najbolji strijelac" se NE dodaje ovdje. Vec stoji medju Vodecima, izracunat
+  // maksimumom po golovima, a ovdje se citalo `redci[0]` — a to je nesortiran
+  // niz, pa je ispadao slucajan igrac. Dvije kartice s istim naslovom i
+  // razlicitim brojem su i bile ono zbog cega je statistika izgledala neispravno.
 
   return rekordi;
 }

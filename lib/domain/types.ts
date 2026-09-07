@@ -67,6 +67,8 @@ export type MatchForStats = {
   matchId: string;
   scoreA: number;
   scoreB: number;
+  /** Za rekorde koji se vezu na termin, a ne na igraca (npr. najveca pobjeda). */
+  startsAt?: string;
   lineup: { userId: string; team: Team }[];
   events: {
     type: "goal" | "own_goal";

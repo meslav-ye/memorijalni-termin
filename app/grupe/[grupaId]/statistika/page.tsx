@@ -215,7 +215,6 @@ export default async function StranicaStatistike({
             "Najviše golova na terminu",
             "Najveća pobjeda",
             "Najviše termina zaredom",
-            "Najbolji strijelac",
           ].map((naslov) => {
             const postoji = rekordi.find((r) => r.naslov === naslov);
             return (
