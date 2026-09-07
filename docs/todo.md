@@ -153,3 +153,61 @@ poziv padne.
   jednoj grupi mijenja globalni rating, koji se vidi i u drugima — pa poništavanje
   po jednoj grupi više nije dovoljno ako se globalni rating negdje prikazuje uz
   predmemorirane podatke.
+
+---
+
+## 4. Ideja: povezivanje profila sa satom (Garmin, Strava)
+
+Povezati profil igrača s analitikom sa sata i prikazati **pretrčane kilometre,
+brzinu i puls** po terminu.
+
+Status: **ideja**, nije istražena. Prije bilo kakvog koda treba razriješiti dvije
+stvari ispod — obje mogu srušiti cijelu zamisao.
+
+### 1. Ovo je u sukobu s onim što smo obećali
+
+[Stranica o privatnosti](../app/privatnost/page.tsx) trenutno tvrdi:
+
+> Ne spremamo broj telefona, adresu, **lokaciju uređaja** ni bilo kakve podatke o
+> plaćanju.
+
+Pretrčani kilometri i brzina **dolaze iz GPS-a** — to je lokacija uređaja. Puls je
+podatak o zdravlju, što je po GDPR-u posebna kategorija i traži izričitu privolu,
+ne samo kvačicu pri prijavi.
+
+Znači: bez izmjene stranice o privatnosti i zasebne privole po igraču ovo se ne
+smije uključiti. Nije formalnost — trenutačni tekst je obećanje koje bi ova
+funkcija prekršila.
+
+### 2. Treba provjeriti uvjete API-ja, ne pretpostaviti
+
+Ne zna se je li ovo uopće izvedivo besplatno. **Provjeriti na izvoru prije
+odluke**, jer se uvjeti obiju platformi mijenjaju:
+
+- **Strava** ima javni OAuth API s ograničenjima broja poziva. Povijesno je
+  zaoštravala uvjete oko toga što se smije prikazivati trećim stranama — treba
+  pročitati aktualni API agreement, ne stariji članak.
+- **Garmin** pristup ide preko razvojnog programa uz odobrenje zahtjeva.
+  Provjeriti prima li uopće nekomercijalne projekte.
+
+Ako ni jedno nije besplatno i dostupno, ideja pada ili se svodi na ručni upis.
+
+### Što nam ide na ruku
+
+Aplikacija **već zna točno kad je termin trajao** — `matches` ima `started_at`,
+`paused_at` i `ended_at`, jer se vrijeme mjeri štopericom u aplikaciji. Aktivnost
+sa sata se onda spaja na termin **preklapanjem vremena**, bez da igrač bilo što
+odabire. To je najveći dio posla koji je već rješen.
+
+### Na što paziti
+
+- **Neće svi imati sat.** Brojke moraju biti dodatak na profilu, a ne nešto po
+  čemu se rangira — inače ljestvica kažnjava one koji nemaju sat. Ovo je odluka o
+  proizvodu, ne o kodu.
+- **Tokeni.** OAuth refresh token po igraču je tajna; ide u tablicu zatvorenu
+  RLS-om i nikad se ne šalje klijentu. Nikako ne u `profiles`, koji čitaju svi
+  članovi grupe.
+- **Potrošnja.** Povlačenje aktivnosti znači ili webhook ili periodično
+  provjeravanje, što je novi izvor zahtjeva. Vidjeti [optimizacija.md](optimizacija.md)
+  prije nego se doda periodično povlačenje.
+- Puls smije vidjeti **samo sam igrač**, ne cijela grupa.
