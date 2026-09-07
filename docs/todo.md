@@ -261,8 +261,16 @@ svaki tjedan ne mora svaki put otvarati novi.
 mjesečnih ni „svaki drugi četvrtak". To nije ograničenje koje treba kasnije
 proširivati, nego namjeran obuhvat.
 
-Zato **ne treba općeniti sustav ponavljanja** (RRULE i slično). Dovoljna su dva
-podatka: **dan u tjednu i satnica**, plus dvorana. Sve ostalo se izračuna.
+Primjer: *svaki ponedjeljak u 18:00, dok se stalni termin ne ugasi.*
+
+**Nema datuma završetka.** Traje neograničeno i prestaje samo kad ga netko ugasi.
+Dakle u modelu ne treba `zavrsava_na`, nego **stanje uključeno/ugašeno** (npr.
+`ugasen_at`, ili `aktivan boolean`). Kad se ugasi, već stvorene i vidljive pojave
+ostaju — one su stvarni termini s prijavama; prestaje se samo stvarati nove.
+
+Zato **ne treba općeniti sustav ponavljanja** (RRULE i slično). Dovoljna su tri
+podatka: **dan u tjednu, satnica i dvorana**, plus to stanje. Sve ostalo se
+izračuna.
 
 Iz tjednog razdoblja slijedi i prozor vidljivosti od 6 dana — vidi niže.
 
@@ -309,6 +317,24 @@ koji se prikazuju.
 > Napomena: `optimizacija.md` je do sada tvrdio da je popis „već ograničen na 20".
 > To nije bilo točno i ispravljeno je.
 
+### Zamka: „ponedjeljkom u 18" je lokalno vrijeme, ne fiksni UTC interval
+
+Svaka pojava se mora izračunati iz **dana u tjednu i satnice po zagrebačkom
+satu**, pomoću postojećeg `zagrebUIso(datum, satnica)` iz `lib/format.ts` — koji
+uzima stvarni pomak zone za taj trenutak.
+
+**Nikako ne dodavati 7 × 24 h na `starts_at` prethodne pojave.** To puca dvaput
+godišnje, pri prelasku na ljetno i zimsko vrijeme. Provjereno na stvarnom datumu:
+
+```
+pojava 1              : pon 19.10.2026. u 18:00
++7 × 24 h u UTC-u     : pon 26.10.2026. u 17:00   ← sat prerano
+željeno               : pon 26.10.2026. u 18:00
+```
+
+Prelazak na zimsko vrijeme je 25.10.2026., dan prije te pojave. Ekipa bi došla u
+18, a termin bi u aplikaciji stajao na 17.
+
 ### Na što još paziti
 
 - **Otkazivanje jedne pojave naspram cijele serije.** Ako netko otkaže termin,
@@ -317,7 +343,9 @@ koji se prikazuju.
 - **Promjena satnice ili dvorane** mijenja li samo buduće pojave ili i onu koja je
   već vidljiva i na koju su se ljudi prijavili? Već vidljiva pojava je stvaran
   termin s prijavama i ne smije se tiho pomaknuti.
-- **Ljetna pauza.** Grupa koja preko ljeta ne igra treba moći pauzirati stalni
-  termin bez brisanja, inače se svaki tjedan stvara termin na koji nitko ne dođe.
+- **Ljetna pauza** je pokrivena istim stanjem uključeno/ugašeno — ugasi se u
+  šestom, upali u devetom mjesecu. Zato to stanje mora biti **lako prebaciti i
+  vratiti**, a ne radnja koja briše stalni termin; inače ga ekipa preko ljeta
+  ugasi i u jesen mora ponovno unositi dan, satnicu i dvoranu.
 - Sezona se veže po datumu termina, pa pojava stvorena u siječnju automatski ide u
   novu sezonu — to već radi i ne treba ništa dodavati.
