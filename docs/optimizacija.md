@@ -138,7 +138,13 @@ statistika bude izvedena, a ne spremljena.
 
 ### 5. Sitnice
 
-- Popis odigranih termina već je ograničen na 20 — zadržati.
+- ~~Popis odigranih termina već je ograničen na 20 — zadržati.~~
+  **Netočno, ispravljeno 2026-09-07.** Ograničenje na 20 postoji samo u prikazu
+  (`app/grupe/[grupaId]/page.tsx`, `.slice(0, 20)`). Upit u
+  `lib/podaci/termini.ts` **nema `limit`** i dohvaća sve termine grupe i sve
+  njihove prijave. Bezopasno dok grupa ima nekoliko termina; postaje problem sa
+  stalnim terminom (~52 termina i 600+ redova prijava po godini). Vidi
+  [todo.md](todo.md), stavka 5.
 - `dohvatiLjestvicu` se poziva i na profilu igrača, gdje treba samo jedan redak.
   Kad se doda predmemorija (točka 2), to prestaje biti problem.
 - Slike u `public/` se poslužuju kao statične datoteke s Vercelove mreže i

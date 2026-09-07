@@ -249,3 +249,75 @@ To je najveći dio posla koji je već riješen.
   provjeravanje, što je novi izvor zahtjeva. Vidjeti [optimizacija.md](optimizacija.md)
   prije nego se doda periodično povlačenje.
 - Puls smije vidjeti **samo sam igrač**, ne cijela grupa.
+
+---
+
+## 5. Stalni termin
+
+Mogućnost da se termin označi kao **stalni**, da se za grupu koja ionako igra
+svaki tjedan ne mora svaki put otvarati novi.
+
+**Stalni znači tjedni — jedan put u tjednu, i ništa drugo.** Nema dvotjednih,
+mjesečnih ni „svaki drugi četvrtak". To nije ograničenje koje treba kasnije
+proširivati, nego namjeran obuhvat.
+
+Zato **ne treba općeniti sustav ponavljanja** (RRULE i slično). Dovoljna su dva
+podatka: **dan u tjednu i satnica**, plus dvorana. Sve ostalo se izračuna.
+
+Iz tjednog razdoblja slijedi i prozor vidljivosti od 6 dana — vidi niže.
+
+### Kad se pojavljuje i zašto točno 6 dana
+
+Novi termin se na kartici pojavljuje **6 dana prije početka**, ne 7.
+
+Razlog: kod tjednog termina je sljedeći točno 7 dana kasnije. Da je prozor 7 dana,
+sljedeći bi se pojavio **u trenutku kad tekući počinje** — pa bi dva termina
+stajala pod „Nadolazeći" istovremeno. Sa 6 dana se sljedeći pojavi dan nakon
+odigranog.
+
+**Ne mijenjati na 7 misleći da je zaokruženije.** Broj je takav namjerno.
+
+Time popis nadolazećih ostaje kratak, a povijesni termini pregledni — što je i
+cijela svrha.
+
+### Dva načina izvedbe, treba odabrati
+
+| | Kako | Problem |
+|---|---|---|
+| **Unaprijed** | `pg_cron` u Supabaseu stvara red 6 dana prije | Treba zakazani posao, ali baza je ionako tu — bolje od Vercelovog crona, kojemu treba provjeriti ograničenja na besplatnom planu |
+| **Lijeno** | red se stvori kad netko otvori popis i prozor je otvoren | Čitanje bi pisalo; dva posjetitelja istovremeno mogu stvoriti dva termina |
+
+Lijeni način je izvediv i ne traži ništa zakazano, **ali samo uz jedinstveni
+indeks** na pojavu termina — npr. `unique (group_id, starts_at)` ili
+`unique (stalni_id, starts_at)` — plus `on conflict do nothing`. Bez toga se
+duplikati dogode prvi put kad dvojica otvore aplikaciju u istoj sekundi.
+
+Red **mora postojati prije nego se ikto prijavi**, jer `match_signups` ima strani
+ključ na `matches`. Dakle trenutak pojavljivanja i trenutak stvaranja su isti.
+
+### Ovo treba popraviti prije nego stalni termin proradi
+
+`dohvatiTermine` u `lib/podaci/termini.ts` **dohvaća sve termine grupe i sve
+njihove prijave, bez `limit`**. Ograničenje na 20 postoji samo u prikazu
+(`app/grupe/[grupaId]/page.tsx`, `.slice(0, 20)`), ne u upitu.
+
+Danas je to bezopasno jer grupa ima jedan termin. Stalni termin znači ~52 termina
+i preko 600 redova prijava **po godini**, sve dohvaćeno pri svakom otvaranju
+kartice Termini. Znači: `limit` ide u upit, a prijave se dohvaćaju samo za termine
+koji se prikazuju.
+
+> Napomena: `optimizacija.md` je do sada tvrdio da je popis „već ograničen na 20".
+> To nije bilo točno i ispravljeno je.
+
+### Na što još paziti
+
+- **Otkazivanje jedne pojave naspram cijele serije.** Ako netko otkaže termin,
+  otkazuje li taj tjedan ili stalni termin prestaje? Moraju biti dvije različite
+  radnje, inače će netko slučajno ugasiti cijelu seriju.
+- **Promjena satnice ili dvorane** mijenja li samo buduće pojave ili i onu koja je
+  već vidljiva i na koju su se ljudi prijavili? Već vidljiva pojava je stvaran
+  termin s prijavama i ne smije se tiho pomaknuti.
+- **Ljetna pauza.** Grupa koja preko ljeta ne igra treba moći pauzirati stalni
+  termin bez brisanja, inače se svaki tjedan stvara termin na koji nitko ne dođe.
+- Sezona se veže po datumu termina, pa pojava stvorena u siječnju automatski ide u
+  novu sezonu — to već radi i ne treba ništa dodavati.
