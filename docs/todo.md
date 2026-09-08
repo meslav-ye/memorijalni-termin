@@ -548,3 +548,62 @@ termin. U kodu smije biti `match`, jer tako se već zove tablica.
   prolazu kroz cijeli repo — takav commit je nečitljiv u pregledu.
 - Kad se sloj prevede, u `AGENTS.md` ili `README.md` zapisati pravilo, da se
   sljedeći put ne pogađa.
+
+---
+
+## 10. Statistika golmana: primljeni golovi i čiste mreže
+
+Kartica **Golmani** na statistici već postoji i stoji prazna, uz tekst da se
+podaci skupljaju i da prikaz stiže. Treba je napuniti.
+
+### Podaci već postoje — ovo je samo izračun i prikaz
+
+Podloga je namjerno postavljena od početka:
+
+| Što | Gdje |
+|---|---|
+| ko je počeo u golu | `match_lineup.is_goalkeeper` |
+| svaka izmjena golmana, s minutom | `match_events` tipa `keeper_change` — nosi `team`, `scorer_id` (novi golman) i `elapsed_seconds` |
+| svaki gol, s minutom | `match_events` tipa `goal` / `own_goal` — nosi `team` i `elapsed_seconds` |
+
+U `uzivo/akcije.ts` uz upis izmjene golmana stoji i komentar zašto se piše:
+*„iz njega se kasnije računa tko je primio koji gol"*. Dakle ništa se ne mora
+skupljati unatrag — samo izračunati.
+
+**Postupak:** za svaki gol nađi ekipu koja ga je primila, pa iz početne postave i
+niza `keeper_change` složi tko je bio u golu u toj minuti.
+
+### Tri mjesta koja sada ne dohvaćaju dovoljno
+
+`lib/podaci/statistika.ts` trenutno ne uzima ništa od toga:
+
+1. `match_events` se dohvaća s `.in("type", ["goal", "own_goal"])` — **`keeper_change` se odbacuje.**
+2. Iz `match_events` se biraju `match_id, type, scorer_id, assist_id, deleted_at` — **nema `team` ni `elapsed_seconds`**, a oba su potrebna.
+3. `match_lineup` se dohvaća kao `match_id, user_id, team` — **bez `is_goalkeeper`**.
+
+Uz to `MatchForStats.events` u `lib/domain/types.ts` nema `team` ni
+`elapsedSeconds`, pa i tip treba proširiti.
+
+### Dvije odluke koje treba donijeti
+
+**Predznak kod autogola.** `team` na golu znači ekipu **kojoj se gol pripisuje**
+(tako se već računa rezultat: `golovi.filter(e => e.team === "A")`). Primio ga je
+golman **druge** ekipe. Lako je zamijeniti i dobiti obrnutu statistiku, gdje
+najbolji golman ispada najgori — pokriti testom.
+
+**Što je čista mreža kod izmjene golmana.** Ako se dvojica mijenjaju u golu i
+ekipa ne primi gol, imaju li oba čistu mrežu? A golman koji je bio u golu pet
+minuta i nije primio gol? Bez pravila o minimalnom vremenu čiste mreže postaju
+besmislene. Predlažem uvjet **cijeli termin u golu** za prvu verziju — strogo,
+ali nedvosmisleno.
+
+### Na što paziti
+
+- Statistika golmana se **ne smije** vezati na `profiles.is_goalkeeper`. Ta
+  oznaka govori samo da igrač obično brani; ko je stvarno bio u golu piše u
+  postavi i izmjenama.
+- Kad prikaz proradi, **skloniti tekst** na statistici koji obećava da prikaz
+  stiže u sljedećoj verziji.
+- Sudar sa stavkom 6: ako se uvedu više utakmica po terminu, „čista mreža" i
+  primljeni golovi računaju se po utakmici, a početna postava golmana postoji po
+  utakmici.
