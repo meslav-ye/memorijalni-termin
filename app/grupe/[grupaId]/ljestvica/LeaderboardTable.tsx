@@ -100,6 +100,13 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
 
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+  const rankClass = (rank: number) => {
+    if (rank === 1) return "font-bold text-amber-500"; // zlato
+    if (rank === 2) return "font-bold text-slate-400"; // srebro
+    if (rank === 3) return "font-bold text-amber-700"; // bronca
+    return "font-medium text-slate-400";
+  };
+
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
       <table className="w-full text-sm">
@@ -183,35 +190,48 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
           </tr>
         </thead>
         <tbody>
-          {ordered.map((r) => (
-            <tr key={r.userId} className="border-b border-slate-100 last:border-0">
-              <td className="px-3 py-2">
-                <Link
-                  href={`/grupe/${grupaId}/igrac/${r.userId}?from=ljestvica`}
-                  className="font-medium underline-offset-4 hover:underline"
-                >
-                  {r.nickname}
-                </Link>
-                {r.isGoalkeeper && <span title="Igra golmana"> 🧤</span>}
-              </td>
-              <td className="px-2 py-2 text-right font-semibold tabular-nums">{r.goals}</td>
-              <td className="px-2 py-2 text-right tabular-nums">{r.assists}</td>
-              <td className="hidden px-2 py-2 text-right tabular-nums text-slate-400 sm:table-cell">
-                {r.ownGoals || ""}
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums text-slate-500">{r.matches}</td>
-              <td className="hidden px-2 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
-                {r.goalsPerMatch.toFixed(2)}
-              </td>
-              <td className="hidden px-2 py-2 text-right tabular-nums text-slate-500 md:table-cell">
-                {r.wins}-{r.draws}-{r.losses}
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums text-slate-500">
-                {pct(r.winRate)}
-              </td>
-              <td className="px-3 py-2 text-right font-semibold tabular-nums">{r.rating}</td>
-            </tr>
-          ))}
+          {ordered.map((r, index) => {
+            const rank = index + 1;
+            return (
+              <tr key={r.userId} className="border-b border-slate-100 last:border-0">
+                <td className="px-3 py-2">
+                  <span className="inline-flex min-w-0 items-baseline gap-2">
+                    <span
+                      className={
+                        "w-5 shrink-0 text-right text-xs tabular-nums " + rankClass(rank)
+                      }
+                      aria-label={`Mjesto ${rank}`}
+                    >
+                      {rank}.
+                    </span>
+                    <Link
+                      href={`/grupe/${grupaId}/igrac/${r.userId}?from=ljestvica`}
+                      className="min-w-0 font-medium underline-offset-4 hover:underline"
+                    >
+                      {r.nickname}
+                    </Link>
+                    {r.isGoalkeeper && <span title="Igra golmana">🧤</span>}
+                  </span>
+                </td>
+                <td className="px-2 py-2 text-right font-semibold tabular-nums">{r.goals}</td>
+                <td className="px-2 py-2 text-right tabular-nums">{r.assists}</td>
+                <td className="hidden px-2 py-2 text-right tabular-nums text-slate-400 sm:table-cell">
+                  {r.ownGoals || ""}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums text-slate-500">{r.matches}</td>
+                <td className="hidden px-2 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
+                  {r.goalsPerMatch.toFixed(2)}
+                </td>
+                <td className="hidden px-2 py-2 text-right tabular-nums text-slate-500 md:table-cell">
+                  {r.wins}-{r.draws}-{r.losses}
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums text-slate-500">
+                  {pct(r.winRate)}
+                </td>
+                <td className="px-3 py-2 text-right font-semibold tabular-nums">{r.rating}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
