@@ -22,8 +22,16 @@ import {
 } from "../actions";
 import { AdminAddSignups } from "./AdminAddSignups";
 import { StartButton } from "./StartButton";
+import { AddToCalendar } from "./AddToCalendar";
 import { SubmitButton } from "@/components/SubmitButton";
 import { BusyLink } from "@/components/BusyLink";
+import {
+  DEFAULT_MATCH_DURATION_MINUTES,
+  REMINDER_MINUTES_BEFORE,
+  buildGoogleCalendarUrl,
+  buildIcs,
+} from "@/lib/domain/calendar-event";
+import { formatShortDate } from "@/lib/format";
 
 const FILL_TONE_COLOR: Record<FillTone, string> = {
   low: "border-amber-200 bg-amber-50 text-amber-900",
@@ -54,6 +62,12 @@ export default async function MatchPage({
     .maybeSingle();
 
   if (!match) notFound();
+
+  const { data: group } = await supabase
+    .from("groups")
+    .select("name")
+    .eq("id", grupaId)
+    .maybeSingle();
 
   let seriesPaused: boolean | null = null;
   if (match.series_id) {
@@ -116,6 +130,45 @@ export default async function MatchPage({
   const openForSignups = match.status === "najavljen";
 
   const location = match.locations;
+  const locationForCalendar = [location?.name, location?.address]
+    .filter(Boolean)
+    .join(", ") || match.location_text || "";
+
+  const showCalendar =
+    match.status !== "otkazan" &&
+    match.status !== "zavrsen" &&
+    fill.tone !== "low";
+
+  const startsAt = new Date(match.starts_at);
+  const calendarTitle = `${group?.name ?? "Termin"} — ${formatShortDate(match.starts_at)}`;
+  const calendarDescription = [
+    group?.name ? `Grupa: ${group.name}` : null,
+    match.notes?.trim() || null,
+    `Otvori termin: /grupe/${grupaId}/termin/${terminId}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const ics = showCalendar
+    ? buildIcs({
+        uid: `${terminId}@memorijalni-termin`,
+        title: calendarTitle,
+        location: locationForCalendar,
+        description: calendarDescription,
+        startsAt,
+        durationMinutes: DEFAULT_MATCH_DURATION_MINUTES,
+        reminderMinutesBefore: REMINDER_MINUTES_BEFORE,
+      })
+    : "";
+  const googleUrl = showCalendar
+    ? buildGoogleCalendarUrl({
+        title: calendarTitle,
+        location: locationForCalendar,
+        description: calendarDescription,
+        startsAt,
+        durationMinutes: DEFAULT_MATCH_DURATION_MINUTES,
+      })
+    : "";
 
   // Live match is started and run by someone in the lineup, not necessarily admin.
   const { data: myLineup } = await supabase
@@ -176,6 +229,14 @@ export default async function MatchPage({
         <div className={`mt-6 rounded-lg border p-4 text-center font-medium ${FILL_TONE_COLOR[fill.tone]}`}>
           {fill.label}
         </div>
+      )}
+
+      {showCalendar && (
+        <AddToCalendar
+          ics={ics}
+          fileName={`termin-${formatShortDate(match.starts_at).replace(/\./g, "")}.ics`}
+          googleUrl={googleUrl}
+        />
       )}
 
       <section className="mt-8">
