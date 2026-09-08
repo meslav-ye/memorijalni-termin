@@ -12,7 +12,6 @@ import {
 } from "@/lib/domain/startability";
 import { membersNotSignedUp } from "@/lib/domain/admin-signup";
 import {
-  adminSignUpForMatch,
   adminWithdrawFromMatch,
   withdrawFromMatch,
   cancelMatch,
@@ -21,6 +20,7 @@ import {
   resumeSeries,
   signUpForMatch,
 } from "../actions";
+import { AdminAddSignups } from "./AdminAddSignups";
 import { StartButton } from "./StartButton";
 
 const FILL_TONE_COLOR: Record<FillTone, string> = {
@@ -249,45 +249,11 @@ export default async function MatchPage({
       )}
 
       {admin && openForSignups && addableMembers.length > 0 && (
-        <section className="mt-6">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Dodaj člana
-          </h3>
-          <form
-            action={adminSignUpForMatch}
-            className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row sm:items-end"
-          >
-            <input type="hidden" name="groupId" value={grupaId} />
-            <input type="hidden" name="matchId" value={terminId} />
-            <label className="min-w-0 flex-1 text-sm text-slate-600">
-              <span className="mb-1 block font-medium text-slate-700">Član grupe</span>
-              <select
-                name="userId"
-                required
-                className="h-12 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900"
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Odaberi…
-                </option>
-                {addableMembers.map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.nickname}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              className="h-12 shrink-0 rounded-lg bg-marka px-5 text-sm font-semibold text-white
-                         transition active:scale-[0.98]"
-            >
-              Prijavi
-            </button>
-          </form>
-          <p className="mt-2 text-sm text-slate-500">
-            Završi na kraju reda (ili na listi čekanja ako je kvota puna).
-          </p>
-        </section>
+        <AdminAddSignups
+          groupId={grupaId}
+          matchId={terminId}
+          members={addableMembers}
+        />
       )}
 
       {/* Anyone in the lineup can start live, but only half an hour before

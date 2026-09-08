@@ -193,13 +193,20 @@ export async function withdrawFromMatch(formData: FormData) {
   revalidatePath(`/grupe/${groupId}`);
 }
 
-/** Admin signs someone else up (WhatsApp confirmation, forgot the app). */
+/** Admin signs one or more members up (WhatsApp confirmation, forgot the app). */
 export async function adminSignUpForMatch(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
   const matchId = String(formData.get("matchId") ?? "");
-  const userId = String(formData.get("userId") ?? "").trim();
+  const userIds = [
+    ...new Set(
+      formData
+        .getAll("userId")
+        .map((v) => String(v).trim())
+        .filter(Boolean),
+    ),
+  ];
 
-  if (!userId) return;
+  if (userIds.length === 0) return;
 
   const ctx = await membership(groupId);
   if (!ctx?.admin) return;
@@ -212,24 +219,26 @@ export async function adminSignUpForMatch(formData: FormData) {
 
   if (match?.status !== "najavljen") return;
 
-  const { data: target } = await ctx.supabase
+  const { data: targets } = await ctx.supabase
     .from("group_members")
     .select("user_id")
     .eq("group_id", groupId)
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .maybeSingle();
+    .in("user_id", userIds)
+    .eq("status", "active");
 
-  if (!target) return;
+  const allowed = new Set((targets ?? []).map((t) => t.user_id));
+  const toAdd = userIds.filter((id) => allowed.has(id));
+  if (toAdd.length === 0) return;
 
-  // Same end-of-queue rule as self re-signup after withdrawing.
+  // Preserve tap order in the queue: each gets a distinct signed_up_at.
+  const base = Date.now();
   await ctx.supabase.from("match_signups").upsert(
-    {
+    toAdd.map((userId, i) => ({
       match_id: matchId,
       user_id: userId,
       cancelled_at: null,
-      signed_up_at: new Date().toISOString(),
-    },
+      signed_up_at: new Date(base + i).toISOString(),
+    })),
     { onConflict: "match_id,user_id" },
   );
 
