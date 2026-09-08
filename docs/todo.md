@@ -16,21 +16,7 @@ mjesta:
 
 ---
 
-## 1. Profil člana dostupan s kartice Članovi
-
-**U kodu odrađeno** (link s Članova, povratak ovisan o `?from=`, samo aktivni
-članovi). Ostaje dok nije na produkciji.
-
----
-
-## 2. Prikaz učitavanja pri prelasku s kartice na karticu
-
-**U kodu odrađeno** (`useLinkStatus` u `Tabs.tsx` + `app/grupe/[grupaId]/loading.tsx`
-skeleton). Ostaje dok nije na produkciji.
-
----
-
-## 3. Razrada igrača: grupni i globalni rating
+## 1. Razrada igrača: grupni i globalni rating
 
 Igrač može biti u više grupa. Uz rating po grupi treba postojati i **globalni**,
 koji ga prati kroz sve grupe u kojima igra.
@@ -86,7 +72,7 @@ poziv padne.
 
 ---
 
-## 4. Ideja: povezivanje profila sa Stravom
+## 2. Ideja: povezivanje profila sa Stravom
 
 Povezati profil igrača sa Stravom i prikazati **pretrčane kilometre, brzinu i
 puls** po terminu.
@@ -182,7 +168,7 @@ To je najveći dio posla koji je već riješen.
 
 ---
 
-## 5. Stalni termin
+## 3. Stalni termin
 
 Mogućnost da se termin označi kao **stalni**, da se za grupu koja ionako igra
 svaki tjedan ne mora svaki put otvarati novi.
@@ -235,9 +221,9 @@ ključ na `matches`. Dakle trenutak pojavljivanja i trenutak stvaranja su isti.
 
 ### Ovo treba popraviti prije nego stalni termin proradi
 
-`dohvatiTermine` u `lib/podaci/termini.ts` **dohvaća sve termine grupe i sve
+`getMatches` u `lib/data/matches.ts` **dohvaća sve termine grupe i sve
 njihove prijave, bez `limit`**. Ograničenje na 20 postoji samo u prikazu
-(`app/grupe/[grupaId]/page.tsx`, `.slice(0, 20)`), ne u upitu.
+(`app/grupe/[grupaId]/page.tsx`, past slice), ne u upitu.
 
 Danas je to bezopasno jer grupa ima jedan termin. Stalni termin znači ~52 termina
 i preko 600 redova prijava **po godini**, sve dohvaćeno pri svakom otvaranju
@@ -282,7 +268,7 @@ Prelazak na zimsko vrijeme je 25.10.2026., dan prije te pojave. Ekipa bi došla 
 
 ---
 
-## 6. Ponovno pokretanje utakmice unutar termina
+## 4. Ponovno pokretanje utakmice unutar termina
 
 Mogućnost da se utakmica pokrene ispočetka: **rezultat, minutaža, golovi i
 asistencije kreću od nule**, a dotadašnje stanje se spremi. Nakon toga se igrači
@@ -316,7 +302,7 @@ Iz toga slijede dvije stvari:
 2. Ako se računa zasebno, `rating_history` dobiva N redova po igraču po terminu
    koji izgledaju **identično**, i „zadnjih 10 termina s promjenom ratinga" na
    profilu igrača postaje neupotrebljivo. Isti nedostatak je već zapisan u
-   stavci 3 — riješiti ga jednom, za oba slučaja.
+   stavci 1 — riješiti ga jednom, za oba slučaja.
 
 ### Statistika mijenja značenje
 
@@ -343,7 +329,7 @@ utakmicu, pa se brojke ne smiju razići.
 
 ---
 
-## 7. Ručno dodavanje ljudi u termin
+## 5. Ručno dodavanje ljudi u termin
 
 Netko potvrdi u WhatsAppu da dolazi, a zaboravi se prijaviti u aplikaciji. Treba
 ga se moći prijaviti umjesto njega.
@@ -387,36 +373,7 @@ pravilu. Ako se ne odluči, dogodit će se svađa oko toga tko je 12. a tko 13.
 
 ---
 
-## 8. Preimenovanje ekipa pri slaganju
-
-**U kodu odrađeno** (`team_a_name` / `team_b_name`, forma na Ekipe, prikaz na
-uživo i sažetku, max 14 znakova). Ostaje dok nije na produkciji. Migracija:
-`20260908120000_team_names.sql`.
-
----
-
-## 9. Kod mora biti na engleskom
-
-**U kodu odrađeno** (domain → data → actions → UI moduli + ostatci lokalnih
-imena/stranica + pravilo u README). Ostaje na popisu dok nije istestirano na
-produkciji — vidi pravilo u README-u.
-
-Identifikatori i imena datoteka su na engleskom. Tekst koji korisnik vidi ostaje
-hrvatski. Stupci u bazi i URL segmenti ruta (`grupe`, `[grupaId]`, …) ostaju.
-
-### Granica koju se NE smije prijeći
-
-**Tekst koji korisnik vidi ostaje hrvatski.** Aplikacija je namjerno samo na
-hrvatskom — „Prijavi se", „Fali još 7", „Ekipa A", „još nitko", poruke o
-greškama, nazivi kartica. To nije kod, to je sadržaj.
-
-Isto vrijedi za **domenske riječi koje nemaju dobar prijevod**: „termin" nije
-„match" ni „session" — to je pojam iz ovog društva i u tekstu sučelja ostaje
-termin. U kodu smije biti `match`, jer tako se već zove tablica.
-
----
-
-## 10. Statistika golmana: primljeni golovi i čiste mreže
+## 6. Statistika golmana: primljeni golovi i čiste mreže
 
 Kartica **Golmani** na statistici već postoji i stoji prazna, uz tekst da se
 podaci skupljaju i da prikaz stiže. Treba je napuniti.
@@ -431,7 +388,7 @@ Podloga je namjerno postavljena od početka:
 | svaka izmjena golmana, s minutom | `match_events` tipa `keeper_change` — nosi `team`, `scorer_id` (novi golman) i `elapsed_seconds` |
 | svaki gol, s minutom | `match_events` tipa `goal` / `own_goal` — nosi `team` i `elapsed_seconds` |
 
-U `uzivo/akcije.ts` uz upis izmjene golmana stoji i komentar zašto se piše:
+U `uzivo/actions.ts` uz upis izmjene golmana stoji i komentar zašto se piše:
 *„iz njega se kasnije računa tko je primio koji gol"*. Dakle ništa se ne mora
 skupljati unatrag — samo izračunati.
 
@@ -440,7 +397,7 @@ niza `keeper_change` složi tko je bio u golu u toj minuti.
 
 ### Tri mjesta koja sada ne dohvaćaju dovoljno
 
-`lib/podaci/statistika.ts` trenutno ne uzima ništa od toga:
+`lib/data/leaderboard.ts` trenutno ne uzima ništa od toga:
 
 1. `match_events` se dohvaća s `.in("type", ["goal", "own_goal"])` — **`keeper_change` se odbacuje.**
 2. Iz `match_events` se biraju `match_id, type, scorer_id, assist_id, deleted_at` — **nema `team` ni `elapsed_seconds`**, a oba su potrebna.
@@ -469,13 +426,8 @@ ali nedvosmisleno.
   postavi i izmjenama.
 - Kad prikaz proradi, **skloniti tekst** na statistici koji obećava da prikaz
   stiže u sljedećoj verziji.
-- Sudar sa stavkom 6: ako se uvedu više utakmica po terminu, „čista mreža" i
+- Sudar sa stavkom 4: ako se uvedu više utakmica po terminu, „čista mreža" i
   primljeni golovi računaju se po utakmici, a početna postava golmana postoji po
   utakmici.
 
 ---
-
-## 11. Unos asistencija je težak na terenu
-
-**U kodu odrađeno** (ulaz iz kronologije, „Bez asistencije” umjesto „Poništi”,
-timeout 8 s). Ostaje dok nije na produkciji. Zadnji upis pobjeđuje kod sudara.
