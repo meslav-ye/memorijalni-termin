@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
+import { getMembership, getUser } from "@/lib/data/user";
 import { formatirajTermin } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { fillStatus, type FillTone } from "@/lib/domain/fill";
@@ -24,11 +24,11 @@ export default async function StranicaTermina({
 }: PageProps<"/grupe/[grupaId]/termin/[terminId]">) {
   const { grupaId, terminId } = await params;
 
-  const user = await dohvatiKorisnika();
+  const user = await getUser();
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await dohvatiClanstvo(grupaId);
+  const clanstvo = await getMembership(grupaId);
 
   if (clanstvo?.status !== "active") notFound();
   const admin = clanstvo.role === "admin";

@@ -1,20 +1,20 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
+import { getMembership, getUser } from "@/lib/data/user";
 import { formatirajKratko } from "@/lib/format";
-import { dohvatiLjestvicu } from "@/lib/podaci/statistika";
+import { getLeaderboard } from "@/lib/data/leaderboard";
 
 export default async function StranicaIgraca({
   params,
 }: PageProps<"/grupe/[grupaId]/igrac/[igracId]">) {
   const { grupaId, igracId } = await params;
 
-  const user = await dohvatiKorisnika();
+  const user = await getUser();
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await dohvatiClanstvo(grupaId);
+  const clanstvo = await getMembership(grupaId);
   if (clanstvo?.status !== "active") notFound();
 
   const { data: profil } = await supabase
@@ -25,8 +25,8 @@ export default async function StranicaIgraca({
   if (!profil) notFound();
 
   // Statistika "sve vrijeme" — na profilu je to ono sto se zeli vidjeti.
-  const { redci, odigranihTermina } = await dohvatiLjestvicu(grupaId, null);
-  const ja = redci.find((r) => r.userId === igracId);
+  const { rows, matchesPlayed } = await getLeaderboard(grupaId, null);
+  const ja = rows.find((r) => r.userId === igracId);
 
   const { data: povijest } = await supabase
     .from("rating_history")
@@ -73,11 +73,11 @@ export default async function StranicaIgraca({
               { oznaka: "Rating", vrijednost: String(ja.rating) },
               { oznaka: "Golovi", vrijednost: String(ja.goals) },
               { oznaka: "Asistencije", vrijednost: String(ja.assists) },
-              { oznaka: "Termini", vrijednost: `${ja.matches}/${odigranihTermina}` },
+              { oznaka: "Termini", vrijednost: `${ja.matches}/${matchesPlayed}` },
               { oznaka: "Golova po terminu", vrijednost: ja.goalsPerMatch.toFixed(2) },
               { oznaka: "Pobjede", vrijednost: `${ja.wins}-${ja.draws}-${ja.losses}` },
               { oznaka: "Postotak pobjeda", vrijednost: postotak(ja.winRate) },
-              { oznaka: "Dolaznost", vrijednost: postotak(ja.postotakDolaznosti) },
+              { oznaka: "Dolaznost", vrijednost: postotak(ja.attendanceRate) },
             ].map((k) => (
               <div key={k.oznaka} className="rounded-lg border border-slate-200 bg-white p-3">
                 <p className="text-xs uppercase tracking-wide text-slate-500">{k.oznaka}</p>
@@ -86,10 +86,10 @@ export default async function StranicaIgraca({
             ))}
           </div>
 
-          {ja.najduziNiz > 1 && (
+          {ja.longestStreak > 1 && (
             <p className="mt-3 text-sm text-slate-500">
-              Najduži niz dolazaka: <strong>{ja.najduziNiz}</strong>
-              {ja.trenutniNiz > 1 && ` · trenutno 🔥${ja.trenutniNiz}`}
+              Najduži niz dolazaka: <strong>{ja.longestStreak}</strong>
+              {ja.currentStreak > 1 && ` · trenutno 🔥${ja.currentStreak}`}
             </p>
           )}
 

@@ -1,20 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dohvatiKorisnika } from "@/lib/podaci/korisnik";
-import { dohvatiLjestvicu, type RedakLjestvice } from "@/lib/podaci/statistika";
+import { getUser } from "@/lib/data/user";
+import { getLeaderboard, type LeaderboardRow } from "@/lib/data/leaderboard";
 
 /** Vodeci po jednoj kategoriji; null kad jos nitko nema nista. */
 function vodeci(
-  redci: RedakLjestvice[],
-  kljuc: (r: RedakLjestvice) => number,
-): { nadimak: string; vrijednost: number } | null {
-  const najbolji = [...redci].sort(
-    (a, b) => kljuc(b) - kljuc(a) || a.nadimak.localeCompare(b.nadimak, "hr"),
+  rows: LeaderboardRow[],
+  kljuc: (r: LeaderboardRow) => number,
+): { nickname: string; value: number } | null {
+  const najbolji = [...rows].sort(
+    (a, b) => kljuc(b) - kljuc(a) || a.nickname.localeCompare(b.nickname, "hr"),
   )[0];
 
   if (!najbolji || kljuc(najbolji) <= 0) return null;
-  return { nadimak: najbolji.nadimak, vrijednost: kljuc(najbolji) };
+  return { nickname: najbolji.nickname, value: kljuc(najbolji) };
 }
 
 function Kartica({
@@ -68,7 +68,7 @@ export default async function StranicaStatistike({
   const { grupaId } = await params;
   const upit = await searchParams;
 
-  const user = await dohvatiKorisnika();
+  const user = await getUser();
   if (!user) redirect("/prijava");
 
   const trazenaSezona = typeof upit.sezona === "string" ? upit.sezona : null;
@@ -76,12 +76,12 @@ export default async function StranicaStatistike({
 
   const sezonaZaPrikaz = sveVrijeme ? null : (trazenaSezona ?? (await najnovijaSezona(grupaId)));
 
-  const { redci, sezone, odigranihTermina, rekordi } = await dohvatiLjestvicu(
+  const { rows, seasons, matchesPlayed, records } = await getLeaderboard(
     grupaId,
     sezonaZaPrikaz,
   );
 
-  if (redci.length === 0) {
+  if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
         <p className="font-medium">Grupa još nema članova</p>
@@ -92,23 +92,23 @@ export default async function StranicaStatistike({
     );
   }
 
-  const strijelac = vodeci(redci, (r) => r.goals);
-  const asistent = vodeci(redci, (r) => r.assists);
-  const bodovi = vodeci(redci, (r) => r.goals + r.assists);
-  const dolaznost = vodeci(redci, (r) => r.matches);
+  const strijelac = vodeci(rows, (r) => r.goals);
+  const asistent = vodeci(rows, (r) => r.assists);
+  const bodovi = vodeci(rows, (r) => r.goals + r.assists);
+  const dolaznost = vodeci(rows, (r) => r.matches);
 
   // Rating svi imaju od prvog dana, pa vodeceg prikazujemo tek kad se netko
   // stvarno odvojio od pocetnih 1000 — inace bi "vodio" nasumican covjek.
-  const najRating = odigranihTermina > 0 ? vodeci(redci, (r) => r.rating) : null;
+  const najRating = matchesPlayed > 0 ? vodeci(rows, (r) => r.rating) : null;
 
-  const ukupnoGolova = redci.reduce((s, r) => s + r.goals, 0);
-  const ukupnoAsistencija = redci.reduce((s, r) => s + r.assists, 0);
+  const ukupnoGolova = rows.reduce((s, r) => s + r.goals, 0);
+  const ukupnoAsistencija = rows.reduce((s, r) => s + r.assists, 0);
 
   return (
     <div className="space-y-8">
-      {/* Prekidac sezone — isti kao na ljestvici */}
+      {/* Prekidac seasons — isti kao na ljestvici */}
       <div className="flex flex-wrap gap-2">
-        {sezone.map((s) => (
+        {seasons.map((s) => (
           <Link
             key={s.id}
             href={`/grupe/${grupaId}/statistika?sezona=${s.id}`}
@@ -119,7 +119,7 @@ export default async function StranicaStatistike({
                 : "border-slate-300 bg-white text-slate-700")
             }
           >
-            {s.naziv}
+            {s.name}
           </Link>
         ))}
         <Link
@@ -142,7 +142,7 @@ export default async function StranicaStatistike({
         </h3>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { oznaka: "Termina", v: odigranihTermina },
+            { oznaka: "Termina", v: matchesPlayed },
             { oznaka: "Golova", v: ukupnoGolova },
             { oznaka: "Asistencija", v: ukupnoAsistencija },
           ].map((k) => (
@@ -163,34 +163,34 @@ export default async function StranicaStatistike({
           <Kartica
             ikona="⚽"
             naslov="Najbolji strijelac"
-            vrijednost={strijelac ? String(strijelac.vrijednost) : "—"}
-            tko={strijelac?.nadimak ?? ""}
-            sufiks={strijelac && strijelac.vrijednost === 1 ? "gol" : "golova"}
+            vrijednost={strijelac ? String(strijelac.value) : "—"}
+            tko={strijelac?.nickname ?? ""}
+            sufiks={strijelac && strijelac.value === 1 ? "gol" : "golova"}
           />
           <Kartica
             ikona="🅰️"
             naslov="Najviše asistencija"
-            vrijednost={asistent ? String(asistent.vrijednost) : "—"}
-            tko={asistent?.nadimak ?? ""}
+            vrijednost={asistent ? String(asistent.value) : "—"}
+            tko={asistent?.nickname ?? ""}
           />
           <Kartica
             ikona="🎯"
             naslov="Najviše bodova (G+A)"
-            vrijednost={bodovi ? String(bodovi.vrijednost) : "—"}
-            tko={bodovi?.nadimak ?? ""}
+            vrijednost={bodovi ? String(bodovi.value) : "—"}
+            tko={bodovi?.nickname ?? ""}
           />
           <Kartica
             ikona="⭐"
             naslov="Najveći rating"
-            vrijednost={najRating ? String(najRating.vrijednost) : "—"}
-            tko={najRating?.nadimak ?? ""}
+            vrijednost={najRating ? String(najRating.value) : "—"}
+            tko={najRating?.nickname ?? ""}
           />
           <Kartica
             ikona="🔥"
             naslov="Najviše odigranih"
-            vrijednost={dolaznost ? String(dolaznost.vrijednost) : "—"}
-            tko={dolaznost?.nadimak ?? ""}
-            sufiks={dolaznost && dolaznost.vrijednost === 1 ? "termin" : "termina"}
+            vrijednost={dolaznost ? String(dolaznost.value) : "—"}
+            tko={dolaznost?.nickname ?? ""}
+            sufiks={dolaznost && dolaznost.value === 1 ? "termin" : "termina"}
           />
           <Kartica
             ikona="🧤"
@@ -216,14 +216,14 @@ export default async function StranicaStatistike({
             "Najveća pobjeda",
             "Najviše termina zaredom",
           ].map((naslov) => {
-            const postoji = rekordi.find((r) => r.naslov === naslov);
+            const postoji = records.find((r) => r.title === naslov);
             return (
               <Kartica
                 key={naslov}
                 ikona="🏆"
                 naslov={naslov}
-                vrijednost={postoji?.vrijednost ?? "—"}
-                tko={postoji?.tko ?? (postoji ? "—" : "")}
+                vrijednost={postoji?.value ?? "—"}
+                tko={postoji?.who ?? (postoji ? "—" : "")}
               />
             );
           })}
@@ -244,7 +244,7 @@ export default async function StranicaStatistike({
   );
 }
 
-/** Id najnovije sezone grupe, ili null ako ih nema. */
+/** Id najnovije seasons grupe, ili null ako ih nema. */
 async function najnovijaSezona(grupaId: string): Promise<string | null> {
   const supabase = await createClient();
   const { data } = await supabase

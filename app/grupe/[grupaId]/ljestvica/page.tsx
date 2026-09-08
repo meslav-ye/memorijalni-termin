@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dohvatiKorisnika } from "@/lib/podaci/korisnik";
-import { dohvatiLjestvicu } from "@/lib/podaci/statistika";
+import { getUser } from "@/lib/data/user";
+import { getLeaderboard } from "@/lib/data/leaderboard";
 
 export default async function StranicaLjestvice({
   params,
@@ -11,7 +11,7 @@ export default async function StranicaLjestvice({
   const { grupaId } = await params;
   const upit = await searchParams;
 
-  const user = await dohvatiKorisnika();
+  const user = await getUser();
   if (!user) redirect("/prijava");
 
   const trazenaSezona = typeof upit.sezona === "string" ? upit.sezona : null;
@@ -22,14 +22,14 @@ export default async function StranicaLjestvice({
     ? null
     : (trazenaSezona ?? (await najnovijaSezona(grupaId)));
 
-  const { redci, sezone, odigranihTermina, rekordi } = await dohvatiLjestvicu(
+  const { rows, seasons, matchesPlayed, records } = await getLeaderboard(
     grupaId,
     sezonaZaPrikaz,
   );
 
   // Kad jos nema odigranih termina, tablica se svejedno prikazuje — sa svim
   // clanovima na nuli. Prazan ekran ne bi rekao ni tko je u grupi ni sto se prati.
-  if (redci.length === 0) {
+  if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
         <p className="font-medium">Grupa još nema članova</p>
@@ -44,9 +44,9 @@ export default async function StranicaLjestvice({
 
   return (
     <div>
-      {/* Prekidac sezone */}
+      {/* Prekidac seasons */}
       <div className="mb-4 flex flex-wrap gap-2">
-        {sezone.map((s) => (
+        {seasons.map((s) => (
           <Link
             key={s.id}
             href={`/grupe/${grupaId}/ljestvica?sezona=${s.id}`}
@@ -57,7 +57,7 @@ export default async function StranicaLjestvice({
                 : "border-slate-300 bg-white text-slate-700")
             }
           >
-            {s.naziv}
+            {s.name}
           </Link>
         ))}
         <Link
@@ -73,14 +73,14 @@ export default async function StranicaLjestvice({
         </Link>
       </div>
 
-      {odigranihTermina === 0 ? (
+      {matchesPlayed === 0 ? (
         <p className="mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
           Još nema odigranih termina — svi kreću od ratinga 1000. Brojke se pune
           same čim se odigra prvi.
         </p>
       ) : (
         <p className="mb-3 text-sm text-slate-500">
-          {odigranihTermina} {odigranihTermina === 1 ? "odigran termin" : "odigranih termina"}
+          {matchesPlayed} {matchesPlayed === 1 ? "odigran termin" : "odigranih termina"}
         </p>
       )}
 
@@ -101,16 +101,16 @@ export default async function StranicaLjestvice({
             </tr>
           </thead>
           <tbody>
-            {redci.map((r) => (
+            {rows.map((r) => (
               <tr key={r.userId} className="border-b border-slate-100 last:border-0">
                 <td className="px-3 py-2">
                   <Link
                     href={`/grupe/${grupaId}/igrac/${r.userId}`}
                     className="font-medium underline-offset-4 hover:underline"
                   >
-                    {r.nadimak}
+                    {r.nickname}
                   </Link>
-                  {r.golman && <span title="Igra golmana"> 🧤</span>}
+                  {r.isGoalkeeper && <span title="Igra golmana"> 🧤</span>}
                 </td>
                 <td className="px-2 py-2 text-right font-semibold tabular-nums">{r.goals}</td>
                 <td className="px-2 py-2 text-right tabular-nums">{r.assists}</td>
@@ -140,26 +140,26 @@ export default async function StranicaLjestvice({
           Dolaznost
         </h3>
         <ul className="space-y-1">
-          {[...redci]
-            .sort((a, b) => b.postotakDolaznosti - a.postotakDolaznosti)
+          {[...rows]
+            .sort((a, b) => b.attendanceRate - a.attendanceRate)
             .map((r) => (
               <li
                 key={r.userId}
                 className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
               >
-                <span className="min-w-0 flex-1 truncate font-medium">{r.nadimak}</span>
+                <span className="min-w-0 flex-1 truncate font-medium">{r.nickname}</span>
                 <span className="tabular-nums text-slate-500">
-                  {r.matches}/{odigranihTermina}
+                  {r.matches}/{matchesPlayed}
                 </span>
                 <span className="w-12 text-right font-semibold tabular-nums">
-                  {postotak(r.postotakDolaznosti)}
+                  {postotak(r.attendanceRate)}
                 </span>
-                {r.trenutniNiz > 1 && (
+                {r.currentStreak > 1 && (
                   <span
                     className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-800"
                     title="Termina zaredom"
                   >
-                    🔥{r.trenutniNiz}
+                    🔥{r.currentStreak}
                   </span>
                 )}
               </li>
@@ -168,18 +168,18 @@ export default async function StranicaLjestvice({
       </section>
 
       {/* Rekordi */}
-      {rekordi.length > 0 && (
+      {records.length > 0 && (
         <section className="mt-8">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
             Rekordi
           </h3>
           <ul className="grid gap-2 sm:grid-cols-2">
-            {rekordi.map((r) => (
-              <li key={r.naslov} className="rounded-lg border border-slate-200 bg-white p-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">{r.naslov}</p>
+            {records.map((r) => (
+              <li key={r.title} className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">{r.title}</p>
                 <p className="mt-1 text-lg font-bold tabular-nums">
-                  {r.vrijednost}
-                  {r.tko && <span className="ml-2 text-sm font-medium text-slate-600">{r.tko}</span>}
+                  {r.value}
+                  {r.who && <span className="ml-2 text-sm font-medium text-slate-600">{r.who}</span>}
                 </p>
               </li>
             ))}
@@ -190,7 +190,7 @@ export default async function StranicaLjestvice({
   );
 }
 
-/** Id najnovije sezone grupe, ili null ako ih nema. */
+/** Id of the group's newest season, or null if there are none. */
 async function najnovijaSezona(grupaId: string): Promise<string | null> {
   const supabase = await createClient();
   const { data } = await supabase

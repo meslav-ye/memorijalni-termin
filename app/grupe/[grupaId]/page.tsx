@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
+import { getMembership, getUser } from "@/lib/data/user";
 import { formatirajTermin } from "@/lib/format";
-import { dohvatiTermine, type TerminSaPrijavama } from "@/lib/podaci/termini";
+import { getMatches, type MatchWithSignups } from "@/lib/data/matches";
 import type { FillTone } from "@/lib/domain/fill";
 
 const FILL_TONE_COLOR: Record<FillTone, string> = {
@@ -11,7 +11,7 @@ const FILL_TONE_COLOR: Record<FillTone, string> = {
   full: "bg-slate-200 text-slate-700",
 };
 
-function KarticaTermina({ t, grupaId }: { t: TerminSaPrijavama; grupaId: string }) {
+function KarticaTermina({ t, grupaId }: { t: MatchWithSignups; grupaId: string }) {
   const otkazan = t.status === "otkazan";
 
   return (
@@ -26,7 +26,7 @@ function KarticaTermina({ t, grupaId }: { t: TerminSaPrijavama; grupaId: string 
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-medium">{formatirajTermin(t.startsAt)}</p>
-            <p className="text-sm text-slate-500">{t.lokacija}</p>
+            <p className="text-sm text-slate-500">{t.location}</p>
           </div>
 
           {otkazan ? (
@@ -35,18 +35,18 @@ function KarticaTermina({ t, grupaId }: { t: TerminSaPrijavama; grupaId: string 
             </span>
           ) : (
             <span
-              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${FILL_TONE_COLOR[t.stanje.tone]}`}
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${FILL_TONE_COLOR[t.fill.tone]}`}
             >
-              {t.prijavljenih}/{t.capacity}
+              {t.signedUpCount}/{t.capacity}
             </span>
           )}
         </div>
 
         {!otkazan && (
           <p className="mt-2 text-sm text-slate-600">
-            {t.stanje.label}
-            {t.jaSamUnutra && <span className="ml-2 font-medium text-emerald-700">· Dolaziš</span>}
-            {t.jaCekam && <span className="ml-2 font-medium text-amber-700">· Na listi čekanja</span>}
+            {t.fill.label}
+            {t.iAmIn && <span className="ml-2 font-medium text-emerald-700">· Dolaziš</span>}
+            {t.iAmWaiting && <span className="ml-2 font-medium text-amber-700">· Na listi čekanja</span>}
           </p>
         )}
       </Link>
@@ -59,13 +59,13 @@ export default async function StranicaTermina({
 }: PageProps<"/grupe/[grupaId]">) {
   const { grupaId } = await params;
 
-  const user = await dohvatiKorisnika();
+  const user = await getUser();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await dohvatiClanstvo(grupaId);
+  const clanstvo = await getMembership(grupaId);
 
   const admin = clanstvo?.role === "admin";
-  const { nadolazeci, prosli } = await dohvatiTermine(grupaId, user.id);
+  const { upcoming, past } = await getMatches(grupaId, user.id);
 
   return (
     <div className="space-y-8">
@@ -83,7 +83,7 @@ export default async function StranicaTermina({
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Nadolazeći
         </h2>
-        {nadolazeci.length === 0 ? (
+        {upcoming.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
             {admin
               ? "Otvori prvi termin gumbom gore."
@@ -91,20 +91,20 @@ export default async function StranicaTermina({
           </p>
         ) : (
           <ul className="space-y-3">
-            {nadolazeci.map((t) => (
+            {upcoming.map((t) => (
               <KarticaTermina key={t.id} t={t} grupaId={grupaId} />
             ))}
           </ul>
         )}
       </section>
 
-      {prosli.length > 0 && (
+      {past.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
             Odigrani
           </h2>
           <ul className="space-y-3">
-            {prosli.slice(0, 20).map((t) => (
+            {past.slice(0, 20).map((t) => (
               <KarticaTermina key={t.id} t={t} grupaId={grupaId} />
             ))}
           </ul>

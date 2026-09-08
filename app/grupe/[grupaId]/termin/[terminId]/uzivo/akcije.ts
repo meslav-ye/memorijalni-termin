@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { oznakaLjestvice } from "@/lib/podaci/statistika";
+import { leaderboardTag } from "@/lib/data/leaderboard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findRecentDuplicate, secondsAgo, DUPLICATE_WINDOW_SECONDS } from "@/lib/domain/duplicates";
@@ -370,7 +370,7 @@ export async function zavrsiTermin(grupaId: string, terminId: string): Promise<O
 
   // Ljestvica se drzi u predmemoriji; ovo je jedini trenutak kad se stvarno
   // promijeni, pa se ovdje ponistava.
-  updateTag(oznakaLjestvice(grupaId));
+  updateTag(leaderboardTag(grupaId));
 
   revalidatePath(`/grupe/${grupaId}`);
   revalidatePath(`/grupe/${grupaId}/termin/${terminId}`);

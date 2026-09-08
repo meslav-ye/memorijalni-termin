@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
+import { getMembership, getUser } from "@/lib/data/user";
 import { formatirajKratko, formatirajTermin } from "@/lib/format";
 import { formatClock } from "@/lib/domain/timer";
 import type { Team } from "@/lib/domain/types";
@@ -12,11 +12,11 @@ export default async function StranicaSazetka({
 }: PageProps<"/grupe/[grupaId]/termin/[terminId]/sazetak">) {
   const { grupaId, terminId } = await params;
 
-  const user = await dohvatiKorisnika();
+  const user = await getUser();
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await dohvatiClanstvo(grupaId);
+  const clanstvo = await getMembership(grupaId);
   if (clanstvo?.status !== "active") notFound();
 
   const { data: termin } = await supabase

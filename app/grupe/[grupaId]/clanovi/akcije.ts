@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import { oznakaLjestvice } from "@/lib/podaci/statistika";
+import { leaderboardTag } from "@/lib/data/leaderboard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -56,7 +56,7 @@ export async function odobriClana(formData: FormData) {
     );
 
   revalidatePath(`/grupe/${grupaId}/clanovi`);
-  updateTag(oznakaLjestvice(grupaId));
+  updateTag(leaderboardTag(grupaId));
 }
 
 export async function odbijClana(formData: FormData) {
@@ -74,7 +74,7 @@ export async function odbijClana(formData: FormData) {
     .eq("status", "pending");
 
   revalidatePath(`/grupe/${grupaId}/clanovi`);
-  updateTag(oznakaLjestvice(grupaId));
+  updateTag(leaderboardTag(grupaId));
 }
 
 export async function izbaciClana(formData: FormData) {
@@ -94,7 +94,7 @@ export async function izbaciClana(formData: FormData) {
     .eq("user_id", korisnikId);
 
   revalidatePath(`/grupe/${grupaId}/clanovi`);
-  updateTag(oznakaLjestvice(grupaId));
+  updateTag(leaderboardTag(grupaId));
 }
 
 export async function promijeniUlogu(formData: FormData) {
@@ -126,5 +126,5 @@ export async function promijeniUlogu(formData: FormData) {
     .eq("user_id", korisnikId);
 
   revalidatePath(`/grupe/${grupaId}/clanovi`);
-  updateTag(oznakaLjestvice(grupaId));
+  updateTag(leaderboardTag(grupaId));
 }

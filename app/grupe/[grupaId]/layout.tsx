@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
+import { getMembership, getUser } from "@/lib/data/user";
 import { Tabovi } from "./Tabovi";
 
 export default async function LayoutGrupe({
@@ -12,7 +12,7 @@ export default async function LayoutGrupe({
 
   // Korisnik i clanstvo idu kroz cache() — stranica ispod pita isto,
   // a ovako se prema bazi ode samo jednom po zahtjevu.
-  const korisnik = await dohvatiKorisnika();
+  const korisnik = await getUser();
   if (!korisnik) redirect("/prijava");
 
   const supabase = await createClient();
@@ -27,7 +27,7 @@ export default async function LayoutGrupe({
 
   if (!grupa) notFound();
 
-  const clanstvo = await dohvatiClanstvo(grupaId);
+  const clanstvo = await getMembership(grupaId);
   const admin = clanstvo?.role === "admin" && clanstvo.status === "active";
 
   return (

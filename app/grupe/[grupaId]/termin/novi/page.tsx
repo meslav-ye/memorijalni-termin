@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
+import { getMembership, getUser } from "@/lib/data/user";
 import { ObrazacNoviTermin } from "./ObrazacNoviTermin";
 
 export default async function StranicaNoviTermin({
@@ -9,11 +9,11 @@ export default async function StranicaNoviTermin({
 }: PageProps<"/grupe/[grupaId]/termin/novi">) {
   const { grupaId } = await params;
 
-  const user = await dohvatiKorisnika();
+  const user = await getUser();
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await dohvatiClanstvo(grupaId);
+  const clanstvo = await getMembership(grupaId);
 
   if (clanstvo?.role !== "admin" || clanstvo.status !== "active") notFound();
 
