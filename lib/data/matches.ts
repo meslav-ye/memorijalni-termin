@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { fillStatus, type FillStatus } from "@/lib/domain/fill";
+import { ensureUpcomingSeriesOccurrences } from "@/lib/data/series";
 
 export type MatchWithSignups = {
   id: string;
@@ -14,6 +15,7 @@ export type MatchWithSignups = {
   fill: FillStatus;
   iAmIn: boolean;
   iAmWaiting: boolean;
+  seriesId: string | null;
 };
 
 export type SplitMatches = {
@@ -21,38 +23,53 @@ export type SplitMatches = {
   past: MatchWithSignups[];
 };
 
+const PAST_LIMIT = 20;
+
 /**
  * Fetches group matches and computes fill status for each.
  *
- * Intentionally lives OUTSIDE the component: it reads the current time, and
- * reading the clock inside a render function can change between two renders.
- * Here it is called once per request and returns ready data.
+ * Materialises the next series occurrence when it enters the 6-day window,
+ * then loads a bounded set of matches (not the whole history) and signups
+ * only for those rows.
  */
 export async function getMatches(groupId: string, userId: string): Promise<SplitMatches> {
+  await ensureUpcomingSeriesOccurrences(groupId);
+
   const supabase = await createClient();
+  const nowIso = new Date().toISOString();
 
-  const { data: matches } = await supabase
-    .from("matches")
-    .select(
-      "id, starts_at, capacity, min_players, status, notes, location_text, locations(name)",
-    )
-    .eq("group_id", groupId)
-    .order("starts_at", { ascending: false });
+  const [{ data: upcomingRows }, { data: pastRows }] = await Promise.all([
+    supabase
+      .from("matches")
+      .select(
+        "id, starts_at, capacity, min_players, status, notes, location_text, series_id, locations(name)",
+      )
+      .eq("group_id", groupId)
+      .gte("starts_at", nowIso)
+      .neq("status", "otkazan")
+      .order("starts_at", { ascending: true })
+      .limit(10),
+    supabase
+      .from("matches")
+      .select(
+        "id, starts_at, capacity, min_players, status, notes, location_text, series_id, locations(name)",
+      )
+      .eq("group_id", groupId)
+      .or(`starts_at.lt.${nowIso},status.eq.otkazan`)
+      .order("starts_at", { ascending: false })
+      .limit(PAST_LIMIT),
+  ]);
 
-  const allMatches = matches ?? [];
+  const allMatches = [...(upcomingRows ?? []), ...(pastRows ?? [])];
   if (allMatches.length === 0) return { upcoming: [], past: [] };
 
+  const matchIds = allMatches.map((t) => t.id);
   const { data: signups } = await supabase
     .from("match_signups")
     .select("match_id, user_id, signed_up_at, manual_order, cancelled_at")
-    .in(
-      "match_id",
-      allMatches.map((t) => t.id),
-    );
+    .in("match_id", matchIds);
 
-  const now = Date.now();
-
-  const enriched: MatchWithSignups[] = allMatches.map((t) => {
+  const enrich = (t: (typeof allMatches)[number]): MatchWithSignups => {
     const forMatch = (signups ?? [])
       .filter((p) => p.match_id === t.id)
       .map((p) => ({
@@ -76,15 +93,12 @@ export async function getMatches(groupId: string, userId: string): Promise<Split
       fill: fillStatus(confirmed.length, t.min_players, t.capacity),
       iAmIn: confirmed.includes(userId),
       iAmWaiting: waitlist.includes(userId),
+      seriesId: t.series_id,
     };
-  });
+  };
 
   return {
-    upcoming: enriched
-      .filter((t) => new Date(t.startsAt).getTime() >= now && t.status !== "otkazan")
-      .reverse(),
-    past: enriched.filter(
-      (t) => new Date(t.startsAt).getTime() < now || t.status === "otkazan",
-    ),
+    upcoming: (upcomingRows ?? []).map(enrich),
+    past: (pastRows ?? []).map(enrich),
   };
 }

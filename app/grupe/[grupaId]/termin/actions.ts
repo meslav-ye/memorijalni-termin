@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { matchYear, ensureSeason } from "@/lib/seasons";
 import { zagrebUIso } from "@/lib/format";
+import { zagrebWeekdayFromYmd } from "@/lib/domain/recurring";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { suggestTeams } from "@/lib/domain/teams";
 import { normalizeTeamName } from "@/lib/domain/team-name";
@@ -46,6 +47,7 @@ export async function createMatch(
   const locationId = String(formData.get("lokacija") ?? "").trim();
   const locationText = String(formData.get("lokacijaTekst") ?? "").trim();
   const notes = String(formData.get("napomena") ?? "").trim();
+  const recurring = formData.get("stalni") === "on";
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Odaberi datum." };
   if (!/^\d{2}:\d{2}$/.test(time)) return { error: "Odaberi vrijeme." };
@@ -72,11 +74,36 @@ export async function createMatch(
   const seasonId = await ensureSeason(groupId, matchYear(startsAt));
   if (!seasonId) return { error: "Sezona nije pripremljena. Pokušaj ponovno." };
 
+  let seriesId: string | null = null;
+  if (recurring) {
+    const { data: series, error: seriesError } = await ctx.supabase
+      .from("match_series")
+      .insert({
+        group_id: groupId,
+        weekday: zagrebWeekdayFromYmd(date),
+        time_local: time,
+        location_id: locationId || null,
+        location_text: locationId ? null : locationText,
+        capacity,
+        min_players: minPlayers,
+        notes: notes || null,
+        created_by: ctx.user.id,
+      })
+      .select("id")
+      .single();
+
+    if (seriesError || !series) {
+      return { error: "Stalni termin nije spremljen. Pokušaj ponovno." };
+    }
+    seriesId = series.id;
+  }
+
   const { data: match, error } = await ctx.supabase
     .from("matches")
     .insert({
       group_id: groupId,
       season_id: seasonId,
+      series_id: seriesId,
       location_id: locationId || null,
       location_text: locationId ? null : locationText,
       starts_at: startsAt,
@@ -398,4 +425,42 @@ export async function cancelMatch(formData: FormData) {
 
   revalidatePath(`/grupe/${groupId}`);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+}
+
+/** Pause weekly series — existing matches stay; no new occurrences. */
+export async function pauseSeries(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const seriesId = String(formData.get("seriesId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+
+  const ctx = await membership(groupId);
+  if (!ctx?.admin || !seriesId) return;
+
+  await ctx.supabase
+    .from("match_series")
+    .update({ paused_at: new Date().toISOString() })
+    .eq("id", seriesId)
+    .eq("group_id", groupId);
+
+  revalidatePath(`/grupe/${groupId}`);
+  if (matchId) revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+}
+
+/** Resume a paused weekly series. */
+export async function resumeSeries(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const seriesId = String(formData.get("seriesId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+
+  const ctx = await membership(groupId);
+  if (!ctx?.admin || !seriesId) return;
+
+  await ctx.supabase
+    .from("match_series")
+    .update({ paused_at: null })
+    .eq("id", seriesId)
+    .eq("group_id", groupId);
+
+  revalidatePath(`/grupe/${groupId}`);
+  if (matchId) revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
 }

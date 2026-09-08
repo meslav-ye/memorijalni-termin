@@ -16,6 +16,8 @@ import {
   adminWithdrawFromMatch,
   withdrawFromMatch,
   cancelMatch,
+  pauseSeries,
+  resumeSeries,
   signUpForMatch,
 } from "../actions";
 import { StartButton } from "./StartButton";
@@ -42,11 +44,23 @@ export default async function MatchPage({
 
   const { data: match } = await supabase
     .from("matches")
-    .select("id, starts_at, capacity, min_players, status, notes, location_text, locations(name, address, maps_url)")
+    .select(
+      "id, starts_at, capacity, min_players, status, notes, location_text, series_id, locations(name, address, maps_url)",
+    )
     .eq("id", terminId)
     .maybeSingle();
 
   if (!match) notFound();
+
+  let seriesPaused: boolean | null = null;
+  if (match.series_id) {
+    const { data: series } = await supabase
+      .from("match_series")
+      .select("paused_at")
+      .eq("id", match.series_id)
+      .maybeSingle();
+    seriesPaused = series ? series.paused_at !== null : null;
+  }
 
   const { data: signups } = await supabase
     .from("match_signups")
@@ -320,8 +334,31 @@ export default async function MatchPage({
           <input type="hidden" name="groupId" value={grupaId} />
           <input type="hidden" name="matchId" value={terminId} />
           <button className="text-sm text-red-700 underline underline-offset-4">
-            Otkaži termin
+            Otkaži ovaj termin
           </button>
+          <p className="mt-1 text-sm text-slate-500">
+            Otkazuje samo ovaj tjedan
+            {match.series_id ? ", ne cijeli stalni termin." : "."}
+          </p>
+        </form>
+      )}
+
+      {admin && match.series_id && seriesPaused !== null && (
+        <form
+          action={seriesPaused ? resumeSeries : pauseSeries}
+          className="mt-4"
+        >
+          <input type="hidden" name="groupId" value={grupaId} />
+          <input type="hidden" name="seriesId" value={match.series_id} />
+          <input type="hidden" name="matchId" value={terminId} />
+          <button className="text-sm text-slate-700 underline underline-offset-4">
+            {seriesPaused ? "Uključi stalni termin" : "Ugasi stalni termin"}
+          </button>
+          <p className="mt-1 text-sm text-slate-500">
+            {seriesPaused
+              ? "Ponovno će se stvarati tjedne pojave."
+              : "Prestaje stvarati nove tjedne pojave (ljetna pauza)."}
+          </p>
         </form>
       )}
 

@@ -302,6 +302,73 @@ export type Database = {
           },
         ]
       }
+      match_series: {
+        Row: {
+          capacity: number
+          created_at: string
+          created_by: string
+          group_id: string
+          id: string
+          location_id: string | null
+          location_text: string | null
+          min_players: number
+          notes: string | null
+          paused_at: string | null
+          time_local: string
+          weekday: number
+        }
+        Insert: {
+          capacity?: number
+          created_at?: string
+          created_by: string
+          group_id: string
+          id?: string
+          location_id?: string | null
+          location_text?: string | null
+          min_players?: number
+          notes?: string | null
+          paused_at?: string | null
+          time_local: string
+          weekday: number
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          created_by?: string
+          group_id?: string
+          id?: string
+          location_id?: string | null
+          location_text?: string | null
+          min_players?: number
+          notes?: string | null
+          paused_at?: string | null
+          time_local?: string
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_series_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_series_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_series_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           capacity: number
@@ -318,6 +385,7 @@ export type Database = {
           score_a: number
           score_b: number
           season_id: string
+          series_id: string | null
           started_at: string | null
           starts_at: string
           status: Database["public"]["Enums"]["match_status"]
@@ -340,6 +408,7 @@ export type Database = {
           score_a?: number
           score_b?: number
           season_id: string
+          series_id?: string | null
           started_at?: string | null
           starts_at: string
           status?: Database["public"]["Enums"]["match_status"]
@@ -362,6 +431,7 @@ export type Database = {
           score_a?: number
           score_b?: number
           season_id?: string
+          series_id?: string | null
           started_at?: string | null
           starts_at?: string
           status?: Database["public"]["Enums"]["match_status"]
@@ -396,6 +466,13 @@ export type Database = {
             columns: ["season_id"]
             isOneToOne: false
             referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "match_series"
             referencedColumns: ["id"]
           },
         ]

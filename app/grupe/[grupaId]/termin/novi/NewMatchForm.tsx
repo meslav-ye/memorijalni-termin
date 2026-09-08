@@ -140,6 +140,21 @@ export function NewMatchForm({
         />
       </div>
 
+      <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4">
+        <input
+          type="checkbox"
+          name="stalni"
+          className="mt-1 h-4 w-4 rounded border-slate-300 text-marka focus:ring-marka"
+        />
+        <span>
+          <span className="block text-sm font-medium text-slate-800">Stalni termin</span>
+          <span className="mt-0.5 block text-sm text-slate-500">
+            Ponavlja se svaki tjedan u isto vrijeme. Sljedeći se pojavi 6 dana
+            prije početka.
+          </span>
+        </span>
+      </label>
+
       <button
         type="submit"
         disabled={pending}

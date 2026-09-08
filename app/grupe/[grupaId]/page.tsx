@@ -25,7 +25,14 @@ function MatchCard({ t, grupaId }: { t: MatchWithSignups; grupaId: string }) {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">{formatMatchDateTime(t.startsAt)}</p>
+            <p className="font-medium">
+              {formatMatchDateTime(t.startsAt)}
+              {t.seriesId && (
+                <span className="ml-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Stalni
+                </span>
+              )}
+            </p>
             <p className="text-sm text-slate-500">{t.location}</p>
           </div>
 
@@ -104,7 +111,7 @@ export default async function GroupMatchesPage({
             Odigrani
           </h2>
           <ul className="space-y-3">
-            {past.slice(0, 20).map((t) => (
+            {past.map((t) => (
               <MatchCard key={t.id} t={t} grupaId={grupaId} />
             ))}
           </ul>
