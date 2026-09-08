@@ -107,7 +107,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
     return "";
   };
 
-  // Mobile: Igrač · G · A · Rating — everything else from sm/md up so rating stays on-screen.
+  // Mobile: Igrač · G · A · U · % · Rtg — AG / G/U / P-N-P from sm/md up.
   return (
     <div className="rounded-lg border border-slate-200 bg-white">
       <table className="w-full table-fixed text-sm">
@@ -155,7 +155,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               sortKey="matches"
               activeKey={sortKey}
               dir={sortDir}
-              className="hidden w-9 sm:table-cell"
+              className="w-9"
               onSort={onSort}
             />
             <SortHeader
@@ -182,7 +182,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               sortKey="winRate"
               activeKey={sortKey}
               dir={sortDir}
-              className="hidden w-12 sm:table-cell"
+              className="w-12"
               onSort={onSort}
             />
             <SortHeader
@@ -232,7 +232,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
                 <td className="hidden px-1 py-2 text-right tabular-nums text-slate-400 sm:table-cell">
                   {r.ownGoals || ""}
                 </td>
-                <td className="hidden px-1 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
+                <td className="px-1 py-2 text-right tabular-nums text-slate-500">
                   {r.matches}
                 </td>
                 <td className="hidden px-1 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
@@ -241,7 +241,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
                 <td className="hidden px-1 py-2 text-right tabular-nums text-slate-500 md:table-cell">
                   {r.wins}-{r.draws}-{r.losses}
                 </td>
-                <td className="hidden px-1 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
+                <td className="px-1 py-2 text-right tabular-nums text-slate-500">
                   {pct(r.winRate)}
                 </td>
                 <td className="px-1.5 py-2 text-right font-semibold tabular-nums">{r.rating}</td>
