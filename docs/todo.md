@@ -508,14 +508,12 @@ iPhone SE.
 
 ## 9. Kod mora biti na engleskom
 
-**U kodu odrađeno** (domain → data → actions → UI moduli + pravilo u README).
-Ostaje na popisu dok nije istestirano na produkciji — vidi pravilo u README-u.
+**U kodu odrađeno** (domain → data → actions → UI moduli + ostatci lokalnih
+imena/stranica + pravilo u README). Ostaje na popisu dok nije istestirano na
+produkciji — vidi pravilo u README-u.
 
-Identifikatori, imena datoteka i komentari u diranim datotekama su na engleskom.
-Tekst koji korisnik vidi ostaje hrvatski. Stupci u bazi su već engleski.
-
-Mogući sitni ostaci (npr. lokalne varijable ili imena page funkcija tipa
-`Stranica…`) prevode se uz sljedeću izmjenu te datoteke, ne zasebnim prolazom.
+Identifikatori i imena datoteka su na engleskom. Tekst koji korisnik vidi ostaje
+hrvatski. Stupci u bazi i URL segmenti ruta (`grupe`, `[grupaId]`, …) ostaju.
 
 ### Granica koju se NE smije prijeći
 
