@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findRecentDuplicate, secondsAgo, DUPLICATE_WINDOW_SECONDS } from "@/lib/domain/duplicates";
 import { INITIAL_RATING } from "@/lib/domain/elo";
+import { computeContributions } from "@/lib/domain/contribution";
 import { computeDualElo } from "@/lib/domain/settle-ratings";
 import { canStart, MINUTES_BEFORE_START } from "@/lib/domain/startability";
 import type { Team } from "@/lib/domain/types";
@@ -296,10 +297,16 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
 
   const { data: lineup } = await admin
     .from("match_lineup")
-    .select("user_id, team")
+    .select("user_id, team, is_goalkeeper")
     .eq("game_id", gameId);
 
   if (!game || !lineup?.length) return;
+
+  const { data: events } = await admin
+    .from("match_events")
+    .select("type, team, scorer_id, assist_id, elapsed_seconds, deleted_at")
+    .eq("game_id", gameId)
+    .in("type", ["goal", "own_goal", "keeper_change"]);
 
   const userIds = lineup.map((p) => p.user_id);
 
@@ -333,9 +340,36 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
     scoreB: game.score_b,
   });
 
+  const contrib = computeContributions({
+    lineup: lineup.map((p) => ({
+      userId: p.user_id,
+      team: p.team as Team,
+      isGoalkeeper: p.is_goalkeeper,
+    })),
+    events: (events ?? []).map((e) => ({
+      type: e.type as "goal" | "own_goal" | "keeper_change",
+      team: e.team as Team | null,
+      scorerId: e.scorer_id,
+      assistId: e.assist_id,
+      elapsedSeconds: e.elapsed_seconds,
+      deletedAt: e.deleted_at,
+    })),
+  });
+
+  const withContrib = <T extends { userId: string; ratingBefore: number; ratingAfter: number }>(
+    updates: T[],
+  ) =>
+    updates.map((u) => {
+      const c = contrib.get(u.userId)?.clamped ?? 0;
+      return { ...u, ratingAfter: u.ratingAfter + c };
+    });
+
+  const groupUpdates = withContrib(group.updates);
+  const globalUpdates = withContrib(global.updates);
+
   const historyRows = [
     ...(!hasGroup
-      ? group.updates.map((u) => ({
+      ? groupUpdates.map((u) => ({
           match_id: matchId,
           game_id: gameId,
           user_id: u.userId,
@@ -345,7 +379,7 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
         }))
       : []),
     ...(!hasGlobal
-      ? global.updates.map((u) => ({
+      ? globalUpdates.map((u) => ({
           match_id: matchId,
           game_id: gameId,
           user_id: u.userId,
@@ -363,7 +397,7 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
   });
 
   if (!hasGroup) {
-    for (const u of group.updates) {
+    for (const u of groupUpdates) {
       await admin.rpc("apply_rating", {
         p_group: groupId,
         p_user: u.userId,
@@ -373,7 +407,7 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
   }
 
   if (!hasGlobal) {
-    for (const u of global.updates) {
+    for (const u of globalUpdates) {
       await admin.rpc("apply_global_rating", {
         p_user: u.userId,
         p_rating: u.ratingAfter,

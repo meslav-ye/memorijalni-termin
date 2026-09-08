@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatShortDate, formatMatchDateTime } from "@/lib/format";
 import { formatClock } from "@/lib/domain/timer";
+import { computeContributions } from "@/lib/domain/contribution";
 import type { Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
 import { ShareButton } from "./ShareButton";
@@ -46,14 +47,14 @@ export default async function SummaryPage({
   const [{ data: lineup }, { data: events }, { data: history }] = await Promise.all([
     supabase
       .from("match_lineup")
-      .select("game_id, user_id, team")
+      .select("game_id, user_id, team, is_goalkeeper")
       .in("game_id", gameIds.length ? gameIds : ["-"]),
     supabase
       .from("match_events")
-      .select("game_id, type, team, scorer_id, assist_id, elapsed_seconds")
+      .select("game_id, type, team, scorer_id, assist_id, elapsed_seconds, deleted_at")
       .in("game_id", gameIds.length ? gameIds : ["-"])
       .is("deleted_at", null)
-      .in("type", ["goal", "own_goal"])
+      .in("type", ["goal", "own_goal", "keeper_change"])
       .order("elapsed_seconds"),
     supabase
       .from("rating_history")
@@ -76,11 +77,31 @@ export default async function SummaryPage({
 
   const gameBlocks = finished.map((game) => {
     const gameLineup = (lineup ?? []).filter((p) => p.game_id === game.id);
-    const goals = (events ?? []).filter((e) => e.game_id === game.id);
+    const gameEvents = (events ?? []).filter((e) => e.game_id === game.id);
+    const goals = gameEvents.filter((e) => e.type === "goal" || e.type === "own_goal");
     const gameHistory = (history ?? []).filter((h) => h.game_id === game.id);
+
+    const contrib = computeContributions({
+      lineup: gameLineup.map((p) => ({
+        userId: p.user_id,
+        team: p.team as Team,
+        isGoalkeeper: p.is_goalkeeper,
+      })),
+      events: gameEvents.map((e) => ({
+        type: e.type as "goal" | "own_goal" | "keeper_change",
+        team: e.team as Team | null,
+        scorerId: e.scorer_id,
+        assistId: e.assist_id,
+        elapsedSeconds: e.elapsed_seconds,
+        deletedAt: e.deleted_at,
+      })),
+    });
 
     const players = gameLineup.map((p) => {
       const record = gameHistory.find((r) => r.user_id === p.user_id);
+      const delta = record ? record.rating_after - record.rating_before : null;
+      const contribution = contrib.get(p.user_id)?.clamped ?? 0;
+      const eloDelta = delta !== null ? delta - contribution : null;
       return {
         userId: p.user_id,
         nickname: nicknameOf(p.user_id),
@@ -88,7 +109,9 @@ export default async function SummaryPage({
         goals: goals.filter((e) => e.type === "goal" && e.scorer_id === p.user_id).length,
         assists: goals.filter((e) => e.assist_id === p.user_id).length,
         ownGoals: goals.filter((e) => e.type === "own_goal" && e.scorer_id === p.user_id).length,
-        delta: record ? record.rating_after - record.rating_before : null,
+        delta,
+        eloDelta,
+        contribution,
         rating: record?.rating_after ?? null,
       };
     });
@@ -244,6 +267,8 @@ type SummaryPlayer = {
   assists: number;
   ownGoals: number;
   delta: number | null;
+  eloDelta: number | null;
+  contribution: number;
   rating: number | null;
 };
 
@@ -261,6 +286,8 @@ function TeamColumn({
 }) {
   const members = players.filter((i) => i.team === side);
   const won = winner === side;
+
+  const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
 
   return (
     <div className="flex-1">
@@ -283,12 +310,16 @@ function TeamColumn({
             {i.delta !== null && (
               <span
                 className={
-                  "shrink-0 w-10 text-right text-xs font-semibold tabular-nums " +
+                  "shrink-0 min-w-10 text-right text-xs font-semibold tabular-nums " +
                   (i.delta > 0 ? "text-emerald-700" : i.delta < 0 ? "text-red-600" : "text-slate-400")
                 }
-                title={`Rating: ${i.rating}`}
+                title={
+                  i.eloDelta !== null
+                    ? `Elo ${fmt(i.eloDelta)} · doprinos ${fmt(i.contribution)} · rating ${i.rating}`
+                    : `Rating: ${i.rating}`
+                }
               >
-                {i.delta > 0 ? `+${i.delta}` : i.delta}
+                {fmt(i.delta)}
               </span>
             )}
           </li>

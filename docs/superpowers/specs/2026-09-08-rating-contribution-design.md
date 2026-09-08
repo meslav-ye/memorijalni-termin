@@ -18,8 +18,20 @@ Keep team Elo as the base rating move, then add a small **additive** individual 
 | Assist | +1 |
 | Own goal (`own_goal`, scorer) | −1 |
 | Goals conceded while active keeper | band below |
+| Team goals conceded (every player on that side) | **−⌊n / 4⌋**, max **−3** |
 
 3. Clamp the **sum** of a player’s contribution to **[−6, +6]**.
+
+### Team conceded ladder (defence stake)
+
+| Team conceded | Points (each player on that team) |
+|---|---|
+| 0–3 | 0 |
+| 4–7 | −1 |
+| 8–11 | −2 |
+| 12+ | −3 |
+
+Replaces a one-shot blowout threshold — gradual so “only attack” leaks matter before 14.
 4. `ratingAfter = ratingBefore + eloDelta + contrib` (same contrib for group and global).
 
 ### Keeper band (goals conceded while active)
