@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { teamNameOnDarkClass, teamPanelClass } from "@/lib/domain/team-colors";
 import { formatClock, elapsedSeconds } from "@/lib/domain/timer";
 import type { MatchTimerState, Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
@@ -404,13 +405,23 @@ export function LiveScreen({
           Utakmica {state.gameSeq}
         </p>
         <div className="flex items-center justify-center gap-4">
-          <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold uppercase text-slate-400">
+          <span
+            className={
+              "min-w-0 flex-1 truncate text-right text-sm font-semibold uppercase " +
+              teamNameOnDarkClass("A")
+            }
+          >
             {teamAName}
           </span>
           <span className="text-4xl font-bold tabular-nums" aria-label="Rezultat">
             {scoreA} : {scoreB}
           </span>
-          <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold uppercase text-slate-400">
+          <span
+            className={
+              "min-w-0 flex-1 truncate text-left text-sm font-semibold uppercase " +
+              teamNameOnDarkClass("B")
+            }
+          >
             {teamBName}
           </span>
         </div>
@@ -495,6 +506,7 @@ export function LiveScreen({
               key={p.userId}
               nickname={p.nickname}
               goals={playerGoals(p.userId)}
+              team={p.team}
               isGoalkeeper={p.isGoalkeeper}
               canBeGoalkeeper={false}
               disabled={locked}
@@ -510,6 +522,7 @@ export function LiveScreen({
               key={p.userId}
               nickname={p.nickname}
               goals={playerGoals(p.userId)}
+              team={p.team}
               isGoalkeeper={p.isGoalkeeper}
               canBeGoalkeeper={false}
               disabled={locked}
@@ -538,7 +551,10 @@ export function LiveScreen({
             {activeEvents.map((e) => (
               <li
                 key={e.id}
-                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                className={
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm " +
+                  teamPanelClass(e.team)
+                }
               >
                 <span className="w-12 shrink-0 tabular-nums text-slate-400">
                   {formatClock(e.elapsedSeconds)}

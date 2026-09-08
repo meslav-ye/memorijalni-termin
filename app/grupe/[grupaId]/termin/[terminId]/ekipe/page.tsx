@@ -7,6 +7,7 @@ import { formatMatchDateTime } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { membersNotSignedUp } from "@/lib/domain/admin-signup";
 import { MAX_TEAM_NAME_LENGTH, teamDisplayName } from "@/lib/domain/team-name";
+import { teamHeadingClass, teamPanelClass } from "@/lib/domain/team-colors";
 import { proposeTeams, movePlayer, setGoalkeeper, setTeamNames } from "../../actions";
 import { AdminAddSignups } from "../AdminAddSignups";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -43,7 +44,7 @@ function TeamColumn({
   return (
     <div className="flex-1">
       <div className="mb-2">
-        <h3 className="font-bold">{title}</h3>
+        <h3 className={"font-bold " + teamHeadingClass(team)}>{title}</h3>
         <p className="text-xs text-slate-500">
           {players.length} {players.length === 1 ? "igrač" : "igrača"} · prosjek {average}
         </p>
@@ -65,7 +66,7 @@ function TeamColumn({
               // inspecting the icon — so the whole row is colored.
               (p.isGoalkeeper
                 ? "border-emerald-400 bg-emerald-50 ring-1 ring-emerald-400/40"
-                : "border-slate-200 bg-white")
+                : teamPanelClass(team))
             }
           >
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.nickname}</span>

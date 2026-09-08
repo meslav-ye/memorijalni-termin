@@ -7,6 +7,7 @@ import { formatClock } from "@/lib/domain/timer";
 import { computeContributions } from "@/lib/domain/contribution";
 import type { Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
+import { teamHeadingClass, teamNameOnDarkClass, teamPanelClass } from "@/lib/domain/team-colors";
 import { ShareButton } from "./ShareButton";
 import { deleteMatch } from "../../actions";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -223,13 +224,23 @@ export default async function SummaryPage({
                 Utakmica {b.game.seq}
               </p>
               <div className="flex items-center justify-center gap-4">
-                <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold uppercase text-slate-400">
+                <span
+                  className={
+                    "min-w-0 flex-1 truncate text-right text-sm font-semibold uppercase " +
+                    teamNameOnDarkClass("A")
+                  }
+                >
                   {b.labelA}
                 </span>
                 <span className="text-4xl font-bold tabular-nums">
                   {b.game.score_a} : {b.game.score_b}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold uppercase text-slate-400">
+                <span
+                  className={
+                    "min-w-0 flex-1 truncate text-left text-sm font-semibold uppercase " +
+                    teamNameOnDarkClass("B")
+                  }
+                >
                   {b.labelB}
                 </span>
               </div>
@@ -256,7 +267,10 @@ export default async function SummaryPage({
                   {b.goals.map((e, i) => (
                     <li
                       key={`${b.game.id}-${i}`}
-                      className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                      className={
+                        "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm " +
+                        teamPanelClass(e.team)
+                      }
                     >
                       <span className="w-12 shrink-0 tabular-nums text-slate-400">
                         {formatClock(e.elapsed_seconds)}
@@ -343,7 +357,7 @@ function TeamColumn({
 
   return (
     <div className="flex-1">
-      <h3 className="mb-2 truncate font-bold">
+      <h3 className={"mb-2 truncate font-bold " + teamHeadingClass(side)}>
         {label}
         {won && <span className="ml-2 text-sm font-semibold text-emerald-700">✓</span>}
       </h3>
@@ -351,7 +365,10 @@ function TeamColumn({
         {members.map((i) => (
           <li
             key={i.userId}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+            className={
+              "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm " +
+              teamPanelClass(side)
+            }
           >
             <span className="min-w-0 flex-1 truncate font-medium">{i.nickname}</span>
 

@@ -16,6 +16,7 @@ const LONG_PRESS_MS = 600;
 export function PlayerButton({
   nickname,
   goals,
+  team,
   isGoalkeeper,
   canBeGoalkeeper = true,
   disabled,
@@ -25,6 +26,7 @@ export function PlayerButton({
 }: {
   nickname: string;
   goals: number;
+  team: "A" | "B";
   isGoalkeeper: boolean;
   /** False for outfield players — glove is hidden so accidental taps cannot steal GK. */
   canBeGoalkeeper?: boolean;
@@ -64,11 +66,16 @@ export function PlayerButton({
     onGoal();
   }
 
+  const teamTone =
+    team === "A" ? "border-sky-200 bg-sky-50" : "border-amber-200 bg-amber-50";
+
   return (
     <div
       className={
         "flex items-stretch gap-1 rounded-lg border " +
-        (isGoalkeeper ? "border-emerald-400 bg-emerald-50" : "border-slate-200 bg-white")
+        (isGoalkeeper
+          ? "border-emerald-400 bg-emerald-50 ring-1 ring-emerald-400/30"
+          : teamTone)
       }
     >
       <button
