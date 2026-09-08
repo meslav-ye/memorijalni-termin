@@ -321,6 +321,8 @@ export type Database = {
           started_at: string | null
           starts_at: string
           status: Database["public"]["Enums"]["match_status"]
+          team_a_name: string | null
+          team_b_name: string | null
           total_paused_seconds: number
         }
         Insert: {
@@ -341,6 +343,8 @@ export type Database = {
           started_at?: string | null
           starts_at: string
           status?: Database["public"]["Enums"]["match_status"]
+          team_a_name?: string | null
+          team_b_name?: string | null
           total_paused_seconds?: number
         }
         Update: {
@@ -361,6 +365,8 @@ export type Database = {
           started_at?: string | null
           starts_at?: string
           status?: Database["public"]["Enums"]["match_status"]
+          team_a_name?: string | null
+          team_b_name?: string | null
           total_paused_seconds?: number
         }
         Relationships: [

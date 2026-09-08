@@ -5,6 +5,7 @@ import { getMembership, getUser } from "@/lib/data/user";
 import { formatShortDate, formatMatchDateTime } from "@/lib/format";
 import { formatClock } from "@/lib/domain/timer";
 import type { Team } from "@/lib/domain/types";
+import { teamDisplayName } from "@/lib/domain/team-name";
 import { ShareButton } from "./ShareButton";
 
 export default async function SummaryPage({
@@ -22,7 +23,7 @@ export default async function SummaryPage({
   const { data: match } = await supabase
     .from("matches")
     .select(
-      "id, status, starts_at, score_a, score_b, started_at, ended_at, total_paused_seconds, location_text, locations(name)",
+      "id, status, starts_at, score_a, score_b, started_at, ended_at, total_paused_seconds, location_text, team_a_name, team_b_name, locations(name)",
     )
     .eq("id", terminId)
     .maybeSingle();
@@ -90,6 +91,8 @@ export default async function SummaryPage({
       : null;
 
   const location = match.locations?.name ?? match.location_text ?? "";
+  const labelA = teamDisplayName("A", match.team_a_name);
+  const labelB = teamDisplayName("B", match.team_b_name);
 
   // WhatsApp text: short, readable, no links that break.
   const scorers = players
@@ -100,7 +103,7 @@ export default async function SummaryPage({
 
   const shareText = [
     `Termin ${formatShortDate(match.starts_at)}${location ? `, ${location}` : ""}`,
-    `Ekipa A ${match.score_a} : ${match.score_b} Ekipa B`,
+    `${labelA} ${match.score_a} : ${match.score_b} ${labelB}`,
     scorers ? `⚽ ${scorers}` : "Bez golova.",
   ].join("\n");
 
@@ -118,27 +121,29 @@ export default async function SummaryPage({
 
         <div className="mt-3 rounded-xl bg-marka p-5 text-white">
           <div className="flex items-center justify-center gap-4">
-            <span className="flex-1 text-right text-sm font-semibold uppercase text-slate-400">
-              Ekipa A
+            <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold uppercase text-slate-400">
+              {labelA}
             </span>
             <span className="text-4xl font-bold tabular-nums">
               {match.score_a} : {match.score_b}
             </span>
-            <span className="flex-1 text-left text-sm font-semibold uppercase text-slate-400">
-              Ekipa B
+            <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold uppercase text-slate-400">
+              {labelB}
             </span>
           </div>
 
           <p className="mt-2 text-sm text-slate-400">
-            {winner ? `Pobijedila Ekipa ${winner}` : "Neriješeno"}
+            {winner
+              ? `Pobijedila ${winner === "A" ? labelA : labelB}`
+              : "Neriješeno"}
             {duration !== null && ` · ${formatClock(duration)}`}
           </p>
         </div>
       </header>
 
       <section className="mt-6 flex gap-3">
-        <TeamColumn side="A" players={players} winner={winner} />
-        <TeamColumn side="B" players={players} winner={winner} />
+        <TeamColumn side="A" label={labelA} players={players} winner={winner} />
+        <TeamColumn side="B" label={labelB} players={players} winner={winner} />
       </section>
 
       {goals.length > 0 && (
@@ -191,10 +196,12 @@ type SummaryPlayer = {
 /** Outside the page component: inside it would be recreated on every render. */
 function TeamColumn({
   side,
+  label,
   players,
   winner,
 }: {
   side: Team;
+  label: string;
   players: SummaryPlayer[];
   winner: Team | null;
 }) {
@@ -203,8 +210,8 @@ function TeamColumn({
 
   return (
     <div className="flex-1">
-      <h3 className="mb-2 font-bold">
-        Ekipa {side}
+      <h3 className="mb-2 truncate font-bold">
+        {label}
         {won && <span className="ml-2 text-sm font-semibold text-emerald-700">✓</span>}
       </h3>
       <ul className="space-y-1">

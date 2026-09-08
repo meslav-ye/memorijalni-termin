@@ -55,12 +55,16 @@ export function LiveScreen({
   initialLineup,
   initialEvents,
   initialState,
+  teamAName,
+  teamBName,
 }: {
   grupaId: string;
   terminId: string;
   initialLineup: LineupPlayer[];
   initialEvents: LiveEvent[];
   initialState: MatchLiveState;
+  teamAName: string;
+  teamBName: string;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -338,14 +342,14 @@ export function LiveScreen({
       {/* Score and stopwatch */}
       <div className="rounded-xl bg-marka p-4 text-center text-white">
         <div className="flex items-center justify-center gap-4">
-          <span className="flex-1 text-right text-sm font-semibold uppercase text-slate-400">
-            Ekipa A
+          <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold uppercase text-slate-400">
+            {teamAName}
           </span>
           <span className="text-4xl font-bold tabular-nums" aria-label="Rezultat">
             {scoreA} : {scoreB}
           </span>
-          <span className="flex-1 text-left text-sm font-semibold uppercase text-slate-400">
-            Ekipa B
+          <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold uppercase text-slate-400">
+            {teamBName}
           </span>
         </div>
 

@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatMatchDateTime } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
-import { proposeTeams, movePlayer, setGoalkeeper } from "../../actions";
+import { MAX_TEAM_NAME_LENGTH, teamDisplayName } from "@/lib/domain/team-name";
+import { proposeTeams, movePlayer, setGoalkeeper, setTeamNames } from "../../actions";
 
 type LineupPlayerRow = {
   userId: string;
@@ -114,7 +115,7 @@ export default async function TeamsPage({
 
   const { data: match } = await supabase
     .from("matches")
-    .select("id, starts_at, capacity, status")
+    .select("id, starts_at, capacity, status, team_a_name, team_b_name")
     .eq("id", terminId)
     .maybeSingle();
   if (!match) notFound();
@@ -200,9 +201,47 @@ export default async function TeamsPage({
         </div>
       ) : (
         <>
+          <form action={setTeamNames} className="mb-4 grid grid-cols-2 gap-3">
+            <input type="hidden" name="groupId" value={grupaId} />
+            <input type="hidden" name="matchId" value={terminId} />
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Ime ekipe A
+              </span>
+              <input
+                name="teamAName"
+                defaultValue={match.team_a_name ?? ""}
+                maxLength={MAX_TEAM_NAME_LENGTH}
+                placeholder={teamDisplayName("A", null)}
+                className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm
+                           font-medium outline-none focus:border-marka"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Ime ekipe B
+              </span>
+              <input
+                name="teamBName"
+                defaultValue={match.team_b_name ?? ""}
+                maxLength={MAX_TEAM_NAME_LENGTH}
+                placeholder={teamDisplayName("B", null)}
+                className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm
+                           font-medium outline-none focus:border-marka"
+              />
+            </label>
+            <button
+              type="submit"
+              className="col-span-2 h-11 rounded-lg border border-slate-300 bg-white text-sm
+                         font-semibold transition active:scale-[0.98]"
+            >
+              Spremi imena
+            </button>
+          </form>
+
           <div className="flex gap-3">
             <TeamColumn
-              title="Ekipa A"
+              title={teamDisplayName("A", match.team_a_name)}
               team="A"
               players={teamA}
               grupaId={grupaId}
@@ -210,7 +249,7 @@ export default async function TeamsPage({
               arrow="→"
             />
             <TeamColumn
-              title="Ekipa B"
+              title={teamDisplayName("B", match.team_b_name)}
               team="B"
               players={teamB}
               grupaId={grupaId}

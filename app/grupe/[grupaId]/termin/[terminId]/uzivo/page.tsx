@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import type { Team } from "@/lib/domain/types";
 import { disambiguateNicknames } from "@/lib/domain/nickname";
+import { teamDisplayName } from "@/lib/domain/team-name";
 import { LiveScreen, type LiveEvent, type LineupPlayer } from "./LiveScreen";
 
 export default async function LivePage({
@@ -20,7 +21,7 @@ export default async function LivePage({
 
   const { data: match } = await supabase
     .from("matches")
-    .select("id, status, started_at, paused_at, total_paused_seconds")
+    .select("id, status, started_at, paused_at, total_paused_seconds, team_a_name, team_b_name")
     .eq("id", terminId)
     .maybeSingle();
   if (!match) notFound();
@@ -100,6 +101,8 @@ export default async function LivePage({
           pausedAt: match.paused_at,
           totalPausedSeconds: match.total_paused_seconds,
         }}
+        teamAName={teamDisplayName("A", match.team_a_name)}
+        teamBName={teamDisplayName("B", match.team_b_name)}
       />
     </div>
   );

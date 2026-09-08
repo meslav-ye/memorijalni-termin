@@ -3,10 +3,12 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { matchYear, ensureSeason } from "@/lib/seasons";
 import { zagrebUIso } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { suggestTeams } from "@/lib/domain/teams";
+import { normalizeTeamName } from "@/lib/domain/team-name";
 
 export type MatchFormState = {
   error?: string;
@@ -283,6 +285,29 @@ export async function setGoalkeeper(formData: FormData) {
   }
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
+}
+
+export async function setTeamNames(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+  const teamAName = normalizeTeamName(String(formData.get("teamAName") ?? ""));
+  const teamBName = normalizeTeamName(String(formData.get("teamBName") ?? ""));
+
+  const ctx = await membership(groupId);
+  if (!ctx) return;
+
+  // Any active member may rename — same bar as rearranging the lineup.
+  // Admin client writes only these two columns after membership is verified.
+  const admin = createAdminClient();
+  await admin
+    .from("matches")
+    .update({ team_a_name: teamAName, team_b_name: teamBName })
+    .eq("id", matchId)
+    .eq("group_id", groupId);
+
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/uzivo`);
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/sazetak`);
 }
 
 export async function cancelMatch(formData: FormData) {
