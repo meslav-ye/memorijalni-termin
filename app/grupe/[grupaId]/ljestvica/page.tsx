@@ -23,7 +23,7 @@ export default async function LeaderboardPage({
     ? null
     : (requestedSeason ?? (await latestSeason(grupaId)));
 
-  const { rows, seasons, matchesPlayed, sessionsPlayed, records } = await getLeaderboard(
+  const { rows, seasons, matchesPlayed, sessionsPlayed } = await getLeaderboard(
     grupaId,
     seasonToShow,
   );
@@ -137,26 +137,6 @@ export default async function LeaderboardPage({
             ))}
         </ul>
       </section>
-
-      {/* Records */}
-      {records.length > 0 && (
-        <section className="mt-8">
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Rekordi
-          </h3>
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {records.map((r) => (
-              <li key={r.title} className="rounded-lg border border-slate-200 bg-white p-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">{r.title}</p>
-                <p className="mt-1 text-lg font-bold tabular-nums">
-                  {r.value}
-                  {r.who && <span className="ml-2 text-sm font-medium text-slate-600">{r.who}</span>}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }
