@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { pokreniTermin } from "./uzivo/akcije";
+import { startMatch } from "./uzivo/actions";
 
 export function GumbPokreni({
   grupaId,
@@ -26,11 +26,11 @@ export function GumbPokreni({
     postaviRadim(true);
     postaviGresku(null);
 
-    const odgovor = await pokreniTermin(grupaId, terminId);
+    const odgovor = await startMatch(grupaId, terminId);
     postaviRadim(false);
 
-    if ("greska" in odgovor) {
-      postaviGresku(odgovor.greska);
+    if ("error" in odgovor) {
+      postaviGresku(odgovor.error);
       return;
     }
     router.push(`/grupe/${grupaId}/termin/${terminId}/uzivo`);

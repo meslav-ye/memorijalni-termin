@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatirajTermin } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
-import { predloziEkipe, premjestiIgraca, postaviGolmana } from "../../akcije";
+import { proposeTeams, movePlayer, setGoalkeeper } from "../../actions";
 
 type IgracUPostavi = {
   userId: string;
@@ -62,7 +62,7 @@ function Kolona({
           >
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.nadimak}</span>
 
-            <form action={postaviGolmana}>
+            <form action={setGoalkeeper}>
               <input type="hidden" name="grupaId" value={grupaId} />
               <input type="hidden" name="terminId" value={terminId} />
               <input type="hidden" name="korisnikId" value={p.userId} />
@@ -79,7 +79,7 @@ function Kolona({
               </button>
             </form>
 
-            <form action={premjestiIgraca}>
+            <form action={movePlayer}>
               <input type="hidden" name="grupaId" value={grupaId} />
               <input type="hidden" name="terminId" value={terminId} />
               <input type="hidden" name="korisnikId" value={p.userId} />
@@ -238,7 +238,7 @@ export default async function StranicaEkipa({
       )}
 
       {confirmed.length > 0 && termin.status !== "zavrsen" && termin.status !== "otkazan" && (
-        <form action={predloziEkipe} className="mt-6">
+        <form action={proposeTeams} className="mt-6">
           <input type="hidden" name="grupaId" value={grupaId} />
           <input type="hidden" name="terminId" value={terminId} />
           <button

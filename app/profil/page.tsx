@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ObrazacProfila } from "./ObrazacProfila";
-import { odjava } from "./akcije";
+import { signOut } from "./actions";
 
 export default async function StranicaProfila() {
   const supabase = await createClient();
@@ -47,7 +47,7 @@ export default async function StranicaProfila() {
       />
 
       {!prviPut && (
-        <form action={odjava} className="mt-10 border-t border-slate-200 pt-6">
+        <form action={signOut} className="mt-10 border-t border-slate-200 pt-6">
           <button
             type="submit"
             className="text-sm font-medium text-slate-500 underline underline-offset-4"

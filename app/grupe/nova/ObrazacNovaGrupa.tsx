@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import { kreirajGrupu, type StanjeGrupe } from "../akcije";
+import { createGroup, type GroupState } from "../actions";
 
-const PRAZNO: StanjeGrupe = {};
+const EMPTY: GroupState = {};
 
 export function ObrazacNovaGrupa() {
-  const [stanje, akcija, ceka] = useActionState(kreirajGrupu, PRAZNO);
+  const [stanje, akcija, ceka] = useActionState(createGroup, EMPTY);
 
   return (
     <form action={akcija} className="space-y-6">
@@ -62,9 +62,9 @@ export function ObrazacNovaGrupa() {
         {ceka ? "Otvaram…" : "Otvori grupu"}
       </button>
 
-      {stanje.greska && (
+      {stanje.error && (
         <p role="alert" className="text-sm font-medium text-red-600">
-          {stanje.greska}
+          {stanje.error}
         </p>
       )}
     </form>

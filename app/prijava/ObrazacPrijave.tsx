@@ -2,27 +2,27 @@
 
 import { useActionState, useState } from "react";
 import {
-  posaljiMagicLink,
-  prijavaGoogle,
-  prijavaLozinkom,
-  registracijaLozinkom,
-  type StanjePrijave,
-} from "./akcije";
+  sendMagicLink,
+  signInWithGoogle,
+  signInWithPassword,
+  signUpWithPassword,
+  type LoginState,
+} from "./actions";
 
-const PRAZNO: StanjePrijave = {};
+const EMPTY: LoginState = {};
 
-function Poruka({ stanje }: { stanje: StanjePrijave }) {
-  if (stanje.greska) {
+function Poruka({ stanje }: { stanje: LoginState }) {
+  if (stanje.error) {
     return (
       <p role="alert" className="text-sm font-medium text-red-600">
-        {stanje.greska}
+        {stanje.error}
       </p>
     );
   }
-  if (stanje.poruka) {
+  if (stanje.message) {
     return (
       <p role="status" className="text-sm font-medium text-emerald-700">
-        {stanje.poruka}
+        {stanje.message}
       </p>
     );
   }
@@ -42,12 +42,12 @@ const GUMB_SPOREDNI =
   "text-slate-900 transition active:scale-[0.98] disabled:opacity-50";
 
 export function ObrazacPrijave({ googleDostupan }: { googleDostupan: boolean }) {
-  const [stanjeGoogle, akcijaGoogle, cekaGoogle] = useActionState(prijavaGoogle, PRAZNO);
-  const [stanjeLink, akcijaLink, cekaLink] = useActionState(posaljiMagicLink, PRAZNO);
-  const [stanjeLozinka, akcijaLozinka, cekaLozinka] = useActionState(prijavaLozinkom, PRAZNO);
+  const [stanjeGoogle, akcijaGoogle, cekaGoogle] = useActionState(signInWithGoogle, EMPTY);
+  const [stanjeLink, akcijaLink, cekaLink] = useActionState(sendMagicLink, EMPTY);
+  const [stanjeLozinka, akcijaLozinka, cekaLozinka] = useActionState(signInWithPassword, EMPTY);
   const [stanjeRegistracija, akcijaRegistracija, cekaRegistracija] = useActionState(
-    registracijaLozinkom,
-    PRAZNO,
+    signUpWithPassword,
+    EMPTY,
   );
 
   const [lozinkomOtvoreno, postaviLozinkom] = useState(false);

@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { kreirajTermin, type StanjeTermina } from "../akcije";
+import { createMatch, type MatchFormState } from "../actions";
 
-const PRAZNO: StanjeTermina = {};
+const EMPTY: MatchFormState = {};
 
 const POLJE =
   "w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base " +
@@ -23,8 +23,8 @@ export function ObrazacNoviTermin({
   zadaniMin: number;
 }) {
   const [stanje, akcija, ceka] = useActionState(
-    kreirajTermin.bind(null, grupaId),
-    PRAZNO,
+    createMatch.bind(null, grupaId),
+    EMPTY,
   );
 
   // Ako grupa jos nema spremljenih lokacija, odmah nudimo slobodan unos.
@@ -149,9 +149,9 @@ export function ObrazacNoviTermin({
         {ceka ? "Otvaram…" : "Otvori termin"}
       </button>
 
-      {stanje.greska && (
+      {stanje.error && (
         <p role="alert" className="text-sm font-medium text-red-600">
-          {stanje.greska}
+          {stanje.error}
         </p>
       )}
     </form>

@@ -10,7 +10,7 @@ import {
   earliestStartAt,
   MINUTES_BEFORE_START,
 } from "@/lib/domain/startability";
-import { odjaviSe, otkaziTermin, prijaviSe } from "../akcije";
+import { withdrawFromMatch, cancelMatch, signUpForMatch } from "../actions";
 import { GumbPokreni } from "./GumbPokreni";
 
 const FILL_TONE_COLOR: Record<FillTone, string> = {
@@ -227,7 +227,7 @@ export default async function StranicaTermina({
       )}
 
       {admin && termin.status !== "otkazan" && (
-        <form action={otkaziTermin} className="mt-10 border-t border-slate-200 pt-6">
+        <form action={cancelMatch} className="mt-10 border-t border-slate-200 pt-6">
           <input type="hidden" name="grupaId" value={grupaId} />
           <input type="hidden" name="terminId" value={terminId} />
           <button className="text-sm text-red-700 underline underline-offset-4">
@@ -240,7 +240,7 @@ export default async function StranicaTermina({
       {otvorenoZaPrijave && (
         <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
           <div className="mx-auto max-w-2xl">
-            <form action={prijavljen ? odjaviSe : prijaviSe}>
+            <form action={prijavljen ? withdrawFromMatch : signUpForMatch}>
               <input type="hidden" name="grupaId" value={grupaId} />
               <input type="hidden" name="terminId" value={terminId} />
               <button

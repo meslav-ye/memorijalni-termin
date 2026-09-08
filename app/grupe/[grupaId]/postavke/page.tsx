@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { baznaAdresa } from "@/lib/adresa";
 import { LinkPozivnice } from "./LinkPozivnice";
-import { obnoviKodPozivnice, spremiPostavke } from "./akcije";
+import { refreshInviteCode, saveSettings } from "./actions";
 
 export default async function StranicaPostavki({
   params,
@@ -43,7 +43,7 @@ export default async function StranicaPostavki({
           nazivGrupe={grupa.name}
         />
 
-        <form action={obnoviKodPozivnice} className="mt-4">
+        <form action={refreshInviteCode} className="mt-4">
           <input type="hidden" name="grupaId" value={grupaId} />
           <button className="text-sm text-slate-500 underline underline-offset-4">
             Izdaj novi link
@@ -59,7 +59,7 @@ export default async function StranicaPostavki({
           Grupa
         </h2>
 
-        <form action={spremiPostavke} className="space-y-5">
+        <form action={saveSettings} className="space-y-5">
           <input type="hidden" name="grupaId" value={grupaId} />
 
           <div className="space-y-2">

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { odbijClana, odobriClana, izbaciClana, promijeniUlogu } from "./akcije";
+import { rejectMember, approveMember, removeMember, changeRole } from "./actions";
 
 const GUMB_MALI =
   "h-10 rounded-lg px-3 text-sm font-medium transition active:scale-[0.97]";
@@ -78,12 +78,12 @@ export default async function StranicaClanova({
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <form action={odobriClana}>
+                  <form action={approveMember}>
                     <input type="hidden" name="grupaId" value={grupaId} />
                     <input type="hidden" name="korisnikId" value={z.user_id} />
                     <button className={`${GUMB_MALI} bg-marka text-white`}>Odobri</button>
                   </form>
-                  <form action={odbijClana}>
+                  <form action={rejectMember}>
                     <input type="hidden" name="grupaId" value={grupaId} />
                     <input type="hidden" name="korisnikId" value={z.user_id} />
                     <button className={`${GUMB_MALI} border border-slate-300 bg-white`}>
@@ -136,7 +136,7 @@ export default async function StranicaClanova({
 
                 {admin && c.user_id !== user.id && (
                   <div className="flex gap-2">
-                    <form action={promijeniUlogu}>
+                    <form action={changeRole}>
                       <input type="hidden" name="grupaId" value={grupaId} />
                       <input type="hidden" name="korisnikId" value={c.user_id} />
                       <input
@@ -148,7 +148,7 @@ export default async function StranicaClanova({
                         {c.role === "admin" ? "Skini admina" : "Napravi adminom"}
                       </button>
                     </form>
-                    <form action={izbaciClana}>
+                    <form action={removeMember}>
                       <input type="hidden" name="grupaId" value={grupaId} />
                       <input type="hidden" name="korisnikId" value={c.user_id} />
                       <button className={`${GUMB_MALI} border border-red-300 bg-white text-red-700`}>

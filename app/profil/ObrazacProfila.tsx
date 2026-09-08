@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
-import { spremiProfil, type StanjeProfila } from "./akcije";
+import { saveProfile, type ProfileState } from "./actions";
 
-const PRAZNO: StanjeProfila = {};
+const EMPTY: ProfileState = {};
 
 export function ObrazacProfila({
   nadimak,
@@ -12,7 +12,7 @@ export function ObrazacProfila({
   nadimak: string;
   golman: boolean;
 }) {
-  const [stanje, akcija, ceka] = useActionState(spremiProfil, PRAZNO);
+  const [stanje, akcija, ceka] = useActionState(saveProfile, EMPTY);
 
   return (
     <form action={akcija} className="space-y-6">
@@ -61,14 +61,14 @@ export function ObrazacProfila({
         {ceka ? "Spremam…" : "Spremi"}
       </button>
 
-      {stanje.greska && (
+      {stanje.error && (
         <p role="alert" className="text-sm font-medium text-red-600">
-          {stanje.greska}
+          {stanje.error}
         </p>
       )}
-      {stanje.poruka && (
+      {stanje.message && (
         <p role="status" className="text-sm font-medium text-emerald-700">
-          {stanje.poruka}
+          {stanje.message}
         </p>
       )}
     </form>

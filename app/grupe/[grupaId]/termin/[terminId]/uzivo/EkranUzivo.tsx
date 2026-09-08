@@ -9,15 +9,15 @@ import { Stoperica } from "@/components/termin/Stoperica";
 import { IgracGumb } from "@/components/termin/IgracGumb";
 import { AsistencijaTraka, type CekaAsistenciju } from "@/components/termin/AsistencijaTraka";
 import {
-  dodajAsistenciju,
-  nastaviTermin,
-  pauzirajTermin,
-  ponistiDogadjaj,
-  promijeniGolmana,
-  upisiAutogol,
-  upisiGol,
-  zavrsiTermin,
-} from "./akcije";
+  addAssist,
+  resumeMatch,
+  pauseMatch,
+  undoEvent,
+  changeGoalkeeper,
+  recordOwnGoal,
+  recordGoal,
+  finishMatch,
+} from "./actions";
 
 export type IgracPostave = {
   userId: string;
@@ -218,22 +218,25 @@ export function EkranUzivo({
     postaviRadim(true);
 
     const proteklo = trenutnoProteklo();
-    const odgovor = await upisiGol(terminId, igrac.userId, igrac.team, proteklo, potvrdjen);
+    const odgovor = await recordGoal(terminId, igrac.userId, igrac.team, proteklo, potvrdjen);
 
     postaviRadim(false);
 
-    if ("greska" in odgovor) {
-      postaviGresku(odgovor.greska);
+    if ("error" in odgovor) {
+      postaviGresku(odgovor.error);
       return;
     }
 
-    if ("mozdaDuplikat" in odgovor) {
-      postaviDuplikat({ strijelac: igrac, sekundiPrije: odgovor.mozdaDuplikat.sekundiPrije });
+    if ("possibleDuplicate" in odgovor) {
+      postaviDuplikat({
+        strijelac: igrac,
+        sekundiPrije: odgovor.possibleDuplicate.secondsBefore,
+      });
       return;
     }
 
     postaviCeka({
-      dogadjajId: odgovor.dogadjajId,
+      dogadjajId: odgovor.eventId,
       strijelac: igrac.nadimak,
       proteklo,
       suigraci: postava
@@ -247,23 +250,23 @@ export function EkranUzivo({
   async function autogol(igrac: IgracPostave) {
     postaviGresku(null);
     postaviRadim(true);
-    const odgovor = await upisiAutogol(terminId, igrac.userId, igrac.team, trenutnoProteklo());
+    const odgovor = await recordOwnGoal(terminId, igrac.userId, igrac.team, trenutnoProteklo());
     postaviRadim(false);
 
-    if ("greska" in odgovor) postaviGresku(odgovor.greska);
+    if ("error" in odgovor) postaviGresku(odgovor.error);
     await nakonPromjene();
   }
 
   async function golman(igrac: IgracPostave) {
     postaviRadim(true);
-    await promijeniGolmana(terminId, igrac.userId, igrac.team, trenutnoProteklo());
+    await changeGoalkeeper(terminId, igrac.userId, igrac.team, trenutnoProteklo());
     postaviRadim(false);
     await nakonPromjene();
   }
 
   async function ponisti(dogadjajId: string) {
     postaviRadim(true);
-    await ponistiDogadjaj(terminId, dogadjajId);
+    await undoEvent(terminId, dogadjajId);
     postaviRadim(false);
     postaviCeka(null);
     await nakonPromjene();
@@ -273,14 +276,14 @@ export function EkranUzivo({
     if (!ceka) return;
     const id = ceka.dogadjajId;
     postaviCeka(null);
-    await dodajAsistenciju(terminId, id, asistentId);
+    await addAssist(terminId, id, asistentId);
     await nakonPromjene();
   }
 
   async function pauzaIliNastavak() {
     postaviRadim(true);
-    if (stanje.pausedAt) await nastaviTermin(terminId);
-    else await pauzirajTermin(terminId);
+    if (stanje.pausedAt) await resumeMatch(terminId);
+    else await pauseMatch(terminId);
     postaviRadim(false);
     await nakonPromjene();
   }
@@ -289,11 +292,11 @@ export function EkranUzivo({
 
   async function zavrsi() {
     postaviRadim(true);
-    const odgovor = await zavrsiTermin(grupaId, terminId);
+    const odgovor = await finishMatch(grupaId, terminId);
     postaviRadim(false);
 
-    if ("greska" in odgovor) {
-      postaviGresku(odgovor.greska);
+    if ("error" in odgovor) {
+      postaviGresku(odgovor.error);
       postaviPotvrdu(false);
       return;
     }
