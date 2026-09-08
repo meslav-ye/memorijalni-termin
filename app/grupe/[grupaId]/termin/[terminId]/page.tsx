@@ -16,6 +16,7 @@ import {
   adminWithdrawFromMatch,
   withdrawFromMatch,
   cancelMatch,
+  deleteMatch,
   pauseSeries,
   resumeSeries,
   signUpForMatch,
@@ -120,6 +121,7 @@ export default async function MatchPage({
     .select("user_id")
     .eq("match_id", terminId)
     .eq("user_id", user.id)
+    .limit(1)
     .maybeSingle();
 
   const iAmInLineup = Boolean(myLineup);
@@ -329,16 +331,30 @@ export default async function MatchPage({
         </Link>
       )}
 
-      {admin && match.status !== "otkazan" && (
-        <form action={cancelMatch} className="mt-10 border-t border-slate-200 pt-6">
+      {admin &&
+        (match.status === "najavljen" || match.status === "zakljucan") && (
+          <form action={cancelMatch} className="mt-10 border-t border-slate-200 pt-6">
+            <input type="hidden" name="groupId" value={grupaId} />
+            <input type="hidden" name="matchId" value={terminId} />
+            <button className="text-sm text-red-700 underline underline-offset-4">
+              Otkaži ovaj termin
+            </button>
+            <p className="mt-1 text-sm text-slate-500">
+              Otkazuje samo ovaj tjedan
+              {match.series_id ? ", ne cijeli stalni termin." : "."}
+            </p>
+          </form>
+        )}
+
+      {admin && (match.status === "zavrsen" || match.status === "otkazan") && (
+        <form action={deleteMatch} className="mt-10 border-t border-slate-200 pt-6">
           <input type="hidden" name="groupId" value={grupaId} />
           <input type="hidden" name="matchId" value={terminId} />
           <button className="text-sm text-red-700 underline underline-offset-4">
-            Otkaži ovaj termin
+            Obriši termin
           </button>
           <p className="mt-1 text-sm text-slate-500">
-            Otkazuje samo ovaj tjedan
-            {match.series_id ? ", ne cijeli stalni termin." : "."}
+            Trajno briše termin i njegove događaje. Rating ostaje kako je.
           </p>
         </form>
       )}

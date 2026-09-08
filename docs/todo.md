@@ -95,7 +95,7 @@ na tome. Ako ne smije, ostaje prikaz samo vlastitih brojki.
 
 ### Što nam ide na ruku
 
-Aplikacija **već zna točno kad je termin trajao** — `matches` ima `started_at`,
+Aplikacija **već zna točno kad je utakmica trajala** — `games` ima `started_at`,
 `paused_at` i `ended_at`, jer se vrijeme mjeri štopericom u aplikaciji. Aktivnost
 se onda spaja na termin **preklapanjem vremena**, bez da igrač bilo što odabire.
 To je najveći dio posla koji je već riješen.
@@ -109,65 +109,4 @@ To je najveći dio posla koji je već riješen.
   provjeravanje, što je novi izvor zahtjeva. Vidjeti [optimizacija.md](optimizacija.md)
   prije nego se doda periodično povlačenje.
 - Puls smije vidjeti **samo sam igrač**, ne cijela grupa.
-
----
-
-## 2. Ponovno pokretanje utakmice unutar termina
-
-Mogućnost da se utakmica pokrene ispočetka: **rezultat, minutaža, golovi i
-asistencije kreću od nule**, a dotadašnje stanje se spremi. Nakon toga se igrači
-smiju izmiješati u nove ekipe, ali ne moraju.
-
-### Ovo nije „reset" nego više utakmica po terminu
-
-Zahtjev kaže da se dotadašnje stanje **spremi**. To znači da stara utakmica ostaje
-kao zapis — dakle jedan termin sadrži N utakmica. **Ta razina u modelu ne
-postoji.**
-
-Sada je jedan red u `matches` istovremeno termin *i* utakmica. Na njemu stoji
-sve: `score_a`, `score_b`, `started_at`, `paused_at`, `total_paused_seconds`,
-`status`. Događaji gledaju u `match_id`, a postava je `match_lineup(match_id,
-user_id, team)` — **jedna postava po terminu**.
-
-Treba razina između termina i događaja: tablica utakmica, a rezultat, sat, događaji
-i postava vise o njoj, ne o terminu.
-
-### Najveće pitanje je rating
-
-`apply_rating` po završetku digne `matches_played + 1` i upiše **jedan red u
-`rating_history` po igraču**. `rating_history` je keyed na `(match_id, user_id)` i
-**nema stupac za utakmicu**.
-
-Iz toga slijede dvije stvari:
-
-1. **Računa li se svaka utakmica zasebno za rating?** Ako se ekipe izmiješaju
-   između utakmica, **mora** — inače se rating računa protiv protivnika s kojima
-   igrač te utakmice nije igrao, što je jednostavno pogrešno.
-2. Ako se računa zasebno, `rating_history` dobiva N redova po igraču po terminu
-   koji izgledaju **identično**, i „zadnjih 10 termina s promjenom ratinga" na
-   profilu igrača postaje neupotrebljivo. Isti nedostatak je već zapisan u
-   stavci 1 — riješiti ga jednom, za oba slučaja.
-
-### Statistika mijenja značenje
-
-`aggregateStats` broji `matches += 1` po redu utakmice i iz toga izvodi
-`goalsPerMatch` i `winRate`. S više utakmica po terminu „matches" postaje
-dvosmisleno:
-
-- **Dolaznost** je po terminu — čovjek je došao ili nije.
-- **Golovi po utakmici** i **postotak pobjeda** su po utakmici.
-
-To su različiti brojevi i moraju se svjesno razdvojiti. Paziti da promjena
-**retroaktivno mijenja postojeće brojke** — dosadašnji termini imaju po jednu
-utakmicu, pa se brojke ne smiju razići.
-
-### Na što paziti
-
-- **Postava nove utakmice mora biti kopija, ne referenca.** Ako druga utakmica
-  gleda u istu postavu, izmjena ekipa za drugu utakmicu prepiše povijest prve.
-  Zadana vrijednost je kopija prethodne postave, pa se smije mijenjati.
-- Sat se vodi iz `started_at` po utakmici, ne po terminu — inače druga utakmica
-  počinje na minutaži prve. Vidi `lib/domain/timer.ts`.
-- Ako se ekipe **ne** izmiješaju, ovo je i dalje nova utakmica s vlastitim
-  rezultatom, ne nastavak stare.
 

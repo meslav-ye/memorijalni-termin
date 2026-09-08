@@ -146,6 +146,63 @@ export type Database = {
           },
         ]
       }
+
+      games: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          match_id: string
+          paused_at: string | null
+          score_a: number
+          score_b: number
+          seq: number
+          started_at: string | null
+          status: Database["public"]["Enums"]["game_status"]
+          team_a_name: string | null
+          team_b_name: string | null
+          total_paused_seconds: number
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          match_id: string
+          paused_at?: string | null
+          score_a?: number
+          score_b?: number
+          seq?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["game_status"]
+          team_a_name?: string | null
+          team_b_name?: string | null
+          total_paused_seconds?: number
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          match_id?: string
+          paused_at?: string | null
+          score_a?: number
+          score_b?: number
+          seq?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["game_status"]
+          team_a_name?: string | null
+          team_b_name?: string | null
+          total_paused_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "games_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_events: {
         Row: {
           assist_id: string | null
@@ -154,6 +211,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           elapsed_seconds: number
+          game_id: string
           id: string
           match_id: string
           scorer_id: string | null
@@ -167,8 +225,9 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           elapsed_seconds?: number
+          game_id: string
           id?: string
-          match_id: string
+          match_id?: string
           scorer_id?: string | null
           team?: Database["public"]["Enums"]["team_side"] | null
           type: Database["public"]["Enums"]["event_type"]
@@ -180,6 +239,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           elapsed_seconds?: number
+          game_id?: string
           id?: string
           match_id?: string
           scorer_id?: string | null
@@ -209,6 +269,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "match_events_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "match_events_match_id_fkey"
             columns: ["match_id"]
             isOneToOne: false
@@ -226,24 +293,34 @@ export type Database = {
       }
       match_lineup: {
         Row: {
+          game_id: string
           is_goalkeeper: boolean
           match_id: string
           team: Database["public"]["Enums"]["team_side"]
           user_id: string
         }
         Insert: {
+          game_id: string
           is_goalkeeper?: boolean
-          match_id: string
+          match_id?: string
           team: Database["public"]["Enums"]["team_side"]
           user_id: string
         }
         Update: {
+          game_id?: string
           is_goalkeeper?: boolean
           match_id?: string
           team?: Database["public"]["Enums"]["team_side"]
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "match_lineup_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "match_lineup_match_id_fkey"
             columns: ["match_id"]
@@ -374,70 +451,46 @@ export type Database = {
           capacity: number
           created_at: string
           created_by: string
-          ended_at: string | null
           group_id: string
           id: string
           location_id: string | null
           location_text: string | null
           min_players: number
           notes: string | null
-          paused_at: string | null
-          score_a: number
-          score_b: number
           season_id: string
           series_id: string | null
-          started_at: string | null
           starts_at: string
           status: Database["public"]["Enums"]["match_status"]
-          team_a_name: string | null
-          team_b_name: string | null
-          total_paused_seconds: number
         }
         Insert: {
           capacity?: number
           created_at?: string
           created_by: string
-          ended_at?: string | null
           group_id: string
           id?: string
           location_id?: string | null
           location_text?: string | null
           min_players?: number
           notes?: string | null
-          paused_at?: string | null
-          score_a?: number
-          score_b?: number
           season_id: string
           series_id?: string | null
-          started_at?: string | null
           starts_at: string
           status?: Database["public"]["Enums"]["match_status"]
-          team_a_name?: string | null
-          team_b_name?: string | null
-          total_paused_seconds?: number
         }
         Update: {
           capacity?: number
           created_at?: string
           created_by?: string
-          ended_at?: string | null
           group_id?: string
           id?: string
           location_id?: string | null
           location_text?: string | null
           min_players?: number
           notes?: string | null
-          paused_at?: string | null
-          score_a?: number
-          score_b?: number
           season_id?: string
           series_id?: string | null
-          started_at?: string | null
           starts_at?: string
           status?: Database["public"]["Enums"]["match_status"]
-          team_a_name?: string | null
-          team_b_name?: string | null
-          total_paused_seconds?: number
         }
         Relationships: [
           {
@@ -554,6 +607,7 @@ export type Database = {
       }
       rating_history: {
         Row: {
+          game_id: string
           id: string
           match_id: string
           rating_after: number
@@ -562,14 +616,16 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          game_id: string
           id?: string
-          match_id: string
+          match_id?: string
           rating_after: number
           rating_before: number
           scope?: Database["public"]["Enums"]["rating_scope"]
           user_id: string
         }
         Update: {
+          game_id?: string
           id?: string
           match_id?: string
           rating_after?: number
@@ -578,6 +634,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "rating_history_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rating_history_match_id_fkey"
             columns: ["match_id"]
@@ -648,6 +711,7 @@ export type Database = {
     }
     Enums: {
       event_type: "goal" | "own_goal" | "keeper_change" | "pause" | "resume"
+      game_status: "u_tijeku" | "zavrsena"
       match_status:
         | "najavljen"
         | "zakljucan"
@@ -789,6 +853,7 @@ export const Constants = {
   public: {
     Enums: {
       event_type: ["goal", "own_goal", "keeper_change", "pause", "resume"],
+      game_status: ["u_tijeku", "zavrsena"],
       match_status: [
         "najavljen",
         "zakljucan",

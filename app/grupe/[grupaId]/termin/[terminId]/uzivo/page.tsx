@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
+import { getCurrentGame } from "@/lib/data/games";
 import type { Team } from "@/lib/domain/types";
 import { disambiguateNicknames } from "@/lib/domain/nickname";
 import { teamDisplayName } from "@/lib/domain/team-name";
@@ -21,20 +22,22 @@ export default async function LivePage({
 
   const { data: match } = await supabase
     .from("matches")
-    .select("id, status, started_at, paused_at, total_paused_seconds, team_a_name, team_b_name")
+    .select("id, status")
     .eq("id", terminId)
     .maybeSingle();
   if (!match) notFound();
 
-  // This screen is only for matches that have started or finished.
   if (match.status !== "u_tijeku" && match.status !== "zavrsen") {
     redirect(`/grupe/${grupaId}/termin/${terminId}`);
   }
 
+  const game = await getCurrentGame(terminId, supabase);
+  if (!game) notFound();
+
   const { data: lineupRows } = await supabase
     .from("match_lineup")
     .select("user_id, team, is_goalkeeper")
-    .eq("match_id", terminId);
+    .eq("game_id", game.id);
 
   const ids = (lineupRows ?? []).map((p) => p.user_id);
 
@@ -43,9 +46,6 @@ export default async function LivePage({
     .select("id, nickname, full_name")
     .in("id", ids.length ? ids : ["-"]);
 
-  // If two players share a nickname, the label gets a disambiguating
-  // suffix (surname). Computed HERE on fetch so the live screen gets
-  // ready text and does not need to know about collisions.
   const labels = disambiguateNicknames(
     (lineupRows ?? []).map((p) => {
       const profile = profiles?.find((x) => x.id === p.user_id);
@@ -67,7 +67,7 @@ export default async function LivePage({
   const { data: eventRows } = await supabase
     .from("match_events")
     .select("id, type, team, scorer_id, assist_id, elapsed_seconds, created_at, deleted_at")
-    .eq("match_id", terminId)
+    .eq("game_id", game.id)
     .order("created_at", { ascending: false });
 
   const events: LiveEvent[] = (eventRows ?? []).map((e) => ({
@@ -93,16 +93,19 @@ export default async function LivePage({
       <LiveScreen
         grupaId={grupaId}
         terminId={terminId}
+        gameId={game.id}
         initialLineup={lineup}
         initialEvents={events}
         initialState={{
-          status: match.status,
-          startedAt: match.started_at,
-          pausedAt: match.paused_at,
-          totalPausedSeconds: match.total_paused_seconds,
+          matchStatus: match.status,
+          gameStatus: game.status,
+          gameSeq: game.seq,
+          startedAt: game.started_at,
+          pausedAt: game.paused_at,
+          totalPausedSeconds: game.total_paused_seconds,
         }}
-        teamAName={teamDisplayName("A", match.team_a_name)}
-        teamBName={teamDisplayName("B", match.team_b_name)}
+        teamAName={teamDisplayName("A", game.team_a_name)}
+        teamBName={teamDisplayName("B", game.team_b_name)}
       />
     </div>
   );

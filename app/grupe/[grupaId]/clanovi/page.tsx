@@ -135,7 +135,7 @@ export default async function MembersPage({
                   </Link>
                   <span className="block text-sm text-slate-500">
                     rating {c.rating} · {c.matchesPlayed}{" "}
-                    {c.matchesPlayed === 1 ? "termin" : "termina"}
+                    {c.matchesPlayed === 1 ? "utakmica" : "utakmice"}
                   </span>
                 </div>
 

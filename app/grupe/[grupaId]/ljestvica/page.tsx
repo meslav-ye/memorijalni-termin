@@ -22,7 +22,7 @@ export default async function LeaderboardPage({
     ? null
     : (requestedSeason ?? (await latestSeason(grupaId)));
 
-  const { rows, seasons, matchesPlayed, records } = await getLeaderboard(
+  const { rows, seasons, matchesPlayed, sessionsPlayed, records } = await getLeaderboard(
     grupaId,
     seasonToShow,
   );
@@ -75,12 +75,14 @@ export default async function LeaderboardPage({
 
       {matchesPlayed === 0 ? (
         <p className="mb-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
-          Još nema odigranih termina — svi kreću od ratinga 1000. Brojke se pune
-          same čim se odigra prvi.
+          Još nema odigranih utakmica — svi kreću od ratinga 1000. Brojke se pune
+          same čim se odigra prva.
         </p>
       ) : (
         <p className="mb-3 text-sm text-slate-500">
-          {matchesPlayed} {matchesPlayed === 1 ? "odigran termin" : "odigranih termina"}
+          {matchesPlayed} {matchesPlayed === 1 ? "odigrana utakmica" : "odigranih utakmica"}
+          {" · "}
+          {sessionsPlayed} {sessionsPlayed === 1 ? "termin" : "termina"}
         </p>
       )}
 
@@ -93,8 +95,8 @@ export default async function LeaderboardPage({
               <th className="px-2 py-2 text-right font-semibold" title="Golovi">G</th>
               <th className="px-2 py-2 text-right font-semibold" title="Asistencije">A</th>
               <th className="hidden px-2 py-2 text-right font-semibold sm:table-cell" title="Autogolovi">AG</th>
-              <th className="px-2 py-2 text-right font-semibold" title="Odigrani termini">T</th>
-              <th className="hidden px-2 py-2 text-right font-semibold sm:table-cell" title="Golova po terminu">G/T</th>
+              <th className="px-2 py-2 text-right font-semibold" title="Odigrane utakmice">U</th>
+              <th className="hidden px-2 py-2 text-right font-semibold sm:table-cell" title="Golova po utakmici">G/U</th>
               <th className="hidden px-2 py-2 text-right font-semibold md:table-cell" title="Pobjede-Neriješeno-Porazi">P-N-P</th>
               <th className="px-2 py-2 text-right font-semibold" title="Postotak pobjeda">%</th>
               <th className="px-3 py-2 text-right font-semibold">Rating</th>
@@ -149,7 +151,7 @@ export default async function LeaderboardPage({
               >
                 <span className="min-w-0 flex-1 truncate font-medium">{r.nickname}</span>
                 <span className="tabular-nums text-slate-500">
-                  {r.matches}/{matchesPlayed}
+                  {r.sessionsAttended}/{sessionsPlayed}
                 </span>
                 <span className="w-12 text-right font-semibold tabular-nums">
                   {pct(r.attendanceRate)}

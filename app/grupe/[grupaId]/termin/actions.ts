@@ -1,15 +1,16 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { matchYear, ensureSeason } from "@/lib/seasons";
-import { zagrebUIso } from "@/lib/format";
+import { zagrebUIso, zagrebNowParts } from "@/lib/format";
 import { zagrebWeekdayFromYmd } from "@/lib/domain/recurring";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { suggestTeams } from "@/lib/domain/teams";
 import { normalizeTeamName } from "@/lib/domain/team-name";
+import { leaderboardTag } from "@/lib/data/leaderboard";
+import { ensureDraftGame, ensureEditableGame } from "@/lib/data/games";
 
 export type MatchFormState = {
   error?: string;
@@ -40,14 +41,22 @@ export async function createMatch(
   _previous: MatchFormState,
   formData: FormData,
 ): Promise<MatchFormState> {
-  const date = String(formData.get("datum") ?? "");
-  const time = String(formData.get("vrijeme") ?? "");
+  const playNow = formData.get("igramoOdmah") === "on";
+  const recurring = !playNow && formData.get("stalni") === "on";
+
+  let date = String(formData.get("datum") ?? "");
+  let time = String(formData.get("vrijeme") ?? "");
+  if (playNow) {
+    const now = zagrebNowParts();
+    date = now.date;
+    time = now.time;
+  }
+
   const capacity = Number(formData.get("kvota") ?? 12);
   const minPlayers = Number(formData.get("minIgraca") ?? 10);
   const locationId = String(formData.get("lokacija") ?? "").trim();
   const locationText = String(formData.get("lokacijaTekst") ?? "").trim();
   const notes = String(formData.get("napomena") ?? "").trim();
-  const recurring = formData.get("stalni") === "on";
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Odaberi datum." };
   if (!/^\d{2}:\d{2}$/.test(time)) return { error: "Odaberi vrijeme." };
@@ -116,6 +125,22 @@ export async function createMatch(
     .single();
 
   if (error || !match) return { error: "Termin nije kreiran. Pokušaj ponovno." };
+
+  await ensureDraftGame(match.id, ctx.supabase);
+
+  if (playNow) {
+    // Creator is already on the pitch — sign them up so they can enter the lineup.
+    await ctx.supabase.from("match_signups").upsert(
+      {
+        match_id: match.id,
+        user_id: ctx.user.id,
+        cancelled_at: null,
+        signed_up_at: new Date().toISOString(),
+      },
+      { onConflict: "match_id,user_id" },
+    );
+    redirect(`/grupe/${groupId}/termin/${match.id}/ekipe`);
+  }
 
   redirect(`/grupe/${groupId}/termin/${match.id}`);
 }
@@ -307,9 +332,13 @@ export async function proposeTeams(formData: FormData) {
 
   const { teamA, teamB } = suggestTeams(players, count ?? 0);
 
-  await supabase.from("match_lineup").delete().eq("match_id", matchId);
+  const game = await ensureEditableGame(matchId, supabase);
+  if (!game) return;
+
+  await supabase.from("match_lineup").delete().eq("game_id", game.id);
   await supabase.from("match_lineup").insert([
     ...teamA.map((p, i) => ({
+      game_id: game.id,
       match_id: matchId,
       user_id: p.userId,
       team: "A" as const,
@@ -317,6 +346,7 @@ export async function proposeTeams(formData: FormData) {
       is_goalkeeper: i === 0 && p.isGoalkeeper,
     })),
     ...teamB.map((p, i) => ({
+      game_id: game.id,
       match_id: matchId,
       user_id: p.userId,
       team: "B" as const,
@@ -338,11 +368,14 @@ export async function movePlayer(formData: FormData) {
   const ctx = await membership(groupId);
   if (!ctx) return;
 
+  const game = await ensureEditableGame(matchId, ctx.supabase);
+  if (!game) return;
+
   // A player who switches teams is no longer that team's goalkeeper.
   await ctx.supabase
     .from("match_lineup")
     .update({ team, is_goalkeeper: false })
-    .eq("match_id", matchId)
+    .eq("game_id", game.id)
     .eq("user_id", userId);
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
@@ -359,10 +392,13 @@ export async function setGoalkeeper(formData: FormData) {
   const ctx = await membership(groupId);
   if (!ctx) return;
 
+  const game = await ensureEditableGame(matchId, ctx.supabase);
+  if (!game) return;
+
   const { data: current } = await ctx.supabase
     .from("match_lineup")
     .select("is_goalkeeper")
-    .eq("match_id", matchId)
+    .eq("game_id", game.id)
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -373,14 +409,14 @@ export async function setGoalkeeper(formData: FormData) {
   await ctx.supabase
     .from("match_lineup")
     .update({ is_goalkeeper: false })
-    .eq("match_id", matchId)
+    .eq("game_id", game.id)
     .eq("team", team);
 
   if (becoming) {
     await ctx.supabase
       .from("match_lineup")
       .update({ is_goalkeeper: true })
-      .eq("match_id", matchId)
+      .eq("game_id", game.id)
       .eq("user_id", userId);
   }
 
@@ -396,14 +432,14 @@ export async function setTeamNames(formData: FormData) {
   const ctx = await membership(groupId);
   if (!ctx) return;
 
+  const game = await ensureEditableGame(matchId, ctx.supabase);
+  if (!game) return;
+
   // Any active member may rename — same bar as rearranging the lineup.
-  // Admin client writes only these two columns after membership is verified.
-  const admin = createAdminClient();
-  await admin
-    .from("matches")
+  await ctx.supabase
+    .from("games")
     .update({ team_a_name: teamAName, team_b_name: teamBName })
-    .eq("id", matchId)
-    .eq("group_id", groupId);
+    .eq("id", game.id);
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/uzivo`);
@@ -425,6 +461,33 @@ export async function cancelMatch(formData: FormData) {
 
   revalidatePath(`/grupe/${groupId}`);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+}
+
+/** Permanently remove a finished or cancelled termin (admin only). */
+export async function deleteMatch(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+
+  const ctx = await membership(groupId);
+  if (!ctx?.admin) return;
+
+  const { data: match } = await ctx.supabase
+    .from("matches")
+    .select("status")
+    .eq("id", matchId)
+    .eq("group_id", groupId)
+    .maybeSingle();
+
+  if (!match || (match.status !== "zavrsen" && match.status !== "otkazan")) {
+    return;
+  }
+
+  const { error } = await ctx.supabase.from("matches").delete().eq("id", matchId);
+  if (error) return;
+
+  updateTag(leaderboardTag(groupId));
+  revalidatePath(`/grupe/${groupId}`);
+  redirect(`/grupe/${groupId}`);
 }
 
 /** Pause weekly series — existing matches stay; no new occurrences. */

@@ -22,9 +22,7 @@ export default async function SummaryPage({
 
   const { data: match } = await supabase
     .from("matches")
-    .select(
-      "id, status, starts_at, score_a, score_b, started_at, ended_at, total_paused_seconds, location_text, team_a_name, team_b_name, locations(name)",
-    )
+    .select("id, status, starts_at, location_text, locations(name)")
     .eq("id", terminId)
     .maybeSingle();
   if (!match) notFound();
@@ -33,80 +31,109 @@ export default async function SummaryPage({
     redirect(`/grupe/${grupaId}/termin/${terminId}`);
   }
 
-  const { data: lineup } = await supabase
-    .from("match_lineup")
-    .select("user_id, team")
-    .eq("match_id", terminId);
+  const { data: games } = await supabase
+    .from("games")
+    .select(
+      "id, seq, score_a, score_b, started_at, ended_at, total_paused_seconds, team_a_name, team_b_name",
+    )
+    .eq("match_id", terminId)
+    .eq("status", "zavrsena")
+    .order("seq", { ascending: true });
 
-  const ids = (lineup ?? []).map((p) => p.user_id);
+  const finished = games ?? [];
+  const gameIds = finished.map((g) => g.id);
+
+  const [{ data: lineup }, { data: events }, { data: history }] = await Promise.all([
+    supabase
+      .from("match_lineup")
+      .select("game_id, user_id, team")
+      .in("game_id", gameIds.length ? gameIds : ["-"]),
+    supabase
+      .from("match_events")
+      .select("game_id, type, team, scorer_id, assist_id, elapsed_seconds")
+      .in("game_id", gameIds.length ? gameIds : ["-"])
+      .is("deleted_at", null)
+      .in("type", ["goal", "own_goal"])
+      .order("elapsed_seconds"),
+    supabase
+      .from("rating_history")
+      .select("game_id, user_id, rating_before, rating_after")
+      .in("game_id", gameIds.length ? gameIds : ["-"])
+      .eq("scope", "group"),
+  ]);
+
+  const allUserIds = [...new Set((lineup ?? []).map((p) => p.user_id))];
 
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, nickname")
-    .in("id", ids.length ? ids : ["-"]);
-
-  const { data: events } = await supabase
-    .from("match_events")
-    .select("type, team, scorer_id, assist_id, elapsed_seconds")
-    .eq("match_id", terminId)
-    .is("deleted_at", null)
-    .in("type", ["goal", "own_goal"])
-    .order("elapsed_seconds");
-
-  const { data: history } = await supabase
-    .from("rating_history")
-    .select("user_id, rating_before, rating_after")
-    .eq("match_id", terminId)
-    .eq("scope", "group");
+    .in("id", allUserIds.length ? allUserIds : ["-"]);
 
   const nicknameOf = (id: string | null) =>
     profiles?.find((p) => p.id === id)?.nickname || "?";
 
-  const goals = events ?? [];
+  const location = match.locations?.name ?? match.location_text ?? "";
 
-  const players = (lineup ?? []).map((p) => {
-    const record = history?.find((r) => r.user_id === p.user_id);
+  const gameBlocks = finished.map((game) => {
+    const gameLineup = (lineup ?? []).filter((p) => p.game_id === game.id);
+    const goals = (events ?? []).filter((e) => e.game_id === game.id);
+    const gameHistory = (history ?? []).filter((h) => h.game_id === game.id);
+
+    const players = gameLineup.map((p) => {
+      const record = gameHistory.find((r) => r.user_id === p.user_id);
+      return {
+        userId: p.user_id,
+        nickname: nicknameOf(p.user_id),
+        team: p.team as Team,
+        goals: goals.filter((e) => e.type === "goal" && e.scorer_id === p.user_id).length,
+        assists: goals.filter((e) => e.assist_id === p.user_id).length,
+        ownGoals: goals.filter((e) => e.type === "own_goal" && e.scorer_id === p.user_id).length,
+        delta: record ? record.rating_after - record.rating_before : null,
+        rating: record?.rating_after ?? null,
+      };
+    });
+
+    const winner =
+      game.score_a > game.score_b ? "A" : game.score_b > game.score_a ? "B" : null;
+
+    const duration =
+      game.started_at && game.ended_at
+        ? Math.max(
+            0,
+            Math.floor(
+              (new Date(game.ended_at).getTime() - new Date(game.started_at).getTime()) / 1000,
+            ) - game.total_paused_seconds,
+          )
+        : null;
+
+    const labelA = teamDisplayName("A", game.team_a_name);
+    const labelB = teamDisplayName("B", game.team_b_name);
+
+    const scorers = players
+      .filter((i) => i.goals > 0)
+      .sort((a, b) => b.goals - a.goals)
+      .map((i) => `${i.nickname} ${i.goals}`)
+      .join(", ");
+
     return {
-      userId: p.user_id,
-      nickname: nicknameOf(p.user_id),
-      team: p.team as Team,
-      goals: goals.filter((e) => e.type === "goal" && e.scorer_id === p.user_id).length,
-      assists: goals.filter((e) => e.assist_id === p.user_id).length,
-      ownGoals: goals.filter((e) => e.type === "own_goal" && e.scorer_id === p.user_id).length,
-      delta: record ? record.rating_after - record.rating_before : null,
-      rating: record?.rating_after ?? null,
+      game,
+      players,
+      goals,
+      winner: winner as Team | null,
+      duration,
+      labelA,
+      labelB,
+      scorers,
     };
   });
 
-  const winner =
-    match.score_a > match.score_b ? "A" : match.score_b > match.score_a ? "B" : null;
-
-  const duration =
-    match.started_at && match.ended_at
-      ? Math.max(
-          0,
-          Math.floor(
-            (new Date(match.ended_at).getTime() - new Date(match.started_at).getTime()) / 1000,
-          ) - match.total_paused_seconds,
-        )
-      : null;
-
-  const location = match.locations?.name ?? match.location_text ?? "";
-  const labelA = teamDisplayName("A", match.team_a_name);
-  const labelB = teamDisplayName("B", match.team_b_name);
-
-  // WhatsApp text: short, readable, no links that break.
-  const scorers = players
-    .filter((i) => i.goals > 0)
-    .sort((a, b) => b.goals - a.goals)
-    .map((i) => `${i.nickname} ${i.goals}`)
-    .join(", ");
-
   const shareText = [
     `Termin ${formatShortDate(match.starts_at)}${location ? `, ${location}` : ""}`,
-    `${labelA} ${match.score_a} : ${match.score_b} ${labelB}`,
-    scorers ? `⚽ ${scorers}` : "Bez golova.",
-  ].join("\n");
+    ...gameBlocks.map((b) => {
+      const header = `Utakmica ${b.game.seq}: ${b.labelA} ${b.game.score_a} : ${b.game.score_b} ${b.labelB}`;
+      return b.scorers ? `${header}\n⚽ ${b.scorers}` : header;
+    }),
+  ].join("\n\n");
 
   return (
     <div>
@@ -119,66 +146,92 @@ export default async function SummaryPage({
 
       <header className="mt-4 text-center">
         <p className="text-sm text-slate-500">{formatMatchDateTime(match.starts_at)}</p>
-
-        <div className="mt-3 rounded-xl bg-marka p-5 text-white">
-          <div className="flex items-center justify-center gap-4">
-            <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold uppercase text-slate-400">
-              {labelA}
-            </span>
-            <span className="text-4xl font-bold tabular-nums">
-              {match.score_a} : {match.score_b}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold uppercase text-slate-400">
-              {labelB}
-            </span>
-          </div>
-
-          <p className="mt-2 text-sm text-slate-400">
-            {winner
-              ? `Pobijedila ${winner === "A" ? labelA : labelB}`
-              : "Neriješeno"}
-            {duration !== null && ` · ${formatClock(duration)}`}
-          </p>
-        </div>
+        <h2 className="mt-1 text-lg font-bold tracking-tight">
+          {finished.length === 0
+            ? "Nema završenih utakmica"
+            : finished.length === 1
+              ? "1 utakmica"
+              : `${finished.length} utakmice`}
+        </h2>
       </header>
 
-      <section className="mt-6 flex gap-3">
-        <TeamColumn side="A" label={labelA} players={players} winner={winner} />
-        <TeamColumn side="B" label={labelB} players={players} winner={winner} />
-      </section>
+      {gameBlocks.length === 0 ? (
+        <p className="mt-6 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+          Termin je završen bez odigrane utakmice.
+        </p>
+      ) : (
+        gameBlocks.map((b) => (
+          <section key={b.game.id} className="mt-8">
+            <div className="rounded-xl bg-marka p-5 text-center text-white">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Utakmica {b.game.seq}
+              </p>
+              <div className="flex items-center justify-center gap-4">
+                <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold uppercase text-slate-400">
+                  {b.labelA}
+                </span>
+                <span className="text-4xl font-bold tabular-nums">
+                  {b.game.score_a} : {b.game.score_b}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-left text-sm font-semibold uppercase text-slate-400">
+                  {b.labelB}
+                </span>
+              </div>
 
-      {goals.length > 0 && (
-        <section className="mt-8">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Kronologija
-          </h3>
-          <ul className="space-y-1">
-            {goals.map((e, i) => (
-              <li
-                key={i}
-                className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-              >
-                <span className="w-12 shrink-0 tabular-nums text-slate-400">
-                  {formatClock(e.elapsed_seconds)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  {e.type === "goal" ? "⚽ " : "🥅 "}
-                  <span className="font-medium">{nicknameOf(e.scorer_id)}</span>
-                  {e.assist_id && (
-                    <span className="text-slate-500"> ({nicknameOf(e.assist_id)})</span>
-                  )}
-                  {e.type === "own_goal" && <span className="text-slate-500"> — autogol</span>}
-                </span>
-                <span className="shrink-0 text-xs font-semibold text-slate-400">{e.team}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+              <p className="mt-2 text-sm text-slate-400">
+                {b.winner
+                  ? `Pobijedila ${b.winner === "A" ? b.labelA : b.labelB}`
+                  : "Neriješeno"}
+                {b.duration !== null && ` · ${formatClock(b.duration)}`}
+              </p>
+            </div>
+
+            <div className="mt-4 flex gap-3">
+              <TeamColumn side="A" label={b.labelA} players={b.players} winner={b.winner} />
+              <TeamColumn side="B" label={b.labelB} players={b.players} winner={b.winner} />
+            </div>
+
+            {b.goals.length > 0 && (
+              <div className="mt-6">
+                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                  Kronologija
+                </h3>
+                <ul className="space-y-1">
+                  {b.goals.map((e, i) => (
+                    <li
+                      key={`${b.game.id}-${i}`}
+                      className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                    >
+                      <span className="w-12 shrink-0 tabular-nums text-slate-400">
+                        {formatClock(e.elapsed_seconds)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        {e.type === "goal" ? "⚽ " : "🥅 "}
+                        <span className="font-medium">{nicknameOf(e.scorer_id)}</span>
+                        {e.assist_id && (
+                          <span className="text-slate-500"> ({nicknameOf(e.assist_id)})</span>
+                        )}
+                        {e.type === "own_goal" && (
+                          <span className="text-slate-500"> — autogol</span>
+                        )}
+                      </span>
+                      <span className="shrink-0 text-xs font-semibold text-slate-400">
+                        {e.team}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        ))
       )}
 
-      <section className="mt-8">
-        <ShareButton text={shareText} />
-      </section>
+      {gameBlocks.length > 0 && (
+        <section className="mt-8">
+          <ShareButton text={shareText} />
+        </section>
+      )}
     </div>
   );
 }

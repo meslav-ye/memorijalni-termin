@@ -99,3 +99,22 @@ export function zagrebUIso(datum: string, satnica: string): string {
 
   return new Date(naivno.getTime() - pomak).toISOString();
 }
+
+/** Current Zagreb calendar date and clock — for "play now" termini. */
+export function zagrebNowParts(now: Date = new Date()): { date: string; time: string } {
+  const f = new Intl.DateTimeFormat("en-GB", {
+    timeZone: ZONA,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const p = Object.fromEntries(f.formatToParts(now).map((x) => [x.type, x.value]));
+  const hour = p.hour === "24" ? "00" : p.hour;
+  return {
+    date: `${p.year}-${p.month}-${p.day}`,
+    time: `${hour}:${p.minute}`,
+  };
+}

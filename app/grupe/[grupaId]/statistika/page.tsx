@@ -77,7 +77,7 @@ export default async function StatsPage({
 
   const seasonToShow = allTime ? null : (requestedSeason ?? (await latestSeason(grupaId)));
 
-  const { rows, seasons, matchesPlayed, records } = await getLeaderboard(
+  const { rows, seasons, matchesPlayed, sessionsPlayed, records } = await getLeaderboard(
     grupaId,
     seasonToShow,
   );
@@ -96,7 +96,7 @@ export default async function StatsPage({
   const topScorer = leader(rows, (r) => r.goals);
   const topAssister = leader(rows, (r) => r.assists);
   const topPoints = leader(rows, (r) => r.goals + r.assists);
-  const topAttendance = leader(rows, (r) => r.matches);
+  const topAttendance = leader(rows, (r) => r.sessionsAttended);
   const topKeeper = bestKeeperByGoalsAgainst(rows);
 
   // Everyone starts with a rating, so only show a rating leader once someone
@@ -143,9 +143,10 @@ export default async function StatsPage({
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Ukupno
         </h3>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
-            { label: "Termina", v: matchesPlayed },
+            { label: "Utakmice", v: matchesPlayed },
+            { label: "Termini", v: sessionsPlayed },
             { label: "Golova", v: totalGoals },
             { label: "Asistencija", v: totalAssists },
           ].map((k) => (
@@ -200,7 +201,7 @@ export default async function StatsPage({
             title="Najmanje primljenih"
             value={topKeeper ? topKeeper.average.toFixed(1) : "—"}
             who={topKeeper?.nickname ?? ""}
-            suffix="po terminu"
+            suffix="po utakmici"
           />
         </div>
       </section>
@@ -212,7 +213,7 @@ export default async function StatsPage({
         </h3>
         <div className="grid gap-2 sm:grid-cols-2">
           {[
-            "Najviše golova na terminu",
+            "Najviše golova na utakmici",
             "Najveća pobjeda",
             "Najviše termina zaredom",
           ].map((title) => {

@@ -15,6 +15,8 @@ export type LeaderboardRow = PlayerStats & {
   isGoalkeeper: boolean;
   rating: number;
   attendanceRate: number;
+  /** Finished sessions (termini) this player appeared in any game lineup. */
+  sessionsAttended: number;
   currentStreak: number;
   longestStreak: number;
   goalsAgainst: number;
@@ -27,7 +29,10 @@ export type StatRecord = { title: string; value: string; who: string };
 export type LeaderboardData = {
   rows: LeaderboardRow[];
   seasons: { id: string; name: string }[];
+  /** Finished games (utakmice). */
   matchesPlayed: number;
+  /** Finished sessions (termini). */
+  sessionsPlayed: number;
   records: StatRecord[];
 };
 
@@ -65,7 +70,7 @@ export async function getLeaderboard(
 function cachedLeaderboard(groupId: string, seasonId: string | null) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", "v2-profile-keepers", groupId, seasonId ?? "all"],
+    ["leaderboard", "v3-games", groupId, seasonId ?? "all"],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }
@@ -95,7 +100,7 @@ async function computeLeaderboard(
 
   let query = supabase
     .from("matches")
-    .select("id, score_a, score_b, starts_at")
+    .select("id, starts_at")
     .eq("group_id", groupId)
     .eq("status", "zavrsen")
     .order("starts_at", { ascending: true });
@@ -110,39 +115,63 @@ async function computeLeaderboard(
       rows: await emptyLeaderboard(groupId, memberIds),
       seasons: (seasons ?? []).map((s) => ({ id: s.id, name: s.name })),
       matchesPlayed: 0,
+      sessionsPlayed: 0,
       records: [],
     };
   }
 
   const matchIds = allMatches.map((t) => t.id);
+  const startsByMatch = new Map(allMatches.map((t) => [t.id, t.starts_at]));
+
+  const { data: finishedGames } = await supabase
+    .from("games")
+    .select("id, match_id, score_a, score_b, seq, started_at")
+    .in("match_id", matchIds)
+    .eq("status", "zavrsena")
+    .order("seq", { ascending: true });
+
+  const allGames = finishedGames ?? [];
+
+  if (allGames.length === 0) {
+    return {
+      rows: await emptyLeaderboard(groupId, memberIds),
+      seasons: (seasons ?? []).map((s) => ({ id: s.id, name: s.name })),
+      matchesPlayed: 0,
+      sessionsPlayed: allMatches.length,
+      records: [],
+    };
+  }
+
+  const gameIds = allGames.map((g) => g.id);
 
   const [{ data: lineups }, { data: events }, { data: ratings }] = await Promise.all([
     supabase
       .from("match_lineup")
-      .select("match_id, user_id, team, is_goalkeeper")
-      .in("match_id", matchIds),
+      .select("game_id, match_id, user_id, team, is_goalkeeper")
+      .in("game_id", gameIds),
     supabase
       .from("match_events")
-      .select("match_id, type, scorer_id, assist_id, team, elapsed_seconds, deleted_at")
-      .in("match_id", matchIds)
+      .select("game_id, type, scorer_id, assist_id, team, elapsed_seconds, deleted_at")
+      .in("game_id", gameIds)
       .in("type", ["goal", "own_goal", "keeper_change"]),
     supabase.from("player_ratings").select("user_id, rating").eq("group_id", groupId),
   ]);
 
-  const forStats: MatchForStats[] = allMatches.map((t) => ({
-    matchId: t.id,
-    scoreA: t.score_a,
-    scoreB: t.score_b,
-    startsAt: t.starts_at,
+  const forStats: MatchForStats[] = allGames.map((g) => ({
+    matchId: g.match_id,
+    gameId: g.id,
+    scoreA: g.score_a,
+    scoreB: g.score_b,
+    startsAt: startsByMatch.get(g.match_id) ?? g.started_at ?? undefined,
     lineup: (lineups ?? [])
-      .filter((p) => p.match_id === t.id)
+      .filter((p) => p.game_id === g.id)
       .map((p) => ({
         userId: p.user_id,
         team: p.team as Team,
         isGoalkeeper: p.is_goalkeeper,
       })),
     events: (events ?? [])
-      .filter((e) => e.match_id === t.id)
+      .filter((e) => e.game_id === g.id)
       .map((e) => ({
         type: e.type as "goal" | "own_goal" | "keeper_change",
         scorerId: e.scorer_id,
@@ -171,15 +200,17 @@ async function computeLeaderboard(
   const keeperById = new Map(keeperStats.map((k) => [k.userId, k]));
   const players = stats.map((s) => s.userId);
 
-  const lineupByMatch = new Map<string, Set<string>>();
+  // Attendance is per termin: anyone in any game's lineup for that session.
+  const lineupBySession = new Map<string, Set<string>>();
   for (const t of allMatches) {
-    lineupByMatch.set(
-      t.id,
-      new Set((lineups ?? []).filter((p) => p.match_id === t.id).map((p) => p.user_id)),
-    );
+    lineupBySession.set(t.id, new Set());
+  }
+  for (const p of lineups ?? []) {
+    const set = lineupBySession.get(p.match_id);
+    if (set) set.add(p.user_id);
   }
 
-  const attendance = aggregateAttendance(matchIds, lineupByMatch, players);
+  const attendance = aggregateAttendance(matchIds, lineupBySession, players);
 
   // Members who have not played any match yet do not appear in stats, but
   // must be on the leaderboard — otherwise newcomers "vanish" until they play.
@@ -208,6 +239,7 @@ async function computeLeaderboard(
       isGoalkeeper: p?.is_goalkeeper ?? false,
       rating: ratings?.find((r) => r.user_id === s.userId)?.rating ?? 1000,
       attendanceRate: d?.rate ?? 0,
+      sessionsAttended: d?.played ?? 0,
       currentStreak: d?.currentStreak ?? 0,
       longestStreak: d?.longestStreak ?? 0,
       goalsAgainst: k?.goalsAgainst ?? 0,
@@ -238,7 +270,8 @@ async function computeLeaderboard(
   return {
     rows: allRows,
     seasons: (seasons ?? []).map((s) => ({ id: s.id, name: s.name })),
-    matchesPlayed: allMatches.length,
+    matchesPlayed: allGames.length,
+    sessionsPlayed: allMatches.length,
     records: computeRecords(forStats, rows),
   };
 }
@@ -268,6 +301,7 @@ function emptyRow(
     goalsPerMatch: 0,
     winRate: 0,
     attendanceRate: 0,
+    sessionsAttended: 0,
     currentStreak: 0,
     longestStreak: 0,
     goalsAgainst: 0,
@@ -320,7 +354,7 @@ function computeRecords(
   const records: StatRecord[] = [];
   const nickname = (id: string) => rows.find((r) => r.userId === id)?.nickname ?? "?";
 
-  // Most goals by one player in a single match.
+  // Most goals by one player in a single game.
   let bestMatch = { goals: 0, who: "" };
   for (const t of matches) {
     const counts = new Map<string, number>();
@@ -334,7 +368,7 @@ function computeRecords(
   }
   if (bestMatch.goals > 0) {
     records.push({
-      title: "Najviše golova na terminu",
+      title: "Najviše golova na utakmici",
       value: String(bestMatch.goals),
       who: bestMatch.who,
     });
@@ -342,7 +376,7 @@ function computeRecords(
 
   // Largest win by goal difference.
   //
-  // This record is tied to the MATCH, not a player, so `who` is the match date.
+  // This record is tied to the GAME, not a player, so `who` is the session date.
   // Previously it was left empty, and the card treats empty `who` as "no record" —
   // so a real result showed greyed out next to "jos nitko".
   const largest = matches.reduce(
@@ -366,7 +400,7 @@ function computeRecords(
     });
   }
 
-  // A streak of one match is still a streak. The threshold used to be `> 1`,
+  // A streak of one session is still a streak. The threshold used to be `> 1`,
   // so after the first played match nobody was shown.
   const longestStreak = rows.reduce(
     (best, r) => (best && r.longestStreak > best.longestStreak ? r : (best ?? r)),

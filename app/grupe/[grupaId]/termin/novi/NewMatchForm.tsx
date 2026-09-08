@@ -29,30 +29,49 @@ export function NewMatchForm({
 
   // If the group has no saved locations yet, offer free-text input immediately.
   const [otherLocation, setOtherLocation] = useState(locations.length === 0);
+  const [playNow, setPlayNow] = useState(false);
 
   return (
     <form action={action} className="space-y-6">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <label htmlFor="datum" className="block text-sm font-medium text-slate-700">
-            Datum
-          </label>
-          <input id="datum" name="datum" type="date" required className={FIELD} />
+      <label className="flex items-start gap-3 rounded-lg border border-marka/30 bg-marka/5 p-4">
+        <input
+          type="checkbox"
+          name="igramoOdmah"
+          checked={playNow}
+          onChange={(e) => setPlayNow(e.target.checked)}
+          className="mt-1 h-4 w-4 rounded border-slate-300 text-marka focus:ring-marka"
+        />
+        <span>
+          <span className="block text-sm font-medium text-slate-800">Igramo odmah</span>
+          <span className="mt-0.5 block text-sm text-slate-500">
+            Termin počinje sada — ideš na ekipe, pa uživo. Bez čekanja 30 minuta.
+          </span>
+        </span>
+      </label>
+
+      {!playNow && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <label htmlFor="datum" className="block text-sm font-medium text-slate-700">
+              Datum
+            </label>
+            <input id="datum" name="datum" type="date" required className={FIELD} />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="vrijeme" className="block text-sm font-medium text-slate-700">
+              Vrijeme
+            </label>
+            <input
+              id="vrijeme"
+              name="vrijeme"
+              type="time"
+              defaultValue="20:00"
+              required
+              className={FIELD}
+            />
+          </div>
         </div>
-        <div className="space-y-2">
-          <label htmlFor="vrijeme" className="block text-sm font-medium text-slate-700">
-            Vrijeme
-          </label>
-          <input
-            id="vrijeme"
-            name="vrijeme"
-            type="time"
-            defaultValue="20:00"
-            required
-            className={FIELD}
-          />
-        </div>
-      </div>
+      )}
 
       <div className="space-y-2">
         <label htmlFor="lokacija" className="block text-sm font-medium text-slate-700">
@@ -140,20 +159,22 @@ export function NewMatchForm({
         />
       </div>
 
-      <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4">
-        <input
-          type="checkbox"
-          name="stalni"
-          className="mt-1 h-4 w-4 rounded border-slate-300 text-marka focus:ring-marka"
-        />
-        <span>
-          <span className="block text-sm font-medium text-slate-800">Stalni termin</span>
-          <span className="mt-0.5 block text-sm text-slate-500">
-            Ponavlja se svaki tjedan u isto vrijeme. Sljedeći se pojavi 6 dana
-            prije početka.
+      {!playNow && (
+        <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4">
+          <input
+            type="checkbox"
+            name="stalni"
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-marka focus:ring-marka"
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-800">Stalni termin</span>
+            <span className="mt-0.5 block text-sm text-slate-500">
+              Ponavlja se svaki tjedan u isto vrijeme. Sljedeći se pojavi 6 dana
+              prije početka.
+            </span>
           </span>
-        </span>
-      </label>
+        </label>
+      )}
 
       <button
         type="submit"
@@ -161,7 +182,7 @@ export function NewMatchForm({
         className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
-        {pending ? "Otvaram…" : "Otvori termin"}
+        {pending ? "Otvaram…" : playNow ? "Otvori i idi na ekipe" : "Otvori termin"}
       </button>
 
       {state.error && (

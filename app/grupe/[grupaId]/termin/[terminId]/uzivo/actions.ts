@@ -2,6 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { leaderboardTag } from "@/lib/data/leaderboard";
+import { copyLineup, ensureDraftGame, getCurrentGame } from "@/lib/data/games";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findRecentDuplicate, secondsAgo, DUPLICATE_WINDOW_SECONDS } from "@/lib/domain/duplicates";
@@ -22,7 +23,7 @@ export type GoalActionResult =
   | { possibleDuplicate: { secondsBefore: number } }
   | { error: string };
 
-/** Whether the signed-in user may touch this match at all. */
+/** Whether the signed-in user may touch this session (any game's lineup). */
 async function requireLineupAccess(matchId: string) {
   const supabase = await createClient();
   const {
@@ -36,33 +37,41 @@ async function requireLineupAccess(matchId: string) {
     .select("team")
     .eq("match_id", matchId)
     .eq("user_id", user.id)
+    .limit(1)
     .maybeSingle();
 
-  // Only lineup members can enter events. RLS enforces this in the DB too —
-  // this is just so the user gets a clear message instead of a silent failure.
   if (!lineup) return null;
 
   return { supabase, user };
 }
 
-/**
- * The score on `matches` is only a fast copy for match list display.
- * Events are the source of truth, so the score is always recomputed from them.
- */
-async function refreshScore(matchId: string) {
+async function requireOpenGame(matchId: string) {
+  const ctx = await requireLineupAccess(matchId);
+  if (!ctx) return { error: "Nemaš pravo." as const };
+
+  const game = await getCurrentGame(matchId, ctx.supabase);
+  if (!game || game.status !== "u_tijeku") {
+    return { error: "Nema otvorene utakmice." as const };
+  }
+
+  return { ...ctx, game };
+}
+
+/** Score on `games` is a fast copy for display. Events are the source of truth. */
+async function refreshScore(gameId: string) {
   const supabase = await createClient();
 
   const { data: events } = await supabase
     .from("match_events")
     .select("team")
-    .eq("match_id", matchId)
+    .eq("game_id", gameId)
     .is("deleted_at", null)
     .in("type", ["goal", "own_goal"]);
 
   const a = (events ?? []).filter((e) => e.team === "A").length;
   const b = (events ?? []).filter((e) => e.team === "B").length;
 
-  await supabase.from("matches").update({ score_a: a, score_b: b }).eq("id", matchId);
+  await supabase.from("games").update({ score_a: a, score_b: b }).eq("id", gameId);
 }
 
 export async function startMatch(groupId: string, matchId: string): Promise<ActionResult> {
@@ -80,66 +89,70 @@ export async function startMatch(groupId: string, matchId: string): Promise<Acti
   if (match.status === "otkazan") return { error: "Termin je otkazan." };
   if (match.status === "u_tijeku") return { ok: true };
 
-  // Earliest half an hour before kickoff — otherwise someone starts the match
-  // a day early and the stopwatch runs all night.
   if (!canStart(match.starts_at, new Date())) {
     return {
       error: `Termin se može pokrenuti tek ${MINUTES_BEFORE_START} minuta prije početka.`,
     };
   }
 
-  const { error } = await ctx.supabase
+  const game = await ensureDraftGame(matchId, ctx.supabase);
+  if (!game) return { error: "Utakmica nije pripremljena. Pokušaj ponovno." };
+
+  const now = new Date().toISOString();
+
+  const { error: matchError } = await ctx.supabase
     .from("matches")
-    .update({
-      status: "u_tijeku",
-      started_at: new Date().toISOString(),
-      paused_at: null,
-      total_paused_seconds: 0,
-    })
+    .update({ status: "u_tijeku" })
     .eq("id", matchId);
 
-  if (error) return { error: "Pokretanje nije uspjelo. Pokušaj ponovno." };
+  if (matchError) return { error: "Pokretanje nije uspjelo. Pokušaj ponovno." };
+
+  const { error: gameError } = await ctx.supabase
+    .from("games")
+    .update({
+      started_at: game.started_at ?? now,
+      paused_at: null,
+      total_paused_seconds: game.started_at ? game.total_paused_seconds : 0,
+      status: "u_tijeku",
+    })
+    .eq("id", game.id);
+
+  if (gameError) return { error: "Pokretanje nije uspjelo. Pokušaj ponovno." };
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
   return { ok: true };
 }
 
 export async function pauseMatch(matchId: string): Promise<ActionResult> {
-  const ctx = await requireLineupAccess(matchId);
-  if (!ctx) return { error: "Nemaš pravo." };
+  const open = await requireOpenGame(matchId);
+  if (!("game" in open)) return { error: open.error };
 
-  const { error } = await ctx.supabase
-    .from("matches")
+  const { error } = await open.supabase
+    .from("games")
     .update({ paused_at: new Date().toISOString() })
-    .eq("id", matchId)
+    .eq("id", open.game.id)
     .is("paused_at", null);
 
   return error ? { error: "Pauziranje nije uspjelo." } : { ok: true };
 }
 
 export async function resumeMatch(matchId: string): Promise<ActionResult> {
-  const ctx = await requireLineupAccess(matchId);
-  if (!ctx) return { error: "Nemaš pravo." };
+  const open = await requireOpenGame(matchId);
+  if (!("game" in open)) return { error: open.error };
 
-  const { data: match } = await ctx.supabase
-    .from("matches")
-    .select("paused_at, total_paused_seconds")
-    .eq("id", matchId)
-    .maybeSingle();
-
-  if (!match?.paused_at) return { ok: true };
+  if (!open.game.paused_at) return { ok: true };
 
   const pauseDuration = Math.floor(
-    (Date.now() - new Date(match.paused_at).getTime()) / 1000,
+    (Date.now() - new Date(open.game.paused_at).getTime()) / 1000,
   );
 
-  const { error } = await ctx.supabase
-    .from("matches")
+  const { error } = await open.supabase
+    .from("games")
     .update({
       paused_at: null,
-      total_paused_seconds: match.total_paused_seconds + Math.max(0, pauseDuration),
+      total_paused_seconds: open.game.total_paused_seconds + Math.max(0, pauseDuration),
     })
-    .eq("id", matchId);
+    .eq("id", open.game.id);
 
   return error ? { error: "Nastavak nije uspio." } : { ok: true };
 }
@@ -151,16 +164,16 @@ export async function recordGoal(
   elapsed: number,
   confirmedDuplicate = false,
 ): Promise<GoalActionResult> {
-  const ctx = await requireLineupAccess(matchId);
-  if (!ctx) return { error: "Golove unosi netko tko je u postavi." };
+  const open = await requireOpenGame(matchId);
+  if ("error" in open) return { error: "Golove unosi netko tko je u postavi." };
 
   if (!confirmedDuplicate) {
     const since = new Date(Date.now() - DUPLICATE_WINDOW_SECONDS * 1000).toISOString();
 
-    const { data: recent } = await ctx.supabase
+    const { data: recent } = await open.supabase
       .from("match_events")
       .select("id, type, scorer_id, created_at, deleted_at")
-      .eq("match_id", matchId)
+      .eq("game_id", open.game.id)
       .eq("type", "goal")
       .eq("scorer_id", scorerId)
       .is("deleted_at", null)
@@ -183,25 +196,24 @@ export async function recordGoal(
     }
   }
 
-  // Goal is written IMMEDIATELY, without an assist. The assistant is added
-  // with a second tap. If the phone locks mid-entry, the goal is already saved.
-  const { data, error } = await ctx.supabase
+  const { data, error } = await open.supabase
     .from("match_events")
     .insert({
       match_id: matchId,
+      game_id: open.game.id,
       type: "goal",
       team,
       scorer_id: scorerId,
       assist_id: null,
       elapsed_seconds: elapsed,
-      created_by: ctx.user.id,
+      created_by: open.user.id,
     })
     .select("id")
     .single();
 
   if (error || !data) return { error: "Gol nije upisan. Pokušaj ponovno." };
 
-  await refreshScore(matchId);
+  await refreshScore(open.game.id);
   return { ok: true, eventId: data.id };
 }
 
@@ -210,10 +222,10 @@ export async function addAssist(
   eventId: string,
   assistId: string | null,
 ): Promise<ActionResult> {
-  const ctx = await requireLineupAccess(matchId);
-  if (!ctx) return { error: "Nemaš pravo." };
+  const open = await requireOpenGame(matchId);
+  if ("error" in open) return { error: "Nemaš pravo." };
 
-  const { error } = await ctx.supabase
+  const { error } = await open.supabase
     .from("match_events")
     .update({ assist_id: assistId })
     .eq("id", eventId);
@@ -227,88 +239,81 @@ export async function recordOwnGoal(
   theirTeam: Team,
   elapsed: number,
 ): Promise<ActionResult> {
-  const ctx = await requireLineupAccess(matchId);
-  if (!ctx) return { error: "Nemaš pravo." };
+  const open = await requireOpenGame(matchId);
+  if ("error" in open) return { error: "Nemaš pravo." };
 
-  const { error } = await ctx.supabase.from("match_events").insert({
+  const { error } = await open.supabase.from("match_events").insert({
     match_id: matchId,
+    game_id: open.game.id,
     type: "own_goal",
-    // The goal is credited to the OPPOSING team; the player gets an own-goal mark.
     team: theirTeam === "A" ? "B" : "A",
     scorer_id: playerId,
     elapsed_seconds: elapsed,
-    created_by: ctx.user.id,
+    created_by: open.user.id,
   });
 
   if (error) return { error: "Autogol nije upisan." };
 
-  await refreshScore(matchId);
+  await refreshScore(open.game.id);
   return { ok: true };
 }
 
 export async function undoEvent(matchId: string, eventId: string): Promise<ActionResult> {
-  const ctx = await requireLineupAccess(matchId);
-  if (!ctx) return { error: "Nemaš pravo." };
+  const open = await requireOpenGame(matchId);
+  if ("error" in open) return { error: "Nemaš pravo." };
 
-  // Soft delete — the row stays so we always know who entered and withdrew what.
-  const { error } = await ctx.supabase
+  const { error } = await open.supabase
     .from("match_events")
-    .update({ deleted_at: new Date().toISOString(), deleted_by: ctx.user.id })
+    .update({ deleted_at: new Date().toISOString(), deleted_by: open.user.id })
     .eq("id", eventId);
 
   if (error) return { error: "Poništavanje nije uspjelo." };
 
-  await refreshScore(matchId);
+  await refreshScore(open.game.id);
   return { ok: true };
 }
 
 /**
- * Elo rating settlement for a finished match (group + global).
- *
- * Goes through the service role because player_ratings intentionally has no
- * write policy — nobody in the browser may touch ratings, theirs or anyone else's.
- *
- * Idempotent: if rating_history already has a group-scope row for this match,
- * settlement already ran and a second call does nothing. Without that, two
- * simultaneous taps on "Finish" would move ratings twice.
+ * Elo rating settlement for a finished game (group + global).
  */
-async function settleRatings(groupId: string, matchId: string) {
+async function settleRatings(groupId: string, matchId: string, gameId: string) {
   const admin = createAdminClient();
 
-  const { data: alreadySettled } = await admin
+  const { data: existing } = await admin
     .from("rating_history")
-    .select("id")
-    .eq("match_id", matchId)
-    .eq("scope", "group")
-    .limit(1);
+    .select("scope")
+    .eq("game_id", gameId);
 
-  if (alreadySettled && alreadySettled.length > 0) return;
+  const hasGroup = (existing ?? []).some((r) => r.scope === "group");
+  const hasGlobal = (existing ?? []).some((r) => r.scope === "global");
+  if (hasGroup && hasGlobal) return;
 
-  const { data: match } = await admin
-    .from("matches")
+  const { data: game } = await admin
+    .from("games")
     .select("score_a, score_b")
-    .eq("id", matchId)
+    .eq("id", gameId)
     .maybeSingle();
 
   const { data: lineup } = await admin
     .from("match_lineup")
     .select("user_id, team")
-    .eq("match_id", matchId);
+    .eq("game_id", gameId);
 
-  if (!match || !lineup?.length) return;
+  if (!game || !lineup?.length) return;
 
   const userIds = lineup.map((p) => p.user_id);
 
-  const { data: ratings } = await admin
-    .from("player_ratings")
-    .select("user_id, rating")
-    .eq("group_id", groupId)
-    .in("user_id", userIds);
+  const { data: ratings } = !hasGroup
+    ? await admin
+        .from("player_ratings")
+        .select("user_id, rating")
+        .eq("group_id", groupId)
+        .in("user_id", userIds)
+    : { data: [] as { user_id: string; rating: number }[] };
 
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, global_rating")
-    .in("id", userIds);
+  const { data: profiles } = !hasGlobal
+    ? await admin.from("profiles").select("id, global_rating").in("id", userIds)
+    : { data: [] as { id: string; global_rating: number }[] };
 
   const teamPlayers = (side: Team) =>
     lineup
@@ -324,51 +329,178 @@ async function settleRatings(groupId: string, matchId: string) {
   const { group, global } = computeDualElo({
     teamA: teamPlayers("A"),
     teamB: teamPlayers("B"),
-    scoreA: match.score_a,
-    scoreB: match.score_b,
+    scoreA: game.score_a,
+    scoreB: game.score_b,
   });
 
-  if (group.updates.length === 0) return;
+  const historyRows = [
+    ...(!hasGroup
+      ? group.updates.map((u) => ({
+          match_id: matchId,
+          game_id: gameId,
+          user_id: u.userId,
+          scope: "group" as const,
+          rating_before: u.ratingBefore,
+          rating_after: u.ratingAfter,
+        }))
+      : []),
+    ...(!hasGlobal
+      ? global.updates.map((u) => ({
+          match_id: matchId,
+          game_id: gameId,
+          user_id: u.userId,
+          scope: "global" as const,
+          rating_before: u.ratingBefore,
+          rating_after: u.ratingAfter,
+        }))
+      : []),
+  ];
 
-  // History first: if a rating write stalls halfway, history shows where we got to.
-  await admin.from("rating_history").upsert(
-    [
-      ...group.updates.map((u) => ({
-        match_id: matchId,
-        user_id: u.userId,
-        scope: "group" as const,
-        rating_before: u.ratingBefore,
-        rating_after: u.ratingAfter,
-      })),
-      ...global.updates.map((u) => ({
-        match_id: matchId,
-        user_id: u.userId,
-        scope: "global" as const,
-        rating_before: u.ratingBefore,
-        rating_after: u.ratingAfter,
-      })),
-    ],
-    { onConflict: "match_id,user_id,scope" },
-  );
+  if (historyRows.length === 0) return;
 
-  for (const u of group.updates) {
-    await admin.rpc("apply_rating", {
-      p_group: groupId,
-      p_user: u.userId,
-      p_rating: u.ratingAfter,
-    });
+  await admin.from("rating_history").upsert(historyRows, {
+    onConflict: "game_id,user_id,scope",
+  });
+
+  if (!hasGroup) {
+    for (const u of group.updates) {
+      await admin.rpc("apply_rating", {
+        p_group: groupId,
+        p_user: u.userId,
+        p_rating: u.ratingAfter,
+      });
+    }
   }
 
-  for (const u of global.updates) {
-    await admin.rpc("apply_global_rating", {
-      p_user: u.userId,
-      p_rating: u.ratingAfter,
-    });
+  if (!hasGlobal) {
+    for (const u of global.updates) {
+      await admin.rpc("apply_global_rating", {
+        p_user: u.userId,
+        p_rating: u.ratingAfter,
+      });
+    }
   }
 }
 
-/** Close the match, stop entry, and settle ratings. */
-export async function finishMatch(groupId: string, matchId: string): Promise<ActionResult> {
+/** Close the current game and settle Elo; termin stays open. */
+export async function finishGame(groupId: string, matchId: string): Promise<ActionResult> {
+  const ctx = await requireLineupAccess(matchId);
+  if (!ctx) return { error: "Utakmicu završava netko tko je u postavi." };
+
+  const { data: match } = await ctx.supabase
+    .from("matches")
+    .select("status")
+    .eq("id", matchId)
+    .maybeSingle();
+
+  if (match?.status === "zavrsen") return { ok: true };
+  if (match?.status !== "u_tijeku") return { error: "Termin nije u tijeku." };
+
+  const game = await getCurrentGame(matchId, ctx.supabase);
+  if (!game) return { error: "Utakmica nije pronađena." };
+  if (game.status === "zavrsena") return { ok: true };
+
+  await refreshScore(game.id);
+
+  const { error } = await ctx.supabase
+    .from("games")
+    .update({
+      status: "zavrsena",
+      ended_at: new Date().toISOString(),
+      paused_at: null,
+    })
+    .eq("id", game.id);
+
+  if (error) return { error: "Završavanje nije uspjelo. Pokušaj ponovno." };
+
+  await settleRatings(groupId, matchId, game.id);
+
+  updateTag(leaderboardTag(groupId));
+
+  revalidatePath(`/grupe/${groupId}`);
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+  return { ok: true };
+}
+
+export async function startNextGame(groupId: string, matchId: string): Promise<ActionResult> {
+  const ctx = await requireLineupAccess(matchId);
+  if (!ctx) return { error: "Novu utakmicu pokreće netko tko je u postavi." };
+
+  const { data: match } = await ctx.supabase
+    .from("matches")
+    .select("status")
+    .eq("id", matchId)
+    .maybeSingle();
+
+  if (match?.status !== "u_tijeku") {
+    return { error: "Termin mora biti u tijeku." };
+  }
+
+  const { data: open } = await ctx.supabase
+    .from("games")
+    .select("*")
+    .eq("match_id", matchId)
+    .eq("status", "u_tijeku")
+    .order("seq", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const now = new Date().toISOString();
+
+  if (open) {
+    if (open.started_at) {
+      return { error: "Prvo završi trenutnu utakmicu." };
+    }
+
+    const { error } = await ctx.supabase
+      .from("games")
+      .update({
+        started_at: now,
+        paused_at: null,
+        total_paused_seconds: 0,
+      })
+      .eq("id", open.id);
+
+    if (error) return { error: "Pokretanje nije uspjelo." };
+
+    revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+    revalidatePath(`/grupe/${groupId}/termin/${matchId}/uzivo`);
+    return { ok: true };
+  }
+
+  const { data: latest } = await ctx.supabase
+    .from("games")
+    .select("*")
+    .eq("match_id", matchId)
+    .order("seq", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!latest) return { error: "Nema prethodne utakmice." };
+
+  const { data: next, error: insertError } = await ctx.supabase
+    .from("games")
+    .insert({
+      match_id: matchId,
+      seq: latest.seq + 1,
+      status: "u_tijeku",
+      started_at: now,
+      team_a_name: latest.team_a_name,
+      team_b_name: latest.team_b_name,
+    })
+    .select("*")
+    .single();
+
+  if (insertError || !next) return { error: "Nova utakmica nije kreirana." };
+
+  await copyLineup(latest.id, next.id, ctx.supabase);
+
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/uzivo`);
+  return { ok: true };
+}
+
+export async function endTermin(groupId: string, matchId: string): Promise<ActionResult> {
   const ctx = await requireLineupAccess(matchId);
   if (!ctx) return { error: "Termin završava netko tko je u postavi." };
 
@@ -381,19 +513,33 @@ export async function finishMatch(groupId: string, matchId: string): Promise<Act
   if (match?.status === "zavrsen") return { ok: true };
   if (match?.status !== "u_tijeku") return { error: "Termin nije u tijeku." };
 
-  await refreshScore(matchId);
+  const { data: openLive } = await ctx.supabase
+    .from("games")
+    .select("id, started_at")
+    .eq("match_id", matchId)
+    .eq("status", "u_tijeku")
+    .not("started_at", "is", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (openLive) {
+    return { error: "Prvo završi trenutnu utakmicu." };
+  }
+
+  await ctx.supabase
+    .from("games")
+    .delete()
+    .eq("match_id", matchId)
+    .eq("status", "u_tijeku")
+    .is("started_at", null);
 
   const { error } = await ctx.supabase
     .from("matches")
-    .update({ status: "zavrsen", ended_at: new Date().toISOString(), paused_at: null })
+    .update({ status: "zavrsen" })
     .eq("id", matchId);
 
-  if (error) return { error: "Završavanje nije uspjelo. Pokušaj ponovno." };
+  if (error) return { error: "Završavanje termina nije uspjelo." };
 
-  await settleRatings(groupId, matchId);
-
-  // Leaderboard is cached; this is the only moment it actually changes, so
-  // invalidate here.
   updateTag(leaderboardTag(groupId));
 
   revalidatePath(`/grupe/${groupId}`);
@@ -407,29 +553,29 @@ export async function changeGoalkeeper(
   team: Team,
   elapsed: number,
 ): Promise<ActionResult> {
-  const ctx = await requireLineupAccess(matchId);
-  if (!ctx) return { error: "Nemaš pravo." };
+  const open = await requireOpenGame(matchId);
+  if ("error" in open) return { error: "Nemaš pravo." };
 
-  await ctx.supabase
+  await open.supabase
     .from("match_lineup")
     .update({ is_goalkeeper: false })
-    .eq("match_id", matchId)
+    .eq("game_id", open.game.id)
     .eq("team", team);
 
-  await ctx.supabase
+  await open.supabase
     .from("match_lineup")
     .update({ is_goalkeeper: true })
-    .eq("match_id", matchId)
+    .eq("game_id", open.game.id)
     .eq("user_id", playerId);
 
-  // Timeline trail: later used to compute who conceded which goal.
-  await ctx.supabase.from("match_events").insert({
+  await open.supabase.from("match_events").insert({
     match_id: matchId,
+    game_id: open.game.id,
     type: "keeper_change",
     team,
     scorer_id: playerId,
     elapsed_seconds: elapsed,
-    created_by: ctx.user.id,
+    created_by: open.user.id,
   });
 
   return { ok: true };

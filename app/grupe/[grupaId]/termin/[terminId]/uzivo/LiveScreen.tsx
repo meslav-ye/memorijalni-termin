@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatClock, elapsedSeconds } from "@/lib/domain/timer";
 import type { MatchTimerState, Team } from "@/lib/domain/types";
+import { teamDisplayName } from "@/lib/domain/team-name";
 import { Stopwatch } from "@/components/termin/Stopwatch";
 import { PlayerButton } from "@/components/termin/PlayerButton";
 import { AssistStrip, type PendingAssist } from "@/components/termin/AssistStrip";
@@ -16,7 +18,9 @@ import {
   changeGoalkeeper,
   recordOwnGoal,
   recordGoal,
-  finishMatch,
+  finishGame,
+  startNextGame,
+  endTermin,
 } from "./actions";
 
 export type LineupPlayer = {
@@ -37,7 +41,11 @@ export type LiveEvent = {
   deletedAt: string | null;
 };
 
-export type MatchLiveState = MatchTimerState & { status: string };
+export type LiveState = MatchTimerState & {
+  matchStatus: string;
+  gameStatus: string;
+  gameSeq: number;
+};
 
 /** Subscribe to online/offline changes for useSyncExternalStore. */
 function subscribeToNetwork(onChange: () => void) {
@@ -52,17 +60,19 @@ function subscribeToNetwork(onChange: () => void) {
 export function LiveScreen({
   grupaId,
   terminId,
+  gameId: _gameId,
   initialLineup,
   initialEvents,
   initialState,
-  teamAName,
-  teamBName,
+  teamAName: initialTeamAName,
+  teamBName: initialTeamBName,
 }: {
   grupaId: string;
   terminId: string;
+  gameId: string;
   initialLineup: LineupPlayer[];
   initialEvents: LiveEvent[];
-  initialState: MatchLiveState;
+  initialState: LiveState;
   teamAName: string;
   teamBName: string;
 }) {
@@ -72,6 +82,8 @@ export function LiveScreen({
   const [lineup, setLineup] = useState(initialLineup);
   const [events, setEvents] = useState(initialEvents);
   const [state, setState] = useState(initialState);
+  const [teamAName, setTeamAName] = useState(initialTeamAName);
+  const [teamBName, setTeamBName] = useState(initialTeamBName);
 
   const [pendingAssist, setPendingAssist] = useState<PendingAssist | null>(null);
   const [duplicate, setDuplicate] = useState<{
@@ -81,24 +93,50 @@ export function LiveScreen({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // --- Fresh data fetch -----------------------------------------------------
-
   const refresh = useCallback(async () => {
-    const [{ data: eventRows }, { data: lineupRows }, { data: matchRow }] = await Promise.all([
+    const [{ data: matchRow }, { data: openGame }, { data: latestGame }] = await Promise.all([
+      supabase.from("matches").select("status").eq("id", terminId).maybeSingle(),
+      supabase
+        .from("games")
+        .select("*")
+        .eq("match_id", terminId)
+        .eq("status", "u_tijeku")
+        .order("seq", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("games")
+        .select("*")
+        .eq("match_id", terminId)
+        .order("seq", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    const game = openGame ?? latestGame;
+    if (!game || !matchRow) return;
+
+    setTeamAName(teamDisplayName("A", game.team_a_name));
+    setTeamBName(teamDisplayName("B", game.team_b_name));
+    setState({
+      matchStatus: matchRow.status,
+      gameStatus: game.status,
+      gameSeq: game.seq,
+      startedAt: game.started_at,
+      pausedAt: game.paused_at,
+      totalPausedSeconds: game.total_paused_seconds,
+    });
+
+    const [{ data: eventRows }, { data: lineupRows }] = await Promise.all([
       supabase
         .from("match_events")
         .select("id, type, team, scorer_id, assist_id, elapsed_seconds, created_at, deleted_at")
-        .eq("match_id", terminId)
+        .eq("game_id", game.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("match_lineup")
         .select("user_id, team, is_goalkeeper")
-        .eq("match_id", terminId),
-      supabase
-        .from("matches")
-        .select("status, started_at, paused_at, total_paused_seconds")
-        .eq("id", terminId)
-        .maybeSingle(),
+        .eq("game_id", game.id),
     ]);
 
     if (eventRows) {
@@ -117,26 +155,33 @@ export function LiveScreen({
     }
 
     if (lineupRows) {
-      setLineup((prev) =>
-        prev.map((p) => ({
-          ...p,
-          team: (lineupRows.find((x) => x.user_id === p.userId)?.team ?? p.team) as Team,
-          isGoalkeeper: lineupRows.find((x) => x.user_id === p.userId)?.is_goalkeeper ?? false,
-        })),
-      );
-    }
-
-    if (matchRow) {
-      setState({
-        status: matchRow.status,
-        startedAt: matchRow.started_at,
-        pausedAt: matchRow.paused_at,
-        totalPausedSeconds: matchRow.total_paused_seconds,
+      setLineup((prev) => {
+        const byId = new Map(lineupRows.map((x) => [x.user_id, x]));
+        const next = prev
+          .filter((p) => byId.has(p.userId))
+          .map((p) => {
+            const row = byId.get(p.userId)!;
+            return {
+              ...p,
+              team: row.team as Team,
+              isGoalkeeper: row.is_goalkeeper,
+            };
+          });
+        for (const row of lineupRows) {
+          if (!next.some((p) => p.userId === row.user_id)) {
+            const known = prev.find((p) => p.userId === row.user_id);
+            next.push({
+              userId: row.user_id,
+              nickname: known?.nickname ?? "?",
+              team: row.team as Team,
+              isGoalkeeper: row.is_goalkeeper,
+            });
+          }
+        }
+        return next;
       });
     }
   }, [supabase, terminId]);
-
-  // --- Live sync ------------------------------------------------------------
 
   useEffect(() => {
     const channel = supabase
@@ -156,10 +201,12 @@ export function LiveScreen({
         { event: "UPDATE", schema: "public", table: "matches", filter: `id=eq.${terminId}` },
         () => void refresh(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "games", filter: `match_id=eq.${terminId}` },
+        () => void refresh(),
+      )
       .subscribe((status) => {
-        // Fires on first connect and every reconnect after a drop. Pull
-        // everything that happened while we were not listening — so refresh
-        // does not need a separate effect on network state.
         if (status === "SUBSCRIBED") void refresh();
       });
 
@@ -168,49 +215,39 @@ export function LiveScreen({
     };
   }, [supabase, terminId, refresh]);
 
-  // --- Network state --------------------------------------------------------
-
-  // Connection state is an external source that changes outside React, so it
-  // is read via useSyncExternalStore. A manual useEffect + setState would
-  // cause an extra render on every load and is not the recommended pattern.
   const online = useSyncExternalStore(
     subscribeToNetwork,
     () => navigator.onLine,
-    () => true, // assume online on the server
+    () => true,
   );
-
-  // Refresh on reconnect does NOT live here — the Realtime subscription
-  // callback above fires on every (re)connect. `online` is only for the
-  // warning banner.
-
-  // --- Derived values -------------------------------------------------------
 
   const activeEvents = events.filter((e) => e.deletedAt === null);
   const goals = activeEvents.filter((e) => e.type === "goal" || e.type === "own_goal");
-
   const scoreA = goals.filter((e) => e.team === "A").length;
   const scoreB = goals.filter((e) => e.team === "B").length;
-
   const playerGoals = (userId: string) =>
     activeEvents.filter((e) => e.type === "goal" && e.scorerId === userId).length;
-
   const nicknameOf = (userId: string | null) =>
     lineup.find((p) => p.userId === userId)?.nickname ?? "?";
-
   const teamA = lineup.filter((p) => p.team === "A");
   const teamB = lineup.filter((p) => p.team === "B");
 
-  const inProgress = state.status === "u_tijeku";
-  const locked = !inProgress || busy;
+  const gameLive =
+    state.matchStatus === "u_tijeku" &&
+    state.gameStatus === "u_tijeku" &&
+    state.startedAt != null;
+  const awaitingNext =
+    state.matchStatus === "u_tijeku" &&
+    (state.gameStatus === "zavrsena" ||
+      (state.gameStatus === "u_tijeku" && state.startedAt == null));
+  const terminDone = state.matchStatus === "zavrsen";
+  const locked = !gameLive || busy;
 
   function currentElapsed() {
     return elapsedSeconds(state, new Date());
   }
 
-  // Stable reference: AssistStrip uses this as a countdown dependency.
   const closeStrip = useCallback(() => setPendingAssist(null), []);
-
-  // --- Actions --------------------------------------------------------------
 
   async function afterChange() {
     await refresh();
@@ -220,25 +257,17 @@ export function LiveScreen({
   async function recordPlayerGoal(player: LineupPlayer, confirmed = false) {
     setError(null);
     setBusy(true);
-
     const elapsed = currentElapsed();
     const result = await recordGoal(terminId, player.userId, player.team, elapsed, confirmed);
-
     setBusy(false);
-
     if ("error" in result) {
       setError(result.error);
       return;
     }
-
     if ("possibleDuplicate" in result) {
-      setDuplicate({
-        scorer: player,
-        secondsBefore: result.possibleDuplicate.secondsBefore,
-      });
+      setDuplicate({ scorer: player, secondsBefore: result.possibleDuplicate.secondsBefore });
       return;
     }
-
     setPendingAssist({
       eventId: result.eventId,
       scorer: player.nickname,
@@ -247,7 +276,6 @@ export function LiveScreen({
         .filter((p) => p.team === player.team && p.userId !== player.userId)
         .map((p) => ({ userId: p.userId, nickname: p.nickname })),
     });
-
     await refresh();
   }
 
@@ -256,7 +284,6 @@ export function LiveScreen({
     setBusy(true);
     const result = await recordOwnGoal(terminId, player.userId, player.team, currentElapsed());
     setBusy(false);
-
     if ("error" in result) setError(result.error);
     await afterChange();
   }
@@ -285,10 +312,9 @@ export function LiveScreen({
   }
 
   function openAssistFromTimeline(event: LiveEvent) {
-    if (!inProgress || event.type !== "goal" || !event.scorerId) return;
+    if (!gameLive || event.type !== "goal" || !event.scorerId) return;
     const scorer = lineup.find((p) => p.userId === event.scorerId);
     if (!scorer) return;
-
     setPendingAssist({
       eventId: event.id,
       scorer: scorer.nickname,
@@ -309,21 +335,45 @@ export function LiveScreen({
   }
 
   const [confirmFinish, setConfirmFinish] = useState(false);
+  const [confirmEndTermin, setConfirmEndTermin] = useState(false);
 
   async function finish() {
     setBusy(true);
-    const result = await finishMatch(grupaId, terminId);
+    const result = await finishGame(grupaId, terminId);
     setBusy(false);
-
     if ("error" in result) {
       setError(result.error);
       setConfirmFinish(false);
       return;
     }
-    router.push(`/grupe/${grupaId}/termin/${terminId}/sazetak`);
+    setConfirmFinish(false);
+    setPendingAssist(null);
+    await afterChange();
   }
 
-  // --- Render ---------------------------------------------------------------
+  async function nextGame() {
+    setError(null);
+    setBusy(true);
+    const result = await startNextGame(grupaId, terminId);
+    setBusy(false);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    await afterChange();
+  }
+
+  async function finishTermin() {
+    setBusy(true);
+    const result = await endTermin(grupaId, terminId);
+    setBusy(false);
+    if ("error" in result) {
+      setError(result.error);
+      setConfirmEndTermin(false);
+      return;
+    }
+    router.push(`/grupe/${grupaId}/termin/${terminId}/sazetak`);
+  }
 
   return (
     <div className="pb-56">
@@ -339,8 +389,10 @@ export function LiveScreen({
         </p>
       )}
 
-      {/* Score and stopwatch */}
       <div className="rounded-xl bg-marka p-4 text-center text-white">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Utakmica {state.gameSeq}
+        </p>
         <div className="flex items-center justify-center gap-4">
           <span className="min-w-0 flex-1 truncate text-right text-sm font-semibold uppercase text-slate-400">
             {teamAName}
@@ -352,19 +404,16 @@ export function LiveScreen({
             {teamBName}
           </span>
         </div>
-
         <div className="mt-2 flex justify-center">
           <Stopwatch state={state} />
         </div>
-
-        {inProgress && (
+        {gameLive && (
           <div className="mt-3 flex gap-2">
             <button
               type="button"
               onClick={togglePause}
               disabled={busy}
-              className="h-12 flex-1 rounded-lg border border-slate-600 text-sm font-semibold
-                         transition active:scale-[0.98] disabled:opacity-50"
+              className="h-12 flex-1 rounded-lg border border-slate-600 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50"
             >
               {state.pausedAt ? "Nastavi" : "Pauza"}
             </button>
@@ -372,22 +421,63 @@ export function LiveScreen({
               type="button"
               onClick={() => setConfirmFinish(true)}
               disabled={busy}
-              className="h-12 flex-1 rounded-lg bg-white text-sm font-semibold text-slate-900
-                         transition active:scale-[0.98] disabled:opacity-50"
+              className="h-12 flex-1 rounded-lg bg-white text-sm font-semibold text-slate-900 transition active:scale-[0.98] disabled:opacity-50"
             >
-              Završi
+              Završi utakmicu
             </button>
           </div>
         )}
       </div>
 
-      {!inProgress && (
-        <p className="mt-3 rounded-lg bg-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
-          Termin je završen. Unos je zaključan.
-        </p>
+      {awaitingNext && (
+        <div className="mt-3 space-y-2 rounded-lg border border-slate-200 bg-white p-4">
+          <p className="text-center text-sm font-semibold text-slate-800">
+            {state.gameStatus === "zavrsena"
+              ? `Utakmica ${state.gameSeq} je završena.`
+              : "Spremno za sljedeću utakmicu."}
+          </p>
+          <p className="text-center text-xs text-slate-500">
+            Možeš promiješati ekipe, pokrenuti novu utakmicu ili završiti termin.
+          </p>
+          <button
+            type="button"
+            onClick={() => void nextGame()}
+            disabled={busy}
+            className="h-12 w-full rounded-lg bg-marka text-sm font-semibold text-white transition active:scale-[0.98] disabled:opacity-50"
+          >
+            Nova utakmica
+          </button>
+          <Link
+            href={`/grupe/${grupaId}/termin/${terminId}/ekipe`}
+            className="flex h-12 w-full items-center justify-center rounded-lg border border-slate-300 text-sm font-semibold transition active:scale-[0.98]"
+          >
+            Promiješaj ekipe
+          </Link>
+          <button
+            type="button"
+            onClick={() => setConfirmEndTermin(true)}
+            disabled={busy}
+            className="h-12 w-full rounded-lg border border-slate-300 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50"
+          >
+            Završi termin
+          </button>
+        </div>
       )}
 
-      {/* Players */}
+      {terminDone && (
+        <div className="mt-3 space-y-2">
+          <p className="rounded-lg bg-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
+            Termin je završen. Unos je zaključan.
+          </p>
+          <Link
+            href={`/grupe/${grupaId}/termin/${terminId}/sazetak`}
+            className="flex h-11 w-full items-center justify-center rounded-lg border border-slate-300 bg-white text-sm font-semibold"
+          >
+            Pogledaj sažetak
+          </Link>
+        </div>
+      )}
+
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="space-y-2">
           {teamA.map((p) => (
@@ -423,12 +513,10 @@ export function LiveScreen({
         Dodir = gol · Dugi pritisak = autogol · 🧤 = golman
       </p>
 
-      {/* Timeline */}
       <section className="mt-6">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Što se dogodilo
         </h3>
-
         {activeEvents.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500">
             Još nema golova.
@@ -443,14 +531,12 @@ export function LiveScreen({
                 <span className="w-12 shrink-0 tabular-nums text-slate-400">
                   {formatClock(e.elapsedSeconds)}
                 </span>
-
-                {e.type === "goal" && inProgress ? (
+                {e.type === "goal" && gameLive ? (
                   <button
                     type="button"
                     onClick={() => openAssistFromTimeline(e)}
                     disabled={busy}
-                    className="min-w-0 flex-1 rounded text-left transition active:scale-[0.99]
-                               disabled:opacity-40"
+                    className="min-w-0 flex-1 rounded text-left transition active:scale-[0.99] disabled:opacity-40"
                     title="Dodaj ili izmijeni asistenciju"
                   >
                     ⚽ <span className="font-medium">{nicknameOf(e.scorerId)}</span>
@@ -484,18 +570,13 @@ export function LiveScreen({
                     )}
                   </span>
                 )}
-
-                <span className="shrink-0 text-xs font-semibold text-slate-400">
-                  {e.team}
-                </span>
-
-                {inProgress && (
+                <span className="shrink-0 text-xs font-semibold text-slate-400">{e.team}</span>
+                {gameLive && (
                   <button
                     type="button"
                     onClick={() => void undo(e.id)}
                     disabled={busy}
-                    className="h-8 w-8 shrink-0 rounded text-slate-400 transition
-                               active:scale-90 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                    className="h-8 w-8 shrink-0 rounded text-slate-400 transition active:scale-90 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
                     aria-label="Poništi ovaj unos"
                     title="Poništi"
                   >
@@ -508,7 +589,6 @@ export function LiveScreen({
         )}
       </section>
 
-      {/* Assist strip */}
       {pendingAssist && (
         <AssistStrip
           key={pendingAssist.eventId}
@@ -519,7 +599,6 @@ export function LiveScreen({
         />
       )}
 
-      {/* Possible duplicate warning */}
       {duplicate && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/50 p-4">
           <div className="mx-auto w-full max-w-md rounded-xl bg-white p-5">
@@ -536,16 +615,14 @@ export function LiveScreen({
                   setDuplicate(null);
                   void recordPlayerGoal(player, true);
                 }}
-                className="h-12 flex-1 rounded-lg bg-marka font-semibold text-white
-                           transition active:scale-[0.98]"
+                className="h-12 flex-1 rounded-lg bg-marka font-semibold text-white transition active:scale-[0.98]"
               >
                 Da, upiši
               </button>
               <button
                 type="button"
                 onClick={() => setDuplicate(null)}
-                className="h-12 flex-1 rounded-lg border border-slate-300 font-semibold
-                           transition active:scale-[0.98]"
+                className="h-12 flex-1 rounded-lg border border-slate-300 font-semibold transition active:scale-[0.98]"
               >
                 Ne, odustani
               </button>
@@ -554,29 +631,55 @@ export function LiveScreen({
         </div>
       )}
 
-      {/* Finish confirmation */}
       {confirmFinish && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/50 p-4">
           <div className="mx-auto w-full max-w-md rounded-xl bg-white p-5">
-            <h4 className="text-lg font-bold">Završiti termin?</h4>
+            <h4 className="text-lg font-bold">Završiti utakmicu?</h4>
             <p className="mt-2 text-slate-600">
-              Nakon toga se statistika zaključava i golovi se više ne mogu unositi.
+              Rating se obračunava za ovu utakmicu. Termin ostaje otvoren — možeš
+              pokrenuti novu ili završiti termin.
             </p>
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
                 onClick={() => void finish()}
                 disabled={busy}
-                className="h-12 flex-1 rounded-lg bg-marka font-semibold text-white
-                           transition active:scale-[0.98] disabled:opacity-50"
+                className="h-12 flex-1 rounded-lg bg-marka font-semibold text-white transition active:scale-[0.98] disabled:opacity-50"
               >
                 Da, završi
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmFinish(false)}
-                className="h-12 flex-1 rounded-lg border border-slate-300 font-semibold
-                           transition active:scale-[0.98]"
+                className="h-12 flex-1 rounded-lg border border-slate-300 font-semibold transition active:scale-[0.98]"
+              >
+                Odustani
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmEndTermin && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/50 p-4">
+          <div className="mx-auto w-full max-w-md rounded-xl bg-white p-5">
+            <h4 className="text-lg font-bold">Završiti termin?</h4>
+            <p className="mt-2 text-slate-600">
+              Nakon toga se više ne mogu pokretati nove utakmice u ovom terminu.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void finishTermin()}
+                disabled={busy}
+                className="h-12 flex-1 rounded-lg bg-marka font-semibold text-white transition active:scale-[0.98] disabled:opacity-50"
+              >
+                Da, završi termin
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmEndTermin(false)}
+                className="h-12 flex-1 rounded-lg border border-slate-300 font-semibold transition active:scale-[0.98]"
               >
                 Odustani
               </button>

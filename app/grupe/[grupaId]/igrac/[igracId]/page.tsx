@@ -27,22 +27,36 @@ export default async function PlayerPage({
   if (!profile) notFound();
 
   // All-time stats — that is what you want on a profile.
-  const { rows, matchesPlayed } = await getLeaderboard(grupaId, null);
+  const { rows, matchesPlayed, sessionsPlayed } = await getLeaderboard(grupaId, null);
   const row = rows.find((r) => r.userId === igracId);
 
   const { data: history } = await supabase
     .from("rating_history")
-    .select("match_id, rating_before, rating_after, matches(starts_at, score_a, score_b)")
+    .select("match_id, game_id, rating_before, rating_after, games(score_a, score_b, seq, matches(starts_at))")
     .eq("user_id", igracId)
     .eq("scope", "group")
-    .order("match_id")
+    .order("game_id")
     .limit(200);
 
+  type HistoryGame = {
+    score_a: number;
+    score_b: number;
+    seq: number;
+    matches: { starts_at: string } | null;
+  };
+
   const last10 = (history ?? [])
-    .filter((h) => h.matches)
+    .map((h) => {
+      const game = h.games as HistoryGame | HistoryGame[] | null;
+      const g = Array.isArray(game) ? game[0] : game;
+      return g?.matches ? { ...h, game: g } : null;
+    })
+    .filter((h): h is NonNullable<typeof h> => h !== null)
     .sort(
       (a, b) =>
-        new Date(b.matches!.starts_at).getTime() - new Date(a.matches!.starts_at).getTime(),
+        new Date(b.game.matches!.starts_at).getTime() -
+          new Date(a.game.matches!.starts_at).getTime() ||
+        b.game.seq - a.game.seq,
     )
     .slice(0, 10);
 
@@ -76,7 +90,7 @@ export default async function PlayerPage({
           </div>
           <p className="text-sm tabular-nums text-slate-500">
             {profile.global_matches_played}{" "}
-            {profile.global_matches_played === 1 ? "termin" : "termina"}
+            {profile.global_matches_played === 1 ? "utakmica" : "utakmice"}
           </p>
         </div>
         <p className="mt-2 text-sm text-slate-500">
@@ -86,7 +100,7 @@ export default async function PlayerPage({
 
       {!row ? (
         <p className="mt-6 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
-          Još nije odigrao nijedan termin u ovoj grupi.
+          Još nije odigrao nijednu utakmicu u ovoj grupi.
         </p>
       ) : (
         <>
@@ -95,8 +109,9 @@ export default async function PlayerPage({
               { label: "Rating u grupi", value: String(row.rating) },
               { label: "Golovi", value: String(row.goals) },
               { label: "Asistencije", value: String(row.assists) },
-              { label: "Termini", value: `${row.matches}/${matchesPlayed}` },
-              { label: "Golova po terminu", value: row.goalsPerMatch.toFixed(2) },
+              { label: "Utakmice", value: `${row.matches}/${matchesPlayed}` },
+              { label: "Termini", value: `${row.sessionsAttended}/${sessionsPlayed}` },
+              { label: "Golova po utakmici", value: row.goalsPerMatch.toFixed(2) },
               { label: "Pobjede", value: `${row.wins}-${row.draws}-${row.losses}` },
               { label: "Postotak pobjeda", value: pct(row.winRate) },
               { label: "Dolaznost", value: pct(row.attendanceRate) },
@@ -118,24 +133,25 @@ export default async function PlayerPage({
           {last10.length > 0 && (
             <section className="mt-8">
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                Zadnji termini
+                Zadnje utakmice
               </h3>
               <ul className="space-y-1">
                 {last10.map((h) => {
                   const delta = h.rating_after - h.rating_before;
                   return (
                     <li
-                      key={h.match_id}
+                      key={h.game_id}
                       className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                     >
                       <Link
                         href={`/grupe/${grupaId}/termin/${h.match_id}/sazetak`}
                         className="min-w-0 flex-1 truncate underline-offset-4 hover:underline"
                       >
-                        {formatShortDate(h.matches!.starts_at)}
+                        {formatShortDate(h.game.matches!.starts_at)}
+                        {h.game.seq > 1 ? ` · #${h.game.seq}` : ""}
                       </Link>
                       <span className="tabular-nums text-slate-500">
-                        {h.matches!.score_a} : {h.matches!.score_b}
+                        {h.game.score_a} : {h.game.score_b}
                       </span>
                       <span
                         className={

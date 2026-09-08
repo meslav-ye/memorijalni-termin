@@ -64,10 +64,13 @@ export type GoalEventLite = {
 // ---------- Stats ----------
 
 export type MatchForStats = {
+  /** Session (termin) id — used for attendance and sazetak links. */
   matchId: string;
+  /** Finished game (utakmica) id. Stats/wins/goals are per game. */
+  gameId?: string;
   scoreA: number;
   scoreB: number;
-  /** For records tied to a match, not a player (e.g. biggest win). */
+  /** For records tied to a game, not a player (e.g. biggest win). */
   startsAt?: string;
   lineup: { userId: string; team: Team; isGoalkeeper: boolean }[];
   events: {

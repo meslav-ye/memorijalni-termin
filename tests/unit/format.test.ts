@@ -4,6 +4,7 @@ import {
   formatShortDate,
   formatTimeOfDay,
   zagrebUIso,
+  zagrebNowParts,
 } from "@/lib/format";
 
 describe("formatMatchDateTime", () => {
@@ -57,5 +58,13 @@ describe("zagrebUIso", () => {
     // Zadnja nedjelja u ozujku 2026. je 29.03. — tada sat ide naprijed.
     expect(formatMatchDateTime(zagrebUIso("2026-03-29", "20:00"))).toContain("u 20:00");
     expect(formatMatchDateTime(zagrebUIso("2026-03-28", "20:00"))).toContain("u 20:00");
+  });
+});
+
+describe("zagrebNowParts", () => {
+  it("returns Zagreb wall date/time for a known UTC instant", () => {
+    // 2026-09-08 18:00 UTC = 20:00 in Zagreb summer time.
+    const parts = zagrebNowParts(new Date("2026-09-08T18:00:00.000Z"));
+    expect(parts).toEqual({ date: "2026-09-08", time: "20:00" });
   });
 });

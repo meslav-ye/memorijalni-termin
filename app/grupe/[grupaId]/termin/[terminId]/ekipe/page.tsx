@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
+import { ensureEditableGame, getCurrentGame } from "@/lib/data/games";
 import { formatMatchDateTime } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { MAX_TEAM_NAME_LENGTH, teamDisplayName } from "@/lib/domain/team-name";
@@ -115,16 +116,25 @@ export default async function TeamsPage({
 
   const { data: match } = await supabase
     .from("matches")
-    .select("id, starts_at, capacity, status, team_a_name, team_b_name")
+    .select("id, starts_at, capacity, status")
     .eq("id", terminId)
     .maybeSingle();
   if (!match) notFound();
 
-  const { data: lineup } = await supabase
-    .from("match_lineup")
-    .select("user_id, team, is_goalkeeper")
-    .eq("match_id", terminId);
+  const game =
+    match.status === "zavrsen" || match.status === "otkazan"
+      ? await getCurrentGame(terminId, supabase)
+      : await ensureEditableGame(terminId, supabase);
 
+  const { data: lineup } = game
+    ? await supabase
+        .from("match_lineup")
+        .select("user_id, team, is_goalkeeper")
+        .eq("game_id", game.id)
+    : { data: [] as { user_id: string; team: "A" | "B"; is_goalkeeper: boolean }[] };
+
+  const teamAName = game?.team_a_name ?? null;
+  const teamBName = game?.team_b_name ?? null;
   const { data: signups } = await supabase
     .from("match_signups")
     .select("user_id, signed_up_at, manual_order, cancelled_at")
@@ -210,7 +220,7 @@ export default async function TeamsPage({
               </span>
               <input
                 name="teamAName"
-                defaultValue={match.team_a_name ?? ""}
+                defaultValue={teamAName ?? ""}
                 maxLength={MAX_TEAM_NAME_LENGTH}
                 placeholder={teamDisplayName("A", null)}
                 className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm
@@ -223,7 +233,7 @@ export default async function TeamsPage({
               </span>
               <input
                 name="teamBName"
-                defaultValue={match.team_b_name ?? ""}
+                defaultValue={teamBName ?? ""}
                 maxLength={MAX_TEAM_NAME_LENGTH}
                 placeholder={teamDisplayName("B", null)}
                 className="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm
@@ -241,7 +251,7 @@ export default async function TeamsPage({
 
           <div className="flex gap-3">
             <TeamColumn
-              title={teamDisplayName("A", match.team_a_name)}
+              title={teamDisplayName("A", teamAName)}
               team="A"
               players={teamA}
               grupaId={grupaId}
@@ -249,7 +259,7 @@ export default async function TeamsPage({
               arrow="→"
             />
             <TeamColumn
-              title={teamDisplayName("B", match.team_b_name)}
+              title={teamDisplayName("B", teamBName)}
               team="B"
               players={teamB}
               grupaId={grupaId}
