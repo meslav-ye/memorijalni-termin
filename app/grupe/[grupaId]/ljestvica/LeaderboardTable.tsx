@@ -51,7 +51,7 @@ function SortHeader({
   onSort: (key: SortKey) => void;
 }) {
   const active = activeKey === sortKey;
-  const marker = active ? (dir === "desc" ? " ▼" : " ▲") : "";
+  const marker = active ? (dir === "desc" ? "▼" : "▲") : "";
 
   return (
     <th
@@ -68,15 +68,15 @@ function SortHeader({
         data-no-loading
         onClick={() => onSort(sortKey)}
         className={
-          "inline-flex w-full items-center gap-0.5 px-2 py-2 text-xs uppercase " +
-          (align === "left" ? "justify-start px-3" : "justify-end") +
+          "inline-flex w-full items-center gap-0.5 px-1 py-2 text-xs uppercase " +
+          (align === "left" ? "justify-start pl-2" : "justify-end pr-1.5") +
           " text-slate-500 transition hover:text-slate-800 " +
           (active ? "text-slate-800" : "")
         }
       >
         <span>{label}</span>
-        <span className="inline-block w-3 text-[0.65rem] tabular-nums" aria-hidden>
-          {marker.trim() || "\u00a0"}
+        <span className="inline-block w-2.5 text-[0.6rem] tabular-nums" aria-hidden>
+          {marker || "\u00a0"}
         </span>
       </button>
     </th>
@@ -107,9 +107,10 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
     return "";
   };
 
+  // Mobile: Igrač · G · A · Rating — everything else from sm/md up so rating stays on-screen.
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-      <table className="w-full text-sm">
+    <div className="rounded-lg border border-slate-200 bg-white">
+      <table className="w-full table-fixed text-sm">
         <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
             <SortHeader
@@ -118,6 +119,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               activeKey={sortKey}
               dir={sortDir}
               align="left"
+              className="w-auto"
               onSort={onSort}
             />
             <SortHeader
@@ -126,6 +128,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               sortKey="goals"
               activeKey={sortKey}
               dir={sortDir}
+              className="w-9"
               onSort={onSort}
             />
             <SortHeader
@@ -134,6 +137,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               sortKey="assists"
               activeKey={sortKey}
               dir={sortDir}
+              className="w-9"
               onSort={onSort}
             />
             <SortHeader
@@ -142,7 +146,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               sortKey="ownGoals"
               activeKey={sortKey}
               dir={sortDir}
-              className="hidden sm:table-cell"
+              className="hidden w-10 sm:table-cell"
               onSort={onSort}
             />
             <SortHeader
@@ -151,6 +155,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               sortKey="matches"
               activeKey={sortKey}
               dir={sortDir}
+              className="hidden w-9 sm:table-cell"
               onSort={onSort}
             />
             <SortHeader
@@ -159,7 +164,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               sortKey="goalsPerMatch"
               activeKey={sortKey}
               dir={sortDir}
-              className="hidden sm:table-cell"
+              className="hidden w-12 sm:table-cell"
               onSort={onSort}
             />
             <SortHeader
@@ -168,7 +173,7 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               sortKey="record"
               activeKey={sortKey}
               dir={sortDir}
-              className="hidden md:table-cell"
+              className="hidden w-16 md:table-cell"
               onSort={onSort}
             />
             <SortHeader
@@ -177,14 +182,16 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
               sortKey="winRate"
               activeKey={sortKey}
               dir={sortDir}
+              className="hidden w-12 sm:table-cell"
               onSort={onSort}
             />
             <SortHeader
-              label="Rating"
+              label="Rtg"
+              title="Rating"
               sortKey="rating"
               activeKey={sortKey}
               dir={sortDir}
-              className="px-1"
+              className="w-12"
               onSort={onSort}
             />
           </tr>
@@ -199,39 +206,45 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
                   "border-b border-slate-100 last:border-0 " + rowClass(rank)
                 }
               >
-                <td className="px-3 py-2">
-                  <span className="inline-flex min-w-0 items-baseline gap-2">
+                <td className="max-w-0 px-2 py-2">
+                  <span className="flex min-w-0 items-baseline gap-1.5">
                     <span
-                      className="w-5 shrink-0 text-right text-xs font-bold tabular-nums text-slate-900"
+                      className="w-4 shrink-0 text-right text-xs font-bold tabular-nums text-slate-900"
                       aria-label={`Mjesto ${rank}`}
                     >
                       {rank}.
                     </span>
                     <Link
                       href={`/grupe/${grupaId}/igrac/${r.userId}?from=ljestvica`}
-                      className="min-w-0 font-medium underline-offset-4 hover:underline"
+                      className="min-w-0 truncate font-medium underline-offset-4 hover:underline"
                     >
                       {r.nickname}
                     </Link>
-                    {r.isGoalkeeper && <span title="Igra golmana">🧤</span>}
+                    {r.isGoalkeeper && (
+                      <span className="shrink-0" title="Igra golmana">
+                        🧤
+                      </span>
+                    )}
                   </span>
                 </td>
-                <td className="px-2 py-2 text-right font-semibold tabular-nums">{r.goals}</td>
-                <td className="px-2 py-2 text-right tabular-nums">{r.assists}</td>
-                <td className="hidden px-2 py-2 text-right tabular-nums text-slate-400 sm:table-cell">
+                <td className="px-1 py-2 text-right font-semibold tabular-nums">{r.goals}</td>
+                <td className="px-1 py-2 text-right tabular-nums">{r.assists}</td>
+                <td className="hidden px-1 py-2 text-right tabular-nums text-slate-400 sm:table-cell">
                   {r.ownGoals || ""}
                 </td>
-                <td className="px-2 py-2 text-right tabular-nums text-slate-500">{r.matches}</td>
-                <td className="hidden px-2 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
+                <td className="hidden px-1 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
+                  {r.matches}
+                </td>
+                <td className="hidden px-1 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
                   {r.goalsPerMatch.toFixed(2)}
                 </td>
-                <td className="hidden px-2 py-2 text-right tabular-nums text-slate-500 md:table-cell">
+                <td className="hidden px-1 py-2 text-right tabular-nums text-slate-500 md:table-cell">
                   {r.wins}-{r.draws}-{r.losses}
                 </td>
-                <td className="px-2 py-2 text-right tabular-nums text-slate-500">
+                <td className="hidden px-1 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
                   {pct(r.winRate)}
                 </td>
-                <td className="px-3 py-2 text-right font-semibold tabular-nums">{r.rating}</td>
+                <td className="px-1.5 py-2 text-right font-semibold tabular-nums">{r.rating}</td>
               </tr>
             );
           })}

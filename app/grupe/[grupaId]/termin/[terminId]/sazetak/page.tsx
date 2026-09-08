@@ -365,26 +365,29 @@ function TeamColumn({
         {members.map((i) => (
           <li
             key={i.userId}
-            className={
-              "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm " +
-              teamPanelClass(side)
-            }
+            className={"rounded-lg border px-2.5 py-2 text-sm " + teamPanelClass(side)}
           >
-            <span className="min-w-0 flex-1 truncate font-medium">{i.nickname}</span>
-
-            {i.goals > 0 && <span className="shrink-0 text-slate-500">⚽{i.goals}</span>}
-            {i.assists > 0 && <span className="shrink-0 text-slate-400">🅰{i.assists}</span>}
-            {i.ownGoals > 0 && <span className="shrink-0 text-red-500">🥅{i.ownGoals}</span>}
-
-            {i.delta !== null && (
-              <span
-                className={
-                  "shrink-0 min-w-10 text-right text-xs font-semibold tabular-nums " +
-                  (i.delta > 0 ? "text-emerald-700" : i.delta < 0 ? "text-red-600" : "text-slate-400")
-                }
-              >
-                {fmt(i.delta)}
-              </span>
+            <p className="break-words font-medium leading-snug">{i.nickname}</p>
+            {(i.goals > 0 || i.assists > 0 || i.ownGoals > 0 || i.delta !== null) && (
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                {i.goals > 0 && <span className="text-slate-500">⚽{i.goals}</span>}
+                {i.assists > 0 && <span className="text-slate-400">🅰{i.assists}</span>}
+                {i.ownGoals > 0 && <span className="text-red-500">🥅{i.ownGoals}</span>}
+                {i.delta !== null && (
+                  <span
+                    className={
+                      "ml-auto text-xs font-semibold tabular-nums " +
+                      (i.delta > 0
+                        ? "text-emerald-700"
+                        : i.delta < 0
+                          ? "text-red-600"
+                          : "text-slate-400")
+                    }
+                  >
+                    {fmt(i.delta)}
+                  </span>
+                )}
+              </div>
             )}
           </li>
         ))}
