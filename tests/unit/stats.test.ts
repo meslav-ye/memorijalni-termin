@@ -7,14 +7,35 @@ const termin = (over: Partial<MatchForStats> = {}): MatchForStats => ({
   scoreA: 2,
   scoreB: 1,
   lineup: [
-    { userId: "a1", team: "A" },
-    { userId: "a2", team: "A" },
-    { userId: "b1", team: "B" },
+    { userId: "a1", team: "A", isGoalkeeper: false },
+    { userId: "a2", team: "A", isGoalkeeper: false },
+    { userId: "b1", team: "B", isGoalkeeper: false },
   ],
   events: [
-    { type: "goal", scorerId: "a1", assistId: "a2", deletedAt: null },
-    { type: "goal", scorerId: "a1", assistId: null, deletedAt: null },
-    { type: "goal", scorerId: "b1", assistId: null, deletedAt: null },
+    {
+      type: "goal",
+      scorerId: "a1",
+      assistId: "a2",
+      team: "A",
+      elapsedSeconds: 60,
+      deletedAt: null,
+    },
+    {
+      type: "goal",
+      scorerId: "a1",
+      assistId: null,
+      team: "A",
+      elapsedSeconds: 120,
+      deletedAt: null,
+    },
+    {
+      type: "goal",
+      scorerId: "b1",
+      assistId: null,
+      team: "B",
+      elapsedSeconds: 180,
+      deletedAt: null,
+    },
   ],
   ...over,
 });
@@ -34,7 +55,14 @@ describe("aggregateStats — brojanje", () => {
     const s = aggregateStats([
       termin({
         events: [
-          { type: "goal", scorerId: "a1", assistId: "a2", deletedAt: "2026-09-08T19:00:00.000Z" },
+          {
+            type: "goal",
+            scorerId: "a1",
+            assistId: "a2",
+            team: "A",
+            elapsedSeconds: 60,
+            deletedAt: "2026-09-08T19:00:00.000Z",
+          },
         ],
       }),
     ]);
@@ -44,7 +72,18 @@ describe("aggregateStats — brojanje", () => {
 
   it("autogol se broji odvojeno i NE ulazi u golove", () => {
     const s = aggregateStats([
-      termin({ events: [{ type: "own_goal", scorerId: "a1", assistId: null, deletedAt: null }] }),
+      termin({
+        events: [
+          {
+            type: "own_goal",
+            scorerId: "a1",
+            assistId: null,
+            team: "B",
+            elapsedSeconds: 90,
+            deletedAt: null,
+          },
+        ],
+      }),
     ]);
     expect(nadji(s, "a1").ownGoals).toBe(1);
     expect(nadji(s, "a1").goals).toBe(0);
@@ -52,7 +91,18 @@ describe("aggregateStats — brojanje", () => {
 
   it("igrac koji nije u postavi se ne pojavljuje, ni ako je u dogadjajima", () => {
     const s = aggregateStats([
-      termin({ events: [{ type: "goal", scorerId: "stranac", assistId: null, deletedAt: null }] }),
+      termin({
+        events: [
+          {
+            type: "goal",
+            scorerId: "stranac",
+            assistId: null,
+            team: "A",
+            elapsedSeconds: 60,
+            deletedAt: null,
+          },
+        ],
+      }),
     ]);
     expect(s.find((p) => p.userId === "stranac")).toBeUndefined();
   });
@@ -111,8 +161,38 @@ describe("aggregateStats — prosjeci i rubni slucajevi", () => {
 
   it("asistencija na autogol se ne broji", () => {
     const s = aggregateStats([
-      termin({ events: [{ type: "own_goal", scorerId: "a1", assistId: "a2", deletedAt: null }] }),
+      termin({
+        events: [
+          {
+            type: "own_goal",
+            scorerId: "a1",
+            assistId: "a2",
+            team: "B",
+            elapsedSeconds: 90,
+            deletedAt: null,
+          },
+        ],
+      }),
     ]);
     expect(nadji(s, "a2").assists).toBe(0);
+  });
+
+  it("izmjena golmana se ne broji kao gol ni autogol", () => {
+    const s = aggregateStats([
+      termin({
+        events: [
+          {
+            type: "keeper_change",
+            scorerId: "a1",
+            assistId: null,
+            team: "A",
+            elapsedSeconds: 300,
+            deletedAt: null,
+          },
+        ],
+      }),
+    ]);
+    expect(nadji(s, "a1").goals).toBe(0);
+    expect(nadji(s, "a1").ownGoals).toBe(0);
   });
 });

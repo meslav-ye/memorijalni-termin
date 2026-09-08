@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aggregateStats, aggregateAttendance } from "@/lib/domain/stats";
+import { aggregateKeeperStats } from "@/lib/domain/keepers";
 import { formatShortDate } from "@/lib/format";
 import { isMember } from "@/lib/data/user";
 import type { MatchForStats, PlayerStats, Team } from "@/lib/domain/types";
@@ -16,6 +17,9 @@ export type LeaderboardRow = PlayerStats & {
   attendanceRate: number;
   currentStreak: number;
   longestStreak: number;
+  goalsAgainst: number;
+  cleanSheets: number;
+  matchesAsKeeper: number;
 };
 
 export type StatRecord = { title: string; value: string; who: string };
@@ -113,12 +117,15 @@ async function computeLeaderboard(
   const matchIds = allMatches.map((t) => t.id);
 
   const [{ data: lineups }, { data: events }, { data: ratings }] = await Promise.all([
-    supabase.from("match_lineup").select("match_id, user_id, team").in("match_id", matchIds),
+    supabase
+      .from("match_lineup")
+      .select("match_id, user_id, team, is_goalkeeper")
+      .in("match_id", matchIds),
     supabase
       .from("match_events")
-      .select("match_id, type, scorer_id, assist_id, deleted_at")
+      .select("match_id, type, scorer_id, assist_id, team, elapsed_seconds, deleted_at")
       .in("match_id", matchIds)
-      .in("type", ["goal", "own_goal"]),
+      .in("type", ["goal", "own_goal", "keeper_change"]),
     supabase.from("player_ratings").select("user_id, rating").eq("group_id", groupId),
   ]);
 
@@ -129,18 +136,26 @@ async function computeLeaderboard(
     startsAt: t.starts_at,
     lineup: (lineups ?? [])
       .filter((p) => p.match_id === t.id)
-      .map((p) => ({ userId: p.user_id, team: p.team as Team })),
+      .map((p) => ({
+        userId: p.user_id,
+        team: p.team as Team,
+        isGoalkeeper: p.is_goalkeeper,
+      })),
     events: (events ?? [])
       .filter((e) => e.match_id === t.id)
       .map((e) => ({
-        type: e.type as "goal" | "own_goal",
+        type: e.type as "goal" | "own_goal" | "keeper_change",
         scorerId: e.scorer_id,
         assistId: e.assist_id,
+        team: (e.team as Team | null) ?? null,
+        elapsedSeconds: e.elapsed_seconds,
         deletedAt: e.deleted_at,
       })),
   }));
 
   const stats = aggregateStats(forStats);
+  const keeperStats = aggregateKeeperStats(forStats);
+  const keeperById = new Map(keeperStats.map((k) => [k.userId, k]));
   const players = stats.map((s) => s.userId);
 
   const lineupByMatch = new Map<string, Set<string>>();
@@ -165,6 +180,7 @@ async function computeLeaderboard(
   const rows: LeaderboardRow[] = stats.map((s) => {
     const d = attendance.find((x) => x.userId === s.userId);
     const p = profiles?.find((x) => x.id === s.userId);
+    const k = keeperById.get(s.userId);
 
     return {
       ...s,
@@ -174,6 +190,9 @@ async function computeLeaderboard(
       attendanceRate: d?.rate ?? 0,
       currentStreak: d?.currentStreak ?? 0,
       longestStreak: d?.longestStreak ?? 0,
+      goalsAgainst: k?.goalsAgainst ?? 0,
+      cleanSheets: k?.cleanSheets ?? 0,
+      matchesAsKeeper: k?.matchesAsKeeper ?? 0,
     };
   });
 
@@ -231,6 +250,9 @@ function emptyRow(
     attendanceRate: 0,
     currentStreak: 0,
     longestStreak: 0,
+    goalsAgainst: 0,
+    cleanSheets: 0,
+    matchesAsKeeper: 0,
   };
 }
 

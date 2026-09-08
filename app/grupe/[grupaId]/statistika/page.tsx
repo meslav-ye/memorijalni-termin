@@ -96,6 +96,7 @@ export default async function StatsPage({
   const topAssister = leader(rows, (r) => r.assists);
   const topPoints = leader(rows, (r) => r.goals + r.assists);
   const topAttendance = leader(rows, (r) => r.matches);
+  const topCleanSheets = leader(rows, (r) => r.cleanSheets);
 
   // Everyone starts with a rating, so only show a rating leader once someone
   // has actually separated from the initial 1000 — otherwise a random person
@@ -195,15 +196,14 @@ export default async function StatsPage({
           />
           <LeaderCard
             icon="🧤"
-            title="Golmani"
-            value="—"
-            who=""
+            title="Najviše čistih mreža"
+            value={topCleanSheets ? String(topCleanSheets.value) : "—"}
+            who={topCleanSheets?.nickname ?? ""}
+            suffix={
+              topCleanSheets && topCleanSheets.value === 1 ? "čista mreža" : "čistih mreža"
+            }
           />
         </div>
-        <p className="mt-2 text-xs text-slate-400">
-          Statistika golmana (primljeni golovi, čiste mreže) skuplja se od prvog termina,
-          a prikaz stiže u sljedećoj verziji.
-        </p>
       </section>
 
       {/* Records — shown even when empty so it is clear what is tracked */}

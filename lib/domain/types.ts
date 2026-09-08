@@ -69,11 +69,14 @@ export type MatchForStats = {
   scoreB: number;
   /** For records tied to a match, not a player (e.g. biggest win). */
   startsAt?: string;
-  lineup: { userId: string; team: Team }[];
+  lineup: { userId: string; team: Team; isGoalkeeper: boolean }[];
   events: {
-    type: "goal" | "own_goal";
+    type: "goal" | "own_goal" | "keeper_change";
     scorerId: string | null;
     assistId: string | null;
+    /** Team credited with the goal, or the team changing keepers. */
+    team: Team | null;
+    elapsedSeconds: number;
     deletedAt: string | null;
   }[];
 };
@@ -89,4 +92,14 @@ export type PlayerStats = {
   losses: number;
   goalsPerMatch: number;
   winRate: number;
+};
+
+export type KeeperStats = {
+  userId: string;
+  /** Goals conceded while this player was in goal. */
+  goalsAgainst: number;
+  /** Matches spent entirely in goal with zero goals against. */
+  cleanSheets: number;
+  /** Matches in which the player was in goal at any point. */
+  matchesAsKeeper: number;
 };

@@ -44,6 +44,8 @@ export function aggregateStats(matches: MatchForStats[]): PlayerStats[] {
     for (const e of m.events) {
       if (e.deletedAt !== null) continue;
 
+      if (e.type !== "goal" && e.type !== "own_goal") continue;
+
       if (e.scorerId) {
         const scorer = byPlayer.get(e.scorerId);
         if (scorer) {
