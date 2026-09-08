@@ -100,11 +100,11 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
 
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-  const rankClass = (rank: number) => {
-    if (rank === 1) return "font-bold text-amber-500"; // zlato
-    if (rank === 2) return "font-bold text-slate-400"; // srebro
-    if (rank === 3) return "font-bold text-amber-700"; // bronca
-    return "font-medium text-slate-400";
+  const rowClass = (rank: number) => {
+    if (rank === 1) return "bg-amber-50"; // zlato
+    if (rank === 2) return "bg-slate-100"; // srebro
+    if (rank === 3) return "bg-orange-50"; // bronca
+    return "";
   };
 
   return (
@@ -193,13 +193,16 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
           {ordered.map((r, index) => {
             const rank = index + 1;
             return (
-              <tr key={r.userId} className="border-b border-slate-100 last:border-0">
+              <tr
+                key={r.userId}
+                className={
+                  "border-b border-slate-100 last:border-0 " + rowClass(rank)
+                }
+              >
                 <td className="px-3 py-2">
                   <span className="inline-flex min-w-0 items-baseline gap-2">
                     <span
-                      className={
-                        "w-5 shrink-0 text-right text-xs tabular-nums " + rankClass(rank)
-                      }
+                      className="w-5 shrink-0 text-right text-xs font-bold tabular-nums text-slate-900"
                       aria-label={`Mjesto ${rank}`}
                     >
                       {rank}.
