@@ -1,96 +1,97 @@
 import type { PlayerForBalancing, SuggestedTeams } from "./types";
 
 /**
- * Ispod ovoliko odigranih termina rating jos nije kalibriran — svi krecu od
- * 1000, pa bi "balansiranje" bilo lazna preciznost. Do tada se dijeli nasumicno.
+ * Below this many matches played, rating is not calibrated yet — everyone
+ * starts at 1000, so "balancing" would be false precision. Until then, split
+ * randomly.
  */
-export const MIN_TERMINA_ZA_RATING = 5;
+export const MIN_MATCHES_FOR_RATING = 5;
 
-function promijesaj<T>(niz: T[], random: () => number): T[] {
-  const kopija = [...niz];
-  for (let i = kopija.length - 1; i > 0; i--) {
+function shuffle<T>(items: T[], random: () => number): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
-    [kopija[i], kopija[j]] = [kopija[j], kopija[i]];
+    [copy[i], copy[j]] = [copy[j], copy[i]];
   }
-  return kopija;
+  return copy;
 }
 
 /**
- * Par golmana s najmanjom razlikom u ratingu.
+ * Goalkeeper pair with the smallest rating gap.
  *
- * Razdvajaju se ta dvojica, a ne najbolji i najgori: cilj je da obje ekipe
- * imaju priblizno jednako dobrog golmana.
+ * Those two are separated, not best and worst: the goal is for both teams to
+ * have roughly equally good keepers.
  */
-function odaberiParGolmana(
-  golmani: PlayerForBalancing[],
+function pickGoalkeeperPair(
+  keepers: PlayerForBalancing[],
 ): [PlayerForBalancing, PlayerForBalancing] {
-  const sortirani = [...golmani].sort((a, b) => b.rating - a.rating);
+  const sorted = [...keepers].sort((a, b) => b.rating - a.rating);
 
-  let najbolji: [PlayerForBalancing, PlayerForBalancing] = [sortirani[0], sortirani[1]];
-  let najmanjaRazlika = Infinity;
+  let best: [PlayerForBalancing, PlayerForBalancing] = [sorted[0], sorted[1]];
+  let smallestGap = Infinity;
 
-  for (let i = 0; i < sortirani.length - 1; i++) {
-    const razlika = sortirani[i].rating - sortirani[i + 1].rating;
-    if (razlika < najmanjaRazlika) {
-      najmanjaRazlika = razlika;
-      najbolji = [sortirani[i], sortirani[i + 1]];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const gap = sorted[i].rating - sorted[i + 1].rating;
+    if (gap < smallestGap) {
+      smallestGap = gap;
+      best = [sorted[i], sorted[i + 1]];
     }
   }
 
-  return najbolji;
+  return best;
 }
 
 /**
- * Prijedlog dviju ekipa.
+ * Suggest two teams.
  *
- * Redoslijed odlucivanja:
- *   1. Golmani se razdvoje — po jedan u svaku ekipu.
- *   2. Ostali se rasporede: po ratingu ako grupa ima dovoljno odigranih
- *      termina, inace nasumicno.
- *   3. Uvijek se dopunjava manja ekipa; kod jednakog broja bira ona sa
- *      slabijim zbrojem. Na sortiranom popisu to daje zmijski raspored
- *      A, B, B, A, A, ... koji dobro izjednacava ekipe.
+ * Decision order:
+ *   1. Keepers are split — one per team.
+ *   2. Everyone else is assigned: by rating if the group has enough matches
+ *      played, otherwise randomly.
+ *   3. Always fill the smaller team; on equal size pick the one with the
+ *      weaker sum. On a sorted list that yields a snake draft A, B, B, A, A, …
+ *      which balances teams well.
  *
- * @param random  Ubacuje se radi determinizma u testovima.
+ * @param random  Injected for deterministic tests.
  */
 export function suggestTeams(
   players: PlayerForBalancing[],
-  odigranihTermina: number,
+  matchesPlayed: number,
   random: () => number = Math.random,
 ): SuggestedTeams {
   const teamA: PlayerForBalancing[] = [];
   const teamB: PlayerForBalancing[] = [];
   const warnings: string[] = [];
 
-  const golmani = players.filter((p) => p.isGoalkeeper);
-  let ostali = players.filter((p) => !p.isGoalkeeper);
+  const keepers = players.filter((p) => p.isGoalkeeper);
+  let others = players.filter((p) => !p.isGoalkeeper);
 
-  if (golmani.length >= 2) {
-    const [prvi, drugi] = odaberiParGolmana(golmani);
-    teamA.push(prvi);
-    teamB.push(drugi);
-    // Visak golmana ide u obican bazen — igrat ce u polju.
-    ostali = [...ostali, ...golmani.filter((g) => g !== prvi && g !== drugi)];
-  } else if (golmani.length === 1) {
-    const uEkipuA = random() < 0.5;
-    (uEkipuA ? teamA : teamB).push(golmani[0]);
-    warnings.push(`Ekipa ${uEkipuA ? "B" : "A"} nema golmana.`);
+  if (keepers.length >= 2) {
+    const [first, second] = pickGoalkeeperPair(keepers);
+    teamA.push(first);
+    teamB.push(second);
+    // Extra keepers go into the normal pool — they will play outfield.
+    others = [...others, ...keepers.filter((g) => g !== first && g !== second)];
+  } else if (keepers.length === 1) {
+    const toTeamA = random() < 0.5;
+    (toTeamA ? teamA : teamB).push(keepers[0]);
+    warnings.push(`Ekipa ${toTeamA ? "B" : "A"} nema golmana.`);
   } else {
     warnings.push("Nijedna ekipa nema golmana.");
   }
 
-  const redoslijed =
-    odigranihTermina >= MIN_TERMINA_ZA_RATING
-      ? [...ostali].sort((a, b) => b.rating - a.rating)
-      : promijesaj(ostali, random);
+  const order =
+    matchesPlayed >= MIN_MATCHES_FOR_RATING
+      ? [...others].sort((a, b) => b.rating - a.rating)
+      : shuffle(others, random);
 
-  const zbroj = (t: PlayerForBalancing[]) => t.reduce((s, p) => s + p.rating, 0);
+  const sum = (t: PlayerForBalancing[]) => t.reduce((s, p) => s + p.rating, 0);
 
-  for (const igrac of redoslijed) {
-    if (teamA.length < teamB.length) teamA.push(igrac);
-    else if (teamB.length < teamA.length) teamB.push(igrac);
-    else if (zbroj(teamA) <= zbroj(teamB)) teamA.push(igrac);
-    else teamB.push(igrac);
+  for (const player of order) {
+    if (teamA.length < teamB.length) teamA.push(player);
+    else if (teamB.length < teamA.length) teamB.push(player);
+    else if (sum(teamA) <= sum(teamB)) teamA.push(player);
+    else teamB.push(player);
   }
 
   return { teamA, teamB, warnings };

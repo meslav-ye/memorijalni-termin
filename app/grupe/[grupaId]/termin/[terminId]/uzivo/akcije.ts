@@ -5,8 +5,8 @@ import { oznakaLjestvice } from "@/lib/podaci/statistika";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findRecentDuplicate, secondsAgo, DUPLICATE_WINDOW_SECONDS } from "@/lib/domain/duplicates";
-import { computeElo, POCETNI_RATING } from "@/lib/domain/elo";
-import { mozeSePokrenuti, MINUTA_PRIJE_POCETKA } from "@/lib/domain/pokretanje";
+import { computeElo, INITIAL_RATING } from "@/lib/domain/elo";
+import { canStart, MINUTES_BEFORE_START } from "@/lib/domain/startability";
 import type { Team } from "@/lib/domain/types";
 
 /**
@@ -81,9 +81,9 @@ export async function pokreniTermin(grupaId: string, terminId: string): Promise<
 
   // Najranije pola sata prije pocetka — inace netko dan ranije slucajno
   // pokrene termin i stoperica vrti cijelu noc.
-  if (!mozeSePokrenuti(termin.starts_at, new Date())) {
+  if (!canStart(termin.starts_at, new Date())) {
     return {
-      greska: `Termin se može pokrenuti tek ${MINUTA_PRIJE_POCETKA} minuta prije početka.`,
+      greska: `Termin se može pokrenuti tek ${MINUTES_BEFORE_START} minuta prije početka.`,
     };
   }
 
@@ -309,7 +309,7 @@ async function obracunajRating(grupaId: string, terminId: string) {
       .filter((p) => p.team === strana)
       .map((p) => ({
         userId: p.user_id,
-        rating: ratinzi?.find((r) => r.user_id === p.user_id)?.rating ?? POCETNI_RATING,
+        rating: ratinzi?.find((r) => r.user_id === p.user_id)?.rating ?? INITIAL_RATING,
       }));
 
   const rezultat = computeElo({

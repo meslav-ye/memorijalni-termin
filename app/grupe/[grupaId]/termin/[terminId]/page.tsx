@@ -4,19 +4,19 @@ import { createClient } from "@/lib/supabase/server";
 import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import { formatirajTermin } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
-import { popunjenost, type Ton } from "@/lib/domain/popunjenost";
+import { fillStatus, type FillTone } from "@/lib/domain/fill";
 import {
-  mozeSePokrenuti,
-  odKadaSePokrece,
-  MINUTA_PRIJE_POCETKA,
-} from "@/lib/domain/pokretanje";
+  canStart,
+  earliestStartAt,
+  MINUTES_BEFORE_START,
+} from "@/lib/domain/startability";
 import { odjaviSe, otkaziTermin, prijaviSe } from "../akcije";
 import { GumbPokreni } from "./GumbPokreni";
 
-const BOJA_TONA: Record<Ton, string> = {
-  malo: "border-amber-200 bg-amber-50 text-amber-900",
-  dovoljno: "border-emerald-200 bg-emerald-50 text-emerald-900",
-  puno: "border-slate-200 bg-slate-100 text-slate-700",
+const FILL_TONE_COLOR: Record<FillTone, string> = {
+  low: "border-amber-200 bg-amber-50 text-amber-900",
+  enough: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  full: "border-slate-200 bg-slate-100 text-slate-700",
 };
 
 export default async function StranicaTermina({
@@ -65,7 +65,7 @@ export default async function StranicaTermina({
     profili?.find((p) => p.id === id)?.nickname || "(bez nadimka)";
   const jeGolman = (id: string) => profili?.find((p) => p.id === id)?.is_goalkeeper ?? false;
 
-  const stanje = popunjenost(confirmed.length, termin.min_players, termin.capacity);
+  const stanje = fillStatus(confirmed.length, termin.min_players, termin.capacity);
   const jaSamUnutra = confirmed.includes(user.id);
   const jaCekam = waitlist.includes(user.id);
   const prijavljen = jaSamUnutra || jaCekam;
@@ -82,7 +82,7 @@ export default async function StranicaTermina({
     .maybeSingle();
 
   const jaSamUPostavi = Boolean(mojaPostava);
-  const smijemPokrenuti = mozeSePokrenuti(termin.starts_at, new Date());
+  const smijemPokrenuti = canStart(termin.starts_at, new Date());
 
   return (
     <div className="pb-28">
@@ -128,8 +128,8 @@ export default async function StranicaTermina({
           Termin je otkazan.
         </div>
       ) : (
-        <div className={`mt-6 rounded-lg border p-4 text-center font-medium ${BOJA_TONA[stanje.ton]}`}>
-          {stanje.oznaka}
+        <div className={`mt-6 rounded-lg border p-4 text-center font-medium ${FILL_TONE_COLOR[stanje.tone]}`}>
+          {stanje.label}
         </div>
       )}
 
@@ -195,8 +195,8 @@ export default async function StranicaTermina({
         ) : (
           <p className="mt-8 rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">
             Termin ne kreće sam — pokreće ga netko od igrača, a to je moguće{" "}
-            <strong>{MINUTA_PRIJE_POCETKA} minuta prije početka</strong>, od{" "}
-            {formatirajTermin(odKadaSePokrece(termin.starts_at).toISOString())}.
+            <strong>{MINUTES_BEFORE_START} minuta prije početka</strong>, od{" "}
+            {formatirajTermin(earliestStartAt(termin.starts_at).toISOString())}.
           </p>
         ))}
 
@@ -253,7 +253,7 @@ export default async function StranicaTermina({
               >
                 {prijavljen
                   ? "Odustajem"
-                  : stanje.slobodnoMjesta === 0
+                  : stanje.freeSlots === 0
                     ? "Stavi me na listu čekanja"
                     : "Dolazim"}
               </button>

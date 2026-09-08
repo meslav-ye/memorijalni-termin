@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { computeElo, POCETNI_RATING, K_FAKTOR } from "@/lib/domain/elo";
+import { computeElo, INITIAL_RATING, K_FACTOR } from "@/lib/domain/elo";
 
-const ekipa = (ids: string[], rating = POCETNI_RATING) =>
+const ekipa = (ids: string[], rating = INITIAL_RATING) =>
   ids.map((userId) => ({ userId, rating }));
 
 describe("computeElo — jednake ekipe", () => {
@@ -12,8 +12,8 @@ describe("computeElo — jednake ekipe", () => {
       scoreA: 6,
       scoreB: 4,
     });
-    expect(r.deltaA).toBe(K_FAKTOR / 2); // 12
-    expect(r.deltaB).toBe(-K_FAKTOR / 2);
+    expect(r.deltaA).toBe(K_FACTOR / 2); // 12
+    expect(r.deltaB).toBe(-K_FACTOR / 2);
   });
 
   it("nerijeseno ne mijenja nista", () => {
@@ -37,7 +37,7 @@ describe("computeElo — nejednake ekipe", () => {
       scoreB: 2,
     });
     expect(r.deltaA).toBeGreaterThan(0);
-    expect(r.deltaA).toBeLessThan(K_FAKTOR / 2);
+    expect(r.deltaA).toBeLessThan(K_FACTOR / 2);
   });
 
   it("slabija ekipa dobiva vise za iznenadjenje", () => {
@@ -47,7 +47,7 @@ describe("computeElo — nejednake ekipe", () => {
       scoreA: 5,
       scoreB: 2,
     });
-    expect(r.deltaA).toBeGreaterThan(K_FAKTOR / 2);
+    expect(r.deltaA).toBeGreaterThan(K_FACTOR / 2);
   });
 
   it("jaca ekipa gubi vise kad izgubi nego sto dobije kad pobijedi", () => {
@@ -95,8 +95,8 @@ describe("computeElo — cjelovitost", () => {
     expect(r.updates).toHaveLength(2);
 
     const a = r.updates.find((u) => u.userId === "a1")!;
-    expect(a.ratingBefore).toBe(POCETNI_RATING);
-    expect(a.ratingAfter).toBe(POCETNI_RATING + r.deltaA);
+    expect(a.ratingBefore).toBe(INITIAL_RATING);
+    expect(a.ratingAfter).toBe(INITIAL_RATING + r.deltaA);
   });
 
   it("svi igraci iste ekipe dobivaju isti pomak", () => {

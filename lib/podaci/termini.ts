@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { splitSignups } from "@/lib/domain/waitlist";
-import { popunjenost, type Popunjenost } from "@/lib/domain/popunjenost";
+import { fillStatus, type FillStatus } from "@/lib/domain/fill";
 
 export type TerminSaPrijavama = {
   id: string;
@@ -11,7 +11,7 @@ export type TerminSaPrijavama = {
   notes: string | null;
   lokacija: string;
   prijavljenih: number;
-  stanje: Popunjenost;
+  stanje: FillStatus;
   jaSamUnutra: boolean;
   jaCekam: boolean;
 };
@@ -22,7 +22,7 @@ export type PodijeljeniTermini = {
 };
 
 /**
- * Dohvaca termine grupe i racuna popunjenost svakog.
+ * Dohvaca termine grupe i racuna fillStatus svakog.
  *
  * Namjerno stoji IZVAN komponente: cita trenutno vrijeme, a citanje sata unutar
  * render funkcije daje rezultat koji se moze promijeniti izmedju dva rendera.
@@ -76,7 +76,7 @@ export async function dohvatiTermine(
       notes: t.notes,
       lokacija: t.locations?.name ?? t.location_text ?? "Lokacija nije upisana",
       prijavljenih: confirmed.length,
-      stanje: popunjenost(confirmed.length, t.min_players, t.capacity),
+      stanje: fillStatus(confirmed.length, t.min_players, t.capacity),
       jaSamUnutra: confirmed.includes(korisnikId),
       jaCekam: waitlist.includes(korisnikId),
     };

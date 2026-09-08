@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { istiNadimak, provjeriNadimak } from "@/lib/domain/nadimak";
+import { nicknamesEqual, validateNickname } from "@/lib/domain/nickname";
 
 export type StanjeProfila = {
   greska?: string;
@@ -49,7 +49,7 @@ async function nadjiSudarNadimka(
 
   const sudareni = new Set(
     (profili ?? [])
-      .filter((p) => p.nickname && istiNadimak(p.nickname, nadimak))
+      .filter((p) => p.nickname && nicknamesEqual(p.nickname, nadimak))
       .map((p) => p.id),
   );
 
@@ -63,10 +63,10 @@ export async function spremiProfil(
   _prethodno: StanjeProfila,
   formData: FormData,
 ): Promise<StanjeProfila> {
-  const provjera = provjeriNadimak(String(formData.get("nickname") ?? ""));
-  if ("greska" in provjera) return { greska: provjera.greska };
+  const provjera = validateNickname(String(formData.get("nickname") ?? ""));
+  if ("error" in provjera) return { greska: provjera.error };
 
-  const nadimak = provjera.nadimak;
+  const nadimak = provjera.nickname;
   const isGoalkeeper = formData.get("golman") === "on";
 
   const supabase = await createClient();

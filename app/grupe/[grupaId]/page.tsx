@@ -3,12 +3,12 @@ import { redirect } from "next/navigation";
 import { dohvatiClanstvo, dohvatiKorisnika } from "@/lib/podaci/korisnik";
 import { formatirajTermin } from "@/lib/format";
 import { dohvatiTermine, type TerminSaPrijavama } from "@/lib/podaci/termini";
-import type { Ton } from "@/lib/domain/popunjenost";
+import type { FillTone } from "@/lib/domain/fill";
 
-const BOJA_TONA: Record<Ton, string> = {
-  malo: "bg-amber-100 text-amber-800",
-  dovoljno: "bg-emerald-100 text-emerald-800",
-  puno: "bg-slate-200 text-slate-700",
+const FILL_TONE_COLOR: Record<FillTone, string> = {
+  low: "bg-amber-100 text-amber-800",
+  enough: "bg-emerald-100 text-emerald-800",
+  full: "bg-slate-200 text-slate-700",
 };
 
 function KarticaTermina({ t, grupaId }: { t: TerminSaPrijavama; grupaId: string }) {
@@ -35,7 +35,7 @@ function KarticaTermina({ t, grupaId }: { t: TerminSaPrijavama; grupaId: string 
             </span>
           ) : (
             <span
-              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${BOJA_TONA[t.stanje.ton]}`}
+              className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${FILL_TONE_COLOR[t.stanje.tone]}`}
             >
               {t.prijavljenih}/{t.capacity}
             </span>
@@ -44,7 +44,7 @@ function KarticaTermina({ t, grupaId }: { t: TerminSaPrijavama; grupaId: string 
 
         {!otkazan && (
           <p className="mt-2 text-sm text-slate-600">
-            {t.stanje.oznaka}
+            {t.stanje.label}
             {t.jaSamUnutra && <span className="ml-2 font-medium text-emerald-700">· Dolaziš</span>}
             {t.jaCekam && <span className="ml-2 font-medium text-amber-700">· Na listi čekanja</span>}
           </p>

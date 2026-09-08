@@ -1,56 +1,58 @@
-/** Svi krecu odavde. Rating je PO GRUPI — isti covjek u dvije grupe ima dva. */
-export const POCETNI_RATING = 1000;
+/** Everyone starts here. Rating is PER GROUP — same person in two groups has two. */
+export const INITIAL_RATING = 1000;
 
 /**
- * Koliko se rating najvise pomakne po terminu.
+ * Maximum rating shift per match.
  *
- * 24 znaci da pobjeda nad jednako jakom ekipom donosi 12 bodova. Dovoljno da se
- * razlike vide kroz sezonu, dovoljno malo da jedan los dan ne pokvari sliku.
+ * 24 means a win over an equally strong team yields 12 points. Enough for
+ * differences to show over a season, small enough that one bad day does not
+ * wreck the picture.
  */
-export const K_FAKTOR = 24;
+export const K_FACTOR = 24;
 
-export type EloEkipa = { userId: string; rating: number }[];
+export type EloTeam = { userId: string; rating: number }[];
 
-export type EloUlaz = {
-  teamA: EloEkipa;
-  teamB: EloEkipa;
+export type EloInput = {
+  teamA: EloTeam;
+  teamB: EloTeam;
   scoreA: number;
   scoreB: number;
 };
 
-export type EloIzlaz = {
+export type EloOutput = {
   deltaA: number;
   deltaB: number;
   updates: { userId: string; ratingBefore: number; ratingAfter: number }[];
 };
 
 /**
- * Elo po ekipama.
+ * Elo by teams.
  *
- * Ocekivani ishod se racuna iz PROSJEKA ratinga ekipa, a ne iz zbroja — inace
- * bi ekipa s vise igraca automatski ispala "jaca". Pomak je jednak za sve
- * igrace iste ekipe i nula-suma: koliko jedna ekipa dobije, toliko druga izgubi.
+ * Expected outcome is computed from the AVERAGE of team ratings, not the sum —
+ * otherwise a team with more players would automatically look "stronger". The
+ * shift is the same for every player on a team and zero-sum: whatever one team
+ * gains, the other loses.
  *
- * Razlika u golovima se namjerno NE gleda: 6:0 i 6:5 nose isto. Rekreativni
- * rezultati previse ovise o tome tko je taj dan bio raspolozen.
+ * Goal difference is intentionally NOT used: 6:0 and 6:5 move the same.
+ * Recreational scores depend too much on who was in form that day.
  */
-export function computeElo({ teamA, teamB, scoreA, scoreB }: EloUlaz): EloIzlaz {
+export function computeElo({ teamA, teamB, scoreA, scoreB }: EloInput): EloOutput {
   if (teamA.length === 0 || teamB.length === 0) {
     return { deltaA: 0, deltaB: 0, updates: [] };
   }
 
-  const prosjek = (t: EloEkipa) => t.reduce((s, p) => s + p.rating, 0) / t.length;
+  const average = (t: EloTeam) => t.reduce((s, p) => s + p.rating, 0) / t.length;
 
-  const ratingA = prosjek(teamA);
-  const ratingB = prosjek(teamB);
+  const ratingA = average(teamA);
+  const ratingB = average(teamB);
 
-  // Vjerojatnost da A pobijedi, po Elo formuli.
-  const ocekivanoA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+  // Probability that A wins, per Elo formula.
+  const expectedA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
 
-  const stvarnoA = scoreA > scoreB ? 1 : scoreA === scoreB ? 0.5 : 0;
+  const actualA = scoreA > scoreB ? 1 : scoreA === scoreB ? 0.5 : 0;
 
-  const deltaA = Math.round(K_FAKTOR * (stvarnoA - ocekivanoA));
-  // `|| 0` jer bi -deltaA kod nule dalo -0, a to nije isto sto i 0.
+  const deltaA = Math.round(K_FACTOR * (actualA - expectedA));
+  // `|| 0` because -deltaA at zero would yield -0, which is not the same as 0.
   const deltaB = -deltaA || 0;
 
   return {

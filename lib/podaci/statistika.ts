@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { aggregateStats, aggregateDolaznost } from "@/lib/domain/stats";
+import { aggregateStats, aggregateAttendance } from "@/lib/domain/stats";
 import { formatirajKratko } from "@/lib/format";
 import { jeClan } from "@/lib/podaci/korisnik";
 import type { MatchForStats, PlayerStats, Team } from "@/lib/domain/types";
@@ -150,7 +150,7 @@ async function izracunajLjestvicu(
     );
   }
 
-  const dolaznost = aggregateDolaznost(terminIdevi, postavePoTerminu, igraci);
+  const dolaznost = aggregateAttendance(terminIdevi, postavePoTerminu, igraci);
 
   // Clanovi koji jos nisu odigrali nijedan termin ne pojavljuju se u statistici,
   // ali moraju biti na ljestvici — inace novopridosli "nestanu" dok ne zaigraju.
@@ -170,9 +170,9 @@ async function izracunajLjestvicu(
       nadimak: p?.nickname || "(bez nadimka)",
       golman: p?.is_goalkeeper ?? false,
       rating: ratinzi?.find((r) => r.user_id === s.userId)?.rating ?? 1000,
-      postotakDolaznosti: d?.postotak ?? 0,
-      trenutniNiz: d?.trenutniNiz ?? 0,
-      najduziNiz: d?.najduziNiz ?? 0,
+      postotakDolaznosti: d?.rate ?? 0,
+      trenutniNiz: d?.currentStreak ?? 0,
+      najduziNiz: d?.longestStreak ?? 0,
     };
   });
 

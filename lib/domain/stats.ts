@@ -1,6 +1,6 @@
 import type { MatchForStats, PlayerStats } from "./types";
 
-function prazan(userId: string): PlayerStats {
+function empty(userId: string): PlayerStats {
   return {
     userId,
     goals: 0,
@@ -16,23 +16,23 @@ function prazan(userId: string): PlayerStats {
 }
 
 /**
- * Agregira statistiku po igracu iz popisa ZAVRSENIH termina.
+ * Aggregates per-player stats from a list of FINISHED matches.
  *
- * Pravila koja se lako promase:
- *  - Odigrani termini se broje iz POSTAVE, ne iz golova — tko je igrao a nije
- *    zabio, i dalje je odigrao termin.
- *  - Ponisteni dogadjaji (deleted_at) se preskacu.
- *  - Autogol se biljezi odvojeno i NE ulazi u golove.
- *  - Asistencija se broji samo uz pravi gol, nikad uz autogol.
- *  - Tko nije u postavi ne ulazi u statistiku, cak i ako se pojavi u dogadjajima.
+ * Rules that are easy to miss:
+ *  - Matches played are counted from the LINEUP, not from goals — someone who
+ *    played and did not score still played the match.
+ *  - Soft-deleted events (deleted_at) are skipped.
+ *  - Own goals are tracked separately and do NOT count as goals.
+ *  - Assists are counted only with a real goal, never with an own goal.
+ *  - Anyone not in the lineup is excluded from stats, even if they appear in events.
  */
 export function aggregateStats(matches: MatchForStats[]): PlayerStats[] {
-  const po = new Map<string, PlayerStats>();
+  const byPlayer = new Map<string, PlayerStats>();
 
   for (const m of matches) {
     for (const { userId, team } of m.lineup) {
-      if (!po.has(userId)) po.set(userId, prazan(userId));
-      const s = po.get(userId)!;
+      if (!byPlayer.has(userId)) byPlayer.set(userId, empty(userId));
+      const s = byPlayer.get(userId)!;
 
       s.matches += 1;
 
@@ -45,74 +45,74 @@ export function aggregateStats(matches: MatchForStats[]): PlayerStats[] {
       if (e.deletedAt !== null) continue;
 
       if (e.scorerId) {
-        const strijelac = po.get(e.scorerId);
-        if (strijelac) {
-          if (e.type === "goal") strijelac.goals += 1;
-          else strijelac.ownGoals += 1;
+        const scorer = byPlayer.get(e.scorerId);
+        if (scorer) {
+          if (e.type === "goal") scorer.goals += 1;
+          else scorer.ownGoals += 1;
         }
       }
 
-      // Autogol nema asistenciju.
+      // Own goals have no assist.
       if (e.type === "goal" && e.assistId) {
-        const asistent = po.get(e.assistId);
-        if (asistent) asistent.assists += 1;
+        const assister = byPlayer.get(e.assistId);
+        if (assister) assister.assists += 1;
       }
     }
   }
 
-  return [...po.values()].map((s) => ({
+  return [...byPlayer.values()].map((s) => ({
     ...s,
     goalsPerMatch: s.matches === 0 ? 0 : Math.round((s.goals / s.matches) * 100) / 100,
     winRate: s.matches === 0 ? 0 : (s.wins + s.draws * 0.5) / s.matches,
   }));
 }
 
-// ---------- Dolaznost ----------
+// ---------- Attendance ----------
 
-export type Dolaznost = {
+export type Attendance = {
   userId: string;
-  odigrani: number;
-  postotak: number;
-  trenutniNiz: number;
-  najduziNiz: number;
+  played: number;
+  rate: number;
+  currentStreak: number;
+  longestStreak: number;
 };
 
 /**
- * Dolaznost po igracu.
+ * Attendance per player.
  *
- * @param terminiKronoloski id-evi zavrsenih termina, od NAJSTARIJEG prema najnovijem
- * @param postave           tko je igrao u kojem terminu
+ * @param matchIdsChronological finished match ids, OLDEST to newest
+ * @param lineups               who played in which match
  */
-export function aggregateDolaznost(
-  terminiKronoloski: string[],
-  postave: Map<string, Set<string>>,
-  sviIgraci: string[],
-): Dolaznost[] {
-  const ukupno = terminiKronoloski.length;
+export function aggregateAttendance(
+  matchIdsChronological: string[],
+  lineups: Map<string, Set<string>>,
+  allPlayers: string[],
+): Attendance[] {
+  const total = matchIdsChronological.length;
 
-  return sviIgraci.map((userId) => {
-    let odigrani = 0;
-    let trenutniNiz = 0;
-    let najduziNiz = 0;
+  return allPlayers.map((userId) => {
+    let played = 0;
+    let currentStreak = 0;
+    let longestStreak = 0;
 
-    for (const terminId of terminiKronoloski) {
-      const igrao = postave.get(terminId)?.has(userId) ?? false;
+    for (const matchId of matchIdsChronological) {
+      const playedThis = lineups.get(matchId)?.has(userId) ?? false;
 
-      if (igrao) {
-        odigrani += 1;
-        trenutniNiz += 1;
-        najduziNiz = Math.max(najduziNiz, trenutniNiz);
+      if (playedThis) {
+        played += 1;
+        currentStreak += 1;
+        longestStreak = Math.max(longestStreak, currentStreak);
       } else {
-        trenutniNiz = 0;
+        currentStreak = 0;
       }
     }
 
     return {
       userId,
-      odigrani,
-      postotak: ukupno === 0 ? 0 : odigrani / ukupno,
-      trenutniNiz,
-      najduziNiz,
+      played,
+      rate: total === 0 ? 0 : played / total,
+      currentStreak,
+      longestStreak,
     };
   });
 }

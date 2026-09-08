@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { suggestTeams, MIN_TERMINA_ZA_RATING } from "@/lib/domain/teams";
+import { suggestTeams, MIN_MATCHES_FOR_RATING } from "@/lib/domain/teams";
 import type { PlayerForBalancing } from "@/lib/domain/types";
 
 const igrac = (
@@ -79,7 +79,7 @@ describe("suggestTeams — balansiranje", () => {
   it("balansira po ratingu kad grupa ima dovoljno odigranih termina", () => {
     const r = suggestTeams(
       [igrac("a", 1200), igrac("b", 1100), igrac("c", 900), igrac("d", 800)],
-      MIN_TERMINA_ZA_RATING,
+      MIN_MATCHES_FOR_RATING,
       nulaRandom,
     );
     expect(Math.abs(zbroj(r.teamA) - zbroj(r.teamB))).toBeLessThanOrEqual(100);
@@ -87,7 +87,7 @@ describe("suggestTeams — balansiranje", () => {
 
   it("na 12 igraca razlicitih ratinga ekipe su blizu izjednacene", () => {
     const igraci = Array.from({ length: 12 }, (_, i) => igrac(`p${i}`, 800 + i * 50));
-    const r = suggestTeams(igraci, MIN_TERMINA_ZA_RATING, nulaRandom);
+    const r = suggestTeams(igraci, MIN_MATCHES_FOR_RATING, nulaRandom);
 
     expect(r.teamA).toHaveLength(6);
     expect(r.teamB).toHaveLength(6);
@@ -99,7 +99,7 @@ describe("suggestTeams — balansiranje", () => {
     // Da gleda rating, jaki bi bili razdvojeni. Ovdje samo provjeravamo da
     // funkcija ne pukne i da su svi rasporedjeni.
     const igraci = [igrac("jak1", 2000), igrac("jak2", 1900), igrac("slab1", 500), igrac("slab2", 400)];
-    const r = suggestTeams(igraci, MIN_TERMINA_ZA_RATING - 1, nulaRandom);
+    const r = suggestTeams(igraci, MIN_MATCHES_FOR_RATING - 1, nulaRandom);
     expect(r.teamA.length + r.teamB.length).toBe(4);
   });
 });
