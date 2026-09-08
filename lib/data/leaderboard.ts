@@ -70,7 +70,7 @@ export async function getLeaderboard(
 function cachedLeaderboard(groupId: string, seasonId: string | null) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", "v3-games", groupId, seasonId ?? "all"],
+    ["leaderboard", "v4-played-only", groupId, seasonId ?? "all"],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }
@@ -212,13 +212,9 @@ async function computeLeaderboard(
 
   const attendance = aggregateAttendance(matchIds, lineupBySession, players);
 
-  // Members who have not played any match yet do not appear in stats, but
-  // must be on the leaderboard — otherwise newcomers "vanish" until they play.
-  const allForDisplay = [...new Set([...players, ...memberIds])];
-
   // Profiles for anyone who appeared in stats but is no longer a member
   // (edge case) — refill gaps without a second full fetch when possible.
-  const missingIds = allForDisplay.filter((id) => !(profiles ?? []).some((p) => p.id === id));
+  const missingIds = players.filter((id) => !(profiles ?? []).some((p) => p.id === id));
   let allProfiles = profiles ?? [];
   if (missingIds.length > 0) {
     const { data: extra } = await supabase
@@ -248,21 +244,13 @@ async function computeLeaderboard(
     };
   });
 
-  const withoutPlayed = memberIds
-    .filter((id) => !players.includes(id))
-    .map((id) =>
-      emptyRow(
-        id,
-        allProfiles.find((p) => p.id === id)?.nickname || "(bez nadimka)",
-        allProfiles.find((p) => p.id === id)?.is_goalkeeper ?? false,
-        ratings?.find((r) => r.user_id === id)?.rating ?? 1000,
-      ),
-    );
-
-  const allRows = [...rows, ...withoutPlayed].sort(
+  // Only players who appeared in a finished game. Members with 0 U stay off
+  // the board once games exist (empty state still uses emptyLeaderboard).
+  const allRows = [...rows].sort(
     (a, b) =>
       b.goals - a.goals ||
       b.assists - a.assists ||
+      b.rating - a.rating ||
       b.matches - a.matches ||
       a.nickname.localeCompare(b.nickname, "hr"),
   );
