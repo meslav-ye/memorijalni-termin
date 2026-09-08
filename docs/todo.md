@@ -18,85 +18,15 @@ mjesta:
 
 ## 1. Profil člana dostupan s kartice Članovi
 
-Na kartici **Članovi** treba se moći kliknuti na člana i otvoriti njegov profil sa
-statistikom samo za tog igrača.
-
-**Većina posla već postoji.** Stranica profila igrača je napravljena i pokazuje sve
-što treba — `app/grupe/[grupaId]/igrac/[igracId]/page.tsx`:
-
-| | |
-|---|---|
-| brojke | rating, golovi, asistencije, odigrani termini, golovi po terminu, pobjede–neriješeno–porazi, postotak pobjeda, dolaznost |
-| nizovi | najduži niz dolazaka, trenutni niz |
-| povijest | zadnjih 10 termina sa score-om i promjenom ratinga, svaki link na sažetak |
-
-Ta se stranica trenutno otvara **samo s Ljestvice**. Na kartici Članovi nema ni
-jednog linka na `/igrac/`.
-
-### Što stvarno treba napraviti
-
-1. U `app/grupe/[grupaId]/clanovi/page.tsx` omotati ime člana u `Link` na
-   `/grupe/${grupaId}/igrac/${korisnikId}`.
-2. **Popraviti povratak.** Profil igrača ima fiksni link „← Natrag na ljestvicu".
-   Tko dođe s Članova, vratit će se na krivu karticu. Treba ga učiniti ovisnim o
-   tome odakle se došlo — ili ga zamijeniti povratkom koji vodi natrag u prethodni
-   prikaz.
-3. Provjeriti članove **bez odigranog termina** — profil za njih već ima svoje
-   stanje („Još nije odigrao nijedan termin u ovoj grupi"), pa se to ne mora
-   dodavati, ali treba potvrditi da izgleda uredno kad se dođe s Članova, gdje su
-   takvi članovi česti (novi, tek odobreni).
-
-### Na što paziti
-
-- Kartica Članovi prikazuje i članove **na čekanju** i one koji su izbačeni.
-  Odlučiti vode li i njihova imena na profil ili samo aktivni članovi.
-- Profil čita `dohvatiLjestvicu`, koja je od nedavno u predmemoriji s oznakom po
-  grupi. To je u redu i ništa ne treba mijenjati — samo znati da se brojke na
-  profilu osvježavaju kad završi termin, ne pri svakom otvaranju.
+**U kodu odrađeno** (link s Članova, povratak ovisan o `?from=`, samo aktivni
+članovi). Ostaje dok nije na produkciji.
 
 ---
 
 ## 2. Prikaz učitavanja pri prelasku s kartice na karticu
 
-Kad se s Ljestvice skoči na Članove, klik izgleda kao da se ništa nije dogodilo —
-stara kartica stoji na ekranu dok se nova ne dovrši. Na mobitelu s lošijom vezom
-to je dovoljno dugo da čovjek stisne drugi put.
-
-**Uzrok nije sporost nego nedostatak granice učitavanja.** U cijeloj aplikaciji
-nema **ni jednog** `loading.tsx` ni jednog `Suspense`. Bez toga App Router čeka da
-se serverska komponenta dovrši prije nego išta iscrta, pa nema čega prikazati u
-međuvremenu.
-
-### Dva odvojena problema, dva različita rješenja
-
-Treba oboje — rješavaju različite dojmove:
-
-| Što fali | Rješenje |
-|---|---|
-| Nema povratne informacije na sam klik | `useLinkStatus()` u `Tabovi.tsx` — kartica koju si stisnuo odmah pokaže da radi |
-| Nema ničega na ekranu dok se učitava | `loading.tsx` sa skeletonom |
-
-`useLinkStatus` postoji u Nextu 16 i vraća `{ pending }`, ali radi **samo iz
-komponente unutar `<Link>`** — dakle treba mala komponenta koja se ubaci u tab,
-ne hook u samom `Tabovi`. Dokumentacija je u
-`node_modules/next/dist/docs/01-app/03-api-reference/04-functions/use-link-status.md`.
-
-### Gdje staviti `loading.tsx`
-
-Najmanji zahvat je jedan zajednički na `app/grupe/[grupaId]/loading.tsx` — hvata
-sve kartice odjednom. Ako se pokaže da skeleton treba izgledati različito po
-karticama, tek onda praviti zasebne.
-
-### Na što paziti
-
-- **Skeleton mora imati istu visinu kao sadržaj koji zamjenjuje**, inače stranica
-  poskoči kad se učita. Ljestvica ima tablicu poznate visine po članu, pa je to
-  izvedivo.
-- Ljestvica je od nedavno u predmemoriji i vraća se za 5 upita umjesto 10, pa je
-  ona među bržima. **Članovi su sporiji** jer nisu predmemorirani — ondje se
-  dobitak najviše osjeti.
-- Ne dodavati spinner koji se vrti na sredini praznog ekrana. Skeleton koji ima
-  oblik sadržaja djeluje brže, iako traje jednako.
+**U kodu odrađeno** (`useLinkStatus` u `Tabs.tsx` + `app/grupe/[grupaId]/loading.tsx`
+skeleton). Ostaje dok nije na produkciji.
 
 ---
 
@@ -588,58 +518,5 @@ ali nedvosmisleno.
 
 ## 11. Unos asistencija je težak na terenu
 
-**Prijavljeno s terena, 7.9.2026.** Ljudi stisnu tko je zabio, pa im se
-asistencija izgubi ili slučajno ponište gol. Treba omogućiti dopisivanje
-asistenta **iz kronologije** i pojednostaviti unos.
-
-### Dva uzroka, oba nađena u kodu
-
-**1. Traka se sama zatvori nakon 5 sekundi.**
-`SAM_SE_ZATVARA_MS = 5000` u `components/termin/AsistencijaTraka.tsx`. Pet
-sekundi je bilo dosta u zamisli, ali na terenu ljudi u tom trenutku **još
-raspravljaju tko je dodao**. Traka nestane prije nego se dogovore, i asistencija
-je izgubljena bez ikakvog načina da se doda poslije.
-
-**2. Gumb „Poništi" u traci briše GOL, ne asistenciju.**
-Stoji odmah uz tekst „⚽ GOL — CVIJA" i zove `onPonisti`, što poništava sam
-događaj gola. Čovjek koji želi samo skloniti pitanje o asistenciji razumno
-pritisne „Poništi" — i ostane bez gola. To je gotovo sigurno ono što se jučer
-dogodilo.
-
-**Taj gumb je uz to suvišan.** Kronologija već ima svoje poništavanje po unosu
-(`aria-label="Poništi ovaj unos"`), gdje je nedvosmisleno jer stoji uz konkretan
-gol.
-
-### Dobra vijest: server to već podržava
-
-`dodajAsistenciju(terminId, dogadjajId, asistentId)` prima **bilo koji** id
-događaja i samo upiše `assist_id`. **Nema vremenskog ograničenja.** Dakle
-dopisivanje asistencije na gol iz 3. minute u 40. minuti već sada radi na
-poslužitelju — fali samo mjesto u sučelju.
-
-Ovo je **posao samo u sučelju**, bez migracije i bez nove akcije.
-
-### Predlozi, po redu koliko donose
-
-1. **Ulaz u kronologiji.** Dodir na gol u kronologiji otvara isti odabir
-   suigrača, s mogućnošću da se asistent i **skloni** (`asistentId: null` već
-   postoji). Time nestaje pritisak da se pogodi u pet sekundi.
-2. **Skloniti „Poništi" iz trake za asistenciju.** Poništavanje ostaje samo u
-   kronologiji. Traka dobiva neutralno zatvaranje, npr. „Bez asistencije".
-3. **Preispitati odbrojavanje.** Ili duže, ili bez odbrojavanja uz izričito
-   zatvaranje. Kad postoji ulaz iz kronologije (točka 1), automatsko zatvaranje
-   više nije opasno, pa je i kraće prihvatljivo.
-
-### Na što paziti
-
-- Asistent mora biti **suigrač strijelca i ne on sam**. Traka to već filtrira
-  (`p.team === igrac.team && p.userId !== igrac.userId`); ulaz iz kronologije
-  mora filtrirati isto.
-- **Sudar dvaju unosa.** Svi na klupi gledaju istu kronologiju uživo. Sada je
-  prozor za unos asistencije 5 sekundi, pa se sudari praktički ne događaju. Kad
-  se otvori na cijeli termin, dvojica mogu upisati različitog asistenta na isti
-  gol — zadnji upis pobjeđuje. Odlučiti je li to prihvatljivo (vjerojatno jest,
-  uz vidljivu promjenu kroz živu sinkronizaciju) ili treba spriječiti.
-- Ne dirati to da se **gol upisuje odmah, bez asistencije**. Ta je odluka
-  namjerna i zapisana u kodu: ako čovjek zaključa mobitel usred unosa, gol je već
-  u bazi. Ovdje se mijenja samo kako se asistent dopisuje.
+**U kodu odrađeno** (ulaz iz kronologije, „Bez asistencije” umjesto „Poništi”,
+timeout 8 s). Ostaje dok nije na produkciji. Zadnji upis pobjeđuje kod sudara.

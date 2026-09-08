@@ -105,7 +105,7 @@ export default async function LeaderboardPage({
               <tr key={r.userId} className="border-b border-slate-100 last:border-0">
                 <td className="px-3 py-2">
                   <Link
-                    href={`/grupe/${grupaId}/igrac/${r.userId}`}
+                    href={`/grupe/${grupaId}/igrac/${r.userId}?from=ljestvica`}
                     className="font-medium underline-offset-4 hover:underline"
                   >
                     {r.nickname}

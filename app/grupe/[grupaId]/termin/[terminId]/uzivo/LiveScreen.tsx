@@ -280,6 +280,22 @@ export function LiveScreen({
     await afterChange();
   }
 
+  function openAssistFromTimeline(event: LiveEvent) {
+    if (!inProgress || event.type !== "goal" || !event.scorerId) return;
+    const scorer = lineup.find((p) => p.userId === event.scorerId);
+    if (!scorer) return;
+
+    setPendingAssist({
+      eventId: event.id,
+      scorer: scorer.nickname,
+      elapsed: event.elapsedSeconds,
+      teammates: lineup
+        .filter((p) => p.team === scorer.team && p.userId !== scorer.userId)
+        .map((p) => ({ userId: p.userId, nickname: p.nickname })),
+      currentAssistId: event.assistId,
+    });
+  }
+
   async function togglePause() {
     setBusy(true);
     if (state.pausedAt) await resumeMatch(terminId);
@@ -424,28 +440,46 @@ export function LiveScreen({
                   {formatClock(e.elapsedSeconds)}
                 </span>
 
-                <span className="min-w-0 flex-1">
-                  {e.type === "goal" && (
-                    <>
-                      ⚽ <span className="font-medium">{nicknameOf(e.scorerId)}</span>
-                      {e.assistId && (
-                        <span className="text-slate-500"> ({nicknameOf(e.assistId)})</span>
-                      )}
-                    </>
-                  )}
-                  {e.type === "own_goal" && (
-                    <>
-                      🥅 <span className="font-medium">{nicknameOf(e.scorerId)}</span>
-                      <span className="text-slate-500"> — autogol</span>
-                    </>
-                  )}
-                  {e.type === "keeper_change" && (
-                    <>
-                      🧤 <span className="font-medium">{nicknameOf(e.scorerId)}</span>
-                      <span className="text-slate-500"> ide u gol</span>
-                    </>
-                  )}
-                </span>
+                {e.type === "goal" && inProgress ? (
+                  <button
+                    type="button"
+                    onClick={() => openAssistFromTimeline(e)}
+                    disabled={busy}
+                    className="min-w-0 flex-1 rounded text-left transition active:scale-[0.99]
+                               disabled:opacity-40"
+                    title="Dodaj ili izmijeni asistenciju"
+                  >
+                    ⚽ <span className="font-medium">{nicknameOf(e.scorerId)}</span>
+                    {e.assistId ? (
+                      <span className="text-slate-500"> ({nicknameOf(e.assistId)})</span>
+                    ) : (
+                      <span className="text-slate-400"> · asistent?</span>
+                    )}
+                  </button>
+                ) : (
+                  <span className="min-w-0 flex-1">
+                    {e.type === "goal" && (
+                      <>
+                        ⚽ <span className="font-medium">{nicknameOf(e.scorerId)}</span>
+                        {e.assistId && (
+                          <span className="text-slate-500"> ({nicknameOf(e.assistId)})</span>
+                        )}
+                      </>
+                    )}
+                    {e.type === "own_goal" && (
+                      <>
+                        🥅 <span className="font-medium">{nicknameOf(e.scorerId)}</span>
+                        <span className="text-slate-500"> — autogol</span>
+                      </>
+                    )}
+                    {e.type === "keeper_change" && (
+                      <>
+                        🧤 <span className="font-medium">{nicknameOf(e.scorerId)}</span>
+                        <span className="text-slate-500"> ide u gol</span>
+                      </>
+                    )}
+                  </span>
+                )}
 
                 <span className="shrink-0 text-xs font-semibold text-slate-400">
                   {e.team}
@@ -476,7 +510,7 @@ export function LiveScreen({
           key={pendingAssist.eventId}
           pending={pendingAssist}
           onSelect={(id) => void selectAssistant(id)}
-          onUndo={() => void undo(pendingAssist.eventId)}
+          onDismiss={closeStrip}
           onExpire={closeStrip}
         />
       )}

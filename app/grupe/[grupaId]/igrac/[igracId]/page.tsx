@@ -7,8 +7,10 @@ import { getLeaderboard } from "@/lib/data/leaderboard";
 
 export default async function PlayerPage({
   params,
+  searchParams,
 }: PageProps<"/grupe/[grupaId]/igrac/[igracId]">) {
   const { grupaId, igracId } = await params;
+  const query = await searchParams;
 
   const user = await getUser();
   const supabase = await createClient();
@@ -45,13 +47,16 @@ export default async function PlayerPage({
 
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+  const fromMembers = query.from === "clanovi";
+  const backHref = fromMembers
+    ? `/grupe/${grupaId}/clanovi`
+    : `/grupe/${grupaId}/ljestvica`;
+  const backLabel = fromMembers ? "← Natrag na članove" : "← Natrag na ljestvicu";
+
   return (
     <div>
-      <Link
-        href={`/grupe/${grupaId}/ljestvica`}
-        className="text-sm text-slate-500 underline underline-offset-4"
-      >
-        ← Natrag na ljestvicu
+      <Link href={backHref} className="text-sm text-slate-500 underline underline-offset-4">
+        {backLabel}
       </Link>
 
       <header className="mt-4">

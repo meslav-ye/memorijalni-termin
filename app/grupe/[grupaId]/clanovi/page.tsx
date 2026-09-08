@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
@@ -116,7 +117,10 @@ export default async function MembersPage({
                            border border-slate-200 bg-white p-4"
               >
                 <div className="min-w-0">
-                  <span className="font-medium">
+                  <Link
+                    href={`/grupe/${grupaId}/igrac/${c.user_id}?from=clanovi`}
+                    className="font-medium underline-offset-4 hover:underline"
+                  >
                     {c.profiles?.nickname || "(bez nadimka)"}
                     {c.profiles?.is_goalkeeper && (
                       <span title="Igra golmana" className="ml-1">
@@ -128,7 +132,7 @@ export default async function MembersPage({
                         admin
                       </span>
                     )}
-                  </span>
+                  </Link>
                   <span className="block text-sm text-slate-500">
                     rating {c.rating} · {c.matchesPlayed}{" "}
                     {c.matchesPlayed === 1 ? "termin" : "termina"}

@@ -1,9 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 
 type Tab = { label: string; href: string };
+
+function TabLabel({ label }: { label: string }) {
+  const { pending } = useLinkStatus();
+  return (
+    <span className={pending ? "opacity-50" : undefined}>
+      {label}
+      <span
+        aria-hidden
+        className={
+          "ml-1 inline-block h-1.5 w-1.5 rounded-full bg-marka align-middle " +
+          (pending ? "opacity-100" : "opacity-0")
+        }
+      />
+    </span>
+  );
+}
 
 export function GroupTabs({ grupaId, admin }: { grupaId: string; admin: boolean }) {
   const pathname = usePathname();
@@ -36,7 +53,7 @@ export function GroupTabs({ grupaId, admin }: { grupaId: string; admin: boolean 
                     : "border-transparent text-slate-500 hover:text-slate-800")
                 }
               >
-                {t.label}
+                <TabLabel label={t.label} />
               </Link>
             </li>
           );

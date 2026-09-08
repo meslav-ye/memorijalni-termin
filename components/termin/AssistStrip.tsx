@@ -4,31 +4,32 @@ import { useEffect } from "react";
 import { formatClock } from "@/lib/domain/timer";
 
 /** After this long with no interaction the strip closes itself, without an assist. */
-const AUTO_CLOSE_MS = 5000;
+const AUTO_CLOSE_MS = 8000;
 
 export type PendingAssist = {
   eventId: string;
   scorer: string;
   elapsed: number;
   teammates: { userId: string; nickname: string }[];
+  /** When editing from the timeline, show which assist is already set. */
+  currentAssistId?: string | null;
 };
 
 /**
- * Bottom strip that appears IMMEDIATELY after a recorded goal.
+ * Bottom strip for picking an assist after a goal (or from the timeline).
  *
- * The goal is already in the DB — this is only a second tap that adds the
- * assistant. If nothing is touched for 5 seconds, the strip disappears and
- * the goal stays without an assist. Nobody has to finish anything.
+ * The goal is already in the DB — this only updates assist_id. Closing or
+ * timing out does not delete the goal; undo lives on the timeline row.
  */
 export function AssistStrip({
   pending,
   onSelect,
-  onUndo,
+  onDismiss,
   onExpire,
 }: {
   pending: PendingAssist;
   onSelect: (assistantId: string | null) => void;
-  onUndo: () => void;
+  onDismiss: () => void;
   onExpire: () => void;
 }) {
   // `onExpire` must be stable (useCallback in the parent), otherwise the
@@ -50,11 +51,11 @@ export function AssistStrip({
           </p>
           <button
             type="button"
-            onClick={onUndo}
-            className="h-10 shrink-0 rounded-lg border border-red-400 px-3 text-sm
-                       font-semibold text-red-300 transition active:scale-95"
+            onClick={onDismiss}
+            className="h-10 shrink-0 rounded-lg border border-slate-500 px-3 text-sm
+                       font-semibold text-slate-300 transition active:scale-95"
           >
-            Poništi
+            Bez asistencije
           </button>
         </div>
 
@@ -66,8 +67,12 @@ export function AssistStrip({
               key={s.userId}
               type="button"
               onClick={() => onSelect(s.userId)}
-              className="h-12 shrink-0 rounded-lg bg-white px-4 text-sm font-bold
-                         uppercase text-slate-900 transition active:scale-95"
+              className={
+                "h-12 shrink-0 rounded-lg px-4 text-sm font-bold uppercase transition active:scale-95 " +
+                (pending.currentAssistId === s.userId
+                  ? "bg-emerald-300 text-slate-900"
+                  : "bg-white text-slate-900")
+              }
             >
               {s.nickname}
             </button>
@@ -75,8 +80,12 @@ export function AssistStrip({
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="h-12 shrink-0 rounded-lg border border-slate-500 px-4 text-sm
-                       font-bold uppercase text-slate-300 transition active:scale-95"
+            className={
+              "h-12 shrink-0 rounded-lg border px-4 text-sm font-bold uppercase transition active:scale-95 " +
+              (pending.currentAssistId == null
+                ? "border-slate-300 bg-slate-600 text-white"
+                : "border-slate-500 text-slate-300")
+            }
           >
             Nitko
           </button>
