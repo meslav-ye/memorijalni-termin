@@ -508,23 +508,14 @@ iPhone SE.
 
 ## 9. Kod mora biti na engleskom
 
-Trenutno je **mješovit**, i to bez pravila — pa se pri svakoj novoj datoteci
-pogađa. Treba ga svesti na engleski.
+**U kodu odrađeno** (domain → data → actions → UI moduli + pravilo u README).
+Ostaje na popisu dok nije istestirano na produkciji — vidi pravilo u README-u.
 
-### Što je gdje sada, izmjereno
+Identifikatori, imena datoteka i komentari u diranim datotekama su na engleskom.
+Tekst koji korisnik vidi ostaje hrvatski. Stupci u bazi su već engleski.
 
-| Sloj | Stanje |
-|---|---|
-| `lib/podaci/` | **hrvatski** — `dohvatiLjestvicu`, `dohvatiTermine`, `dohvatiKorisnika`, `dohvatiClanstvo`, `jeClan`, `jeAdmin`, `oznakaLjestvice` |
-| server akcije u `app/` | **hrvatski** — `upisiGol`, `zavrsiTermin`, `pokreniTermin`, `odobriClana`, `kreirajTermin`, `otkaziTermin`, … |
-| `lib/domain/` | **mješovito** — engleski gdje pojam ima standardno ime (`aggregateStats`, `computeElo`, `elapsedSeconds`, `splitSignups`, `suggestTeams`, `findRecentDuplicate`, `formatClock`), hrvatski inače (`mozeSePokrenuti`, `odKadaSePokrece`, `popunjenost`, `normalizirajNadimak`, `provjeriNadimak`, `razlikujNadimke`) |
-| konstante | **hrvatski** — `POCETNI_RATING`, `K_FAKTOR`, `MINUTA_PRIJE_POCETKA`, `MIN_TERMINA_ZA_RATING`, `MAX_DULJINA` |
-| tipovi | **mješovito** — `MatchForStats`, `PlayerStats`, `SignupRow` naspram `Dolaznost`, `EloUlaz`, `EloIzlaz`, `Popunjenost`, `RezultatProvjere`, `IgracZaOznaku`, `Ton` |
-| komponente i datoteke | **hrvatski** — `EkranUzivo.tsx`, `Tabovi.tsx`, `akcije.ts`, `podaci/`, `statistika.ts` |
-| komentari | **hrvatski bez dijakritike**, dosljedno svugdje |
-| stupci u bazi | **engleski** — `starts_at`, `score_a`, `match_lineup`, `player_ratings` |
-
-Stupci u bazi su već engleski, pa migracije i tipovi iz baze ne trebaju ništa.
+Mogući sitni ostaci (npr. lokalne varijable ili imena page funkcija tipa
+`Stranica…`) prevode se uz sljedeću izmjenu te datoteke, ne zasebnim prolazom.
 
 ### Granica koju se NE smije prijeći
 
@@ -535,19 +526,6 @@ greškama, nazivi kartica. To nije kod, to je sadržaj.
 Isto vrijedi za **domenske riječi koje nemaju dobar prijevod**: „termin" nije
 „match" ni „session" — to je pojam iz ovog društva i u tekstu sučelja ostaje
 termin. U kodu smije biti `match`, jer tako se već zove tablica.
-
-### Kako to izvesti, a da se ne razbije
-
-- **Ne u jednom potezu.** Preimenovanje `dohvatiLjestvicu` dira 11 stranica i
-  predmemoriju s oznakom; server akcije su vezane na `<form action={...}>`.
-- Ide sloj po sloj, svaki sloj svoj commit, uz `pnpm typecheck && pnpm lint &&
-  pnpm test && pnpm build` nakon svakog. Testovi (114) hvataju domenski sloj;
-  ostalo hvata typecheck.
-- Krenuti od `lib/domain/`, jer je najmanje vezan i već je pola engleski.
-- Komentare prevoditi **uz datoteku koja se ionako mijenja**, ne u zasebnom
-  prolazu kroz cijeli repo — takav commit je nečitljiv u pregledu.
-- Kad se sloj prevede, u `AGENTS.md` ili `README.md` zapisati pravilo, da se
-  sljedeći put ne pogađa.
 
 ---
 

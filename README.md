@@ -58,6 +58,17 @@ pnpm typecheck && pnpm lint && pnpm build
 
 Next.js (App Router) · TypeScript · Tailwind CSS · Supabase (Postgres, Auth, Realtime, RLS) · Vercel
 
+## Jezik u kodu
+
+**Identifikatori, imena datoteka i komentari u kodu su na engleskom.**
+Tekst koji korisnik vidi ostaje hrvatski (gumbi, poruke, nazivi kartica, „termin”
+u sučelju). Stupci u bazi su već engleski. U kodu za isti pojam koristi se
+`match`, jer tako se zove tablica.
+
+Novi kod ne uvodi hrvatske identifikatore. Ako se dira stariji hrvatski ostatak
+u nekoj datoteci, prevede se uz tu izmjenu — ne u zasebnom prolazu kroz cijeli
+repo.
+
 ## Napomena za AI agente
 
 `AGENTS.md` u korijenu generira i održava sam `next dev` — ne uređuj ga ručno.
