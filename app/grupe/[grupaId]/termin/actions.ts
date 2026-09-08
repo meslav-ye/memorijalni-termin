@@ -3,12 +3,18 @@
 import { redirect } from "next/navigation";
 import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { matchYear, ensureSeason } from "@/lib/seasons";
 import { zagrebUIso, zagrebNowParts } from "@/lib/format";
 import { zagrebWeekdayFromYmd } from "@/lib/domain/recurring";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { suggestTeams } from "@/lib/domain/teams";
 import { normalizeTeamName } from "@/lib/domain/team-name";
+import {
+  planRatingReverts,
+  usersWithLaterRatingHistory,
+  type RatingScope,
+} from "@/lib/domain/revert-ratings";
 import { leaderboardTag } from "@/lib/data/leaderboard";
 import { ensureDraftGame, ensureEditableGame } from "@/lib/data/games";
 
@@ -482,7 +488,7 @@ export async function deleteMatch(formData: FormData) {
 
   const { data: match } = await ctx.supabase
     .from("matches")
-    .select("status")
+    .select("status, starts_at")
     .eq("id", matchId)
     .eq("group_id", groupId)
     .maybeSingle();
@@ -491,12 +497,117 @@ export async function deleteMatch(formData: FormData) {
     return;
   }
 
+  // Unwind Elo before cascade deletes rating_history with the match.
+  if (match.status === "zavrsen") {
+    await revertRatingsForDeletedMatch(groupId, matchId, match.starts_at);
+  }
+
   const { error } = await ctx.supabase.from("matches").delete().eq("id", matchId);
   if (error) return;
 
   updateTag(leaderboardTag(groupId));
   revalidatePath(`/grupe/${groupId}`);
   redirect(`/grupe/${groupId}`);
+}
+
+/**
+ * Restore group/global ratings using history from this termin, when it is still
+ * each player's latest rated game. Later history is left alone (needs a full
+ * chronological replay we do not do on delete).
+ */
+async function revertRatingsForDeletedMatch(
+  groupId: string,
+  matchId: string,
+  startsAt: string,
+) {
+  const admin = createAdminClient();
+
+  const { data: history } = await admin
+    .from("rating_history")
+    .select("user_id, scope, rating_before, game_id, games(seq)")
+    .eq("match_id", matchId);
+
+  if (!history?.length) return;
+
+  const rows = history.flatMap((h) => {
+    const seq = h.games?.seq;
+    if (typeof seq !== "number") return [];
+    return [
+      {
+        userId: h.user_id,
+        scope: h.scope as RatingScope,
+        ratingBefore: h.rating_before,
+        gameSeq: seq,
+      },
+    ];
+  });
+
+  if (rows.length === 0) return;
+
+  const userIds = [...new Set(rows.map((r) => r.userId))];
+  const { data: others } = await admin
+    .from("rating_history")
+    .select("user_id, scope, game_id, games(seq, matches(starts_at))")
+    .in("user_id", userIds)
+    .neq("match_id", matchId);
+
+  const later = usersWithLaterRatingHistory(
+    startsAt,
+    rows.map((r) => r.gameSeq),
+    (others ?? []).flatMap((o) => {
+      const seq = o.games?.seq;
+      const otherStarts = o.games?.matches?.starts_at;
+      if (typeof seq !== "number" || !otherStarts) return [];
+      return [
+        {
+          userId: o.user_id,
+          scope: o.scope as RatingScope,
+          startsAt: otherStarts,
+          gameSeq: seq,
+        },
+      ];
+    }),
+  );
+
+  const plan = planRatingReverts(rows, later);
+
+  for (const step of plan) {
+    if (step.scope === "group") {
+      const { data: current } = await admin
+        .from("player_ratings")
+        .select("matches_played")
+        .eq("group_id", groupId)
+        .eq("user_id", step.userId)
+        .maybeSingle();
+
+      await admin
+        .from("player_ratings")
+        .update({
+          rating: step.rating,
+          matches_played: Math.max(0, (current?.matches_played ?? 0) - step.gamesToRemove),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("group_id", groupId)
+        .eq("user_id", step.userId);
+    } else {
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("global_matches_played")
+        .eq("id", step.userId)
+        .maybeSingle();
+
+      await admin
+        .from("profiles")
+        .update({
+          global_rating: step.rating,
+          global_matches_played: Math.max(
+            0,
+            (profile?.global_matches_played ?? 0) - step.gamesToRemove,
+          ),
+        })
+        .eq("id", step.userId);
+    }
+  }
 }
 
 /** Pause weekly series — existing matches stay; no new occurrences. */

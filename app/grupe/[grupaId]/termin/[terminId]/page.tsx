@@ -320,7 +320,8 @@ export default async function MatchPage({
             Obriši termin
           </button>
           <p className="mt-1 text-sm text-slate-500">
-            Trajno briše termin i njegove događaje. Rating ostaje kako je.
+            Trajno briše termin i događaje. Rating s ovog termina se vraća
+            (ako nema novijih odigranih utakmica).
           </p>
         </form>
       )}
