@@ -607,3 +607,63 @@ ali nedvosmisleno.
 - Sudar sa stavkom 6: ako se uvedu više utakmica po terminu, „čista mreža" i
   primljeni golovi računaju se po utakmici, a početna postava golmana postoji po
   utakmici.
+
+---
+
+## 11. Unos asistencija je težak na terenu
+
+**Prijavljeno s terena, 7.9.2026.** Ljudi stisnu tko je zabio, pa im se
+asistencija izgubi ili slučajno ponište gol. Treba omogućiti dopisivanje
+asistenta **iz kronologije** i pojednostaviti unos.
+
+### Dva uzroka, oba nađena u kodu
+
+**1. Traka se sama zatvori nakon 5 sekundi.**
+`SAM_SE_ZATVARA_MS = 5000` u `components/termin/AsistencijaTraka.tsx`. Pet
+sekundi je bilo dosta u zamisli, ali na terenu ljudi u tom trenutku **još
+raspravljaju tko je dodao**. Traka nestane prije nego se dogovore, i asistencija
+je izgubljena bez ikakvog načina da se doda poslije.
+
+**2. Gumb „Poništi" u traci briše GOL, ne asistenciju.**
+Stoji odmah uz tekst „⚽ GOL — CVIJA" i zove `onPonisti`, što poništava sam
+događaj gola. Čovjek koji želi samo skloniti pitanje o asistenciji razumno
+pritisne „Poništi" — i ostane bez gola. To je gotovo sigurno ono što se jučer
+dogodilo.
+
+**Taj gumb je uz to suvišan.** Kronologija već ima svoje poništavanje po unosu
+(`aria-label="Poništi ovaj unos"`), gdje je nedvosmisleno jer stoji uz konkretan
+gol.
+
+### Dobra vijest: server to već podržava
+
+`dodajAsistenciju(terminId, dogadjajId, asistentId)` prima **bilo koji** id
+događaja i samo upiše `assist_id`. **Nema vremenskog ograničenja.** Dakle
+dopisivanje asistencije na gol iz 3. minute u 40. minuti već sada radi na
+poslužitelju — fali samo mjesto u sučelju.
+
+Ovo je **posao samo u sučelju**, bez migracije i bez nove akcije.
+
+### Predlozi, po redu koliko donose
+
+1. **Ulaz u kronologiji.** Dodir na gol u kronologiji otvara isti odabir
+   suigrača, s mogućnošću da se asistent i **skloni** (`asistentId: null` već
+   postoji). Time nestaje pritisak da se pogodi u pet sekundi.
+2. **Skloniti „Poništi" iz trake za asistenciju.** Poništavanje ostaje samo u
+   kronologiji. Traka dobiva neutralno zatvaranje, npr. „Bez asistencije".
+3. **Preispitati odbrojavanje.** Ili duže, ili bez odbrojavanja uz izričito
+   zatvaranje. Kad postoji ulaz iz kronologije (točka 1), automatsko zatvaranje
+   više nije opasno, pa je i kraće prihvatljivo.
+
+### Na što paziti
+
+- Asistent mora biti **suigrač strijelca i ne on sam**. Traka to već filtrira
+  (`p.team === igrac.team && p.userId !== igrac.userId`); ulaz iz kronologije
+  mora filtrirati isto.
+- **Sudar dvaju unosa.** Svi na klupi gledaju istu kronologiju uživo. Sada je
+  prozor za unos asistencije 5 sekundi, pa se sudari praktički ne događaju. Kad
+  se otvori na cijeli termin, dvojica mogu upisati različitog asistenta na isti
+  gol — zadnji upis pobjeđuje. Odlučiti je li to prihvatljivo (vjerojatno jest,
+  uz vidljivu promjenu kroz živu sinkronizaciju) ili treba spriječiti.
+- Ne dirati to da se **gol upisuje odmah, bez asistencije**. Ta je odluka
+  namjerna i zapisana u kodu: ako čovjek zaključa mobitel usred unosa, gol je već
+  u bazi. Ovdje se mijenja samo kako se asistent dopisuje.
