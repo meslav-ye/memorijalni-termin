@@ -13,16 +13,19 @@ export type KeeperGoalsAgainstRow = {
   nickname: string;
   goalsAgainst: number;
   matchesAsKeeper: number;
+  /** Profile flag — only these belong on the keeper leader card. */
+  isGoalkeeper: boolean;
 };
 
 /**
  * Keeper with the lowest goals conceded per match spent in goal.
  * Clean sheets are rare in recreational games; this is the useful leaderboard.
+ * Only players marked as goalkeepers on their profile are eligible.
  */
 export function bestKeeperByGoalsAgainst(
   rows: KeeperGoalsAgainstRow[],
 ): { nickname: string; average: number } | null {
-  const keepers = rows.filter((r) => r.matchesAsKeeper > 0);
+  const keepers = rows.filter((r) => r.isGoalkeeper && r.matchesAsKeeper > 0);
   if (keepers.length === 0) return null;
 
   const best = [...keepers].sort((a, b) => {
@@ -96,13 +99,18 @@ function wasFullMatchKeeper(match: MatchForStats, userId: string, team: Team): b
 /**
  * Aggregates goalkeeper stats from finished matches.
  *
+ * - Only players in `profileKeeperIds` (profile "igram golmana") are tracked.
+ *   Outfield players who stand in when a team has no keeper must not appear
+ *   on "fewest conceded" — that rotation is not real keeper play.
  * - Conceding team is always the opposite of the goal event's `team`
  *   (credited side). Own goals use the same polarity — do not special-case.
- * - Clean sheet only if the player was in goal for the entire match and
+ * - Clean sheet only if the tracked keeper was in goal the entire match and
  *   conceded nothing.
- * - Uses lineup `isGoalkeeper` + `keeper_change` events, never profile flags.
  */
-export function aggregateKeeperStats(matches: MatchForStats[]): KeeperStats[] {
+export function aggregateKeeperStats(
+  matches: MatchForStats[],
+  profileKeeperIds: ReadonlySet<string>,
+): KeeperStats[] {
   const byPlayer = new Map<string, KeeperStats>();
 
   const ensure = (userId: string) => {
@@ -115,10 +123,13 @@ export function aggregateKeeperStats(matches: MatchForStats[]): KeeperStats[] {
     const goalsAgainstThisMatch = new Map<string, number>();
 
     for (const p of m.lineup) {
-      if (p.isGoalkeeper) keepersThisMatch.add(p.userId);
+      if (p.isGoalkeeper && profileKeeperIds.has(p.userId)) {
+        keepersThisMatch.add(p.userId);
+      }
     }
     for (const e of m.events) {
       if (e.type !== "keeper_change" || e.deletedAt !== null || !e.scorerId) continue;
+      if (!profileKeeperIds.has(e.scorerId)) continue;
       keepersThisMatch.add(e.scorerId);
     }
 
@@ -129,10 +140,9 @@ export function aggregateKeeperStats(matches: MatchForStats[]): KeeperStats[] {
 
       const concedingTeam = opposite(e.team);
       const keeperId = keeperAt(m, concedingTeam, e.elapsedSeconds);
-      if (!keeperId) continue;
+      if (!keeperId || !profileKeeperIds.has(keeperId)) continue;
 
       keepersThisMatch.add(keeperId);
-      ensure(keeperId);
       goalsAgainstThisMatch.set(
         keeperId,
         (goalsAgainstThisMatch.get(keeperId) ?? 0) + 1,

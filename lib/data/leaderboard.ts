@@ -65,7 +65,7 @@ export async function getLeaderboard(
 function cachedLeaderboard(groupId: string, seasonId: string | null) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", groupId, seasonId ?? "all"],
+    ["leaderboard", "v2-profile-keepers", groupId, seasonId ?? "all"],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }
@@ -154,7 +154,20 @@ async function computeLeaderboard(
   }));
 
   const stats = aggregateStats(forStats);
-  const keeperStats = aggregateKeeperStats(forStats);
+
+  // Profile keepers must be known before aggregating — outfield stand-ins
+  // (glove toggled mid-match when a team has no keeper) must not enter
+  // goals-against leaderboards.
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, nickname, is_goalkeeper")
+    .in("id", memberIds.length ? memberIds : ["-"]);
+
+  const profileKeeperIds = new Set(
+    (profiles ?? []).filter((p) => p.is_goalkeeper).map((p) => p.id),
+  );
+
+  const keeperStats = aggregateKeeperStats(forStats, profileKeeperIds);
   const keeperById = new Map(keeperStats.map((k) => [k.userId, k]));
   const players = stats.map((s) => s.userId);
 
@@ -172,14 +185,21 @@ async function computeLeaderboard(
   // must be on the leaderboard — otherwise newcomers "vanish" until they play.
   const allForDisplay = [...new Set([...players, ...memberIds])];
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, nickname, is_goalkeeper")
-    .in("id", allForDisplay.length ? allForDisplay : ["-"]);
+  // Profiles for anyone who appeared in stats but is no longer a member
+  // (edge case) — refill gaps without a second full fetch when possible.
+  const missingIds = allForDisplay.filter((id) => !(profiles ?? []).some((p) => p.id === id));
+  let allProfiles = profiles ?? [];
+  if (missingIds.length > 0) {
+    const { data: extra } = await supabase
+      .from("profiles")
+      .select("id, nickname, is_goalkeeper")
+      .in("id", missingIds);
+    allProfiles = [...allProfiles, ...(extra ?? [])];
+  }
 
   const rows: LeaderboardRow[] = stats.map((s) => {
     const d = attendance.find((x) => x.userId === s.userId);
-    const p = profiles?.find((x) => x.id === s.userId);
+    const p = allProfiles.find((x) => x.id === s.userId);
     const k = keeperById.get(s.userId);
 
     return {
@@ -201,8 +221,8 @@ async function computeLeaderboard(
     .map((id) =>
       emptyRow(
         id,
-        profiles?.find((p) => p.id === id)?.nickname || "(bez nadimka)",
-        profiles?.find((p) => p.id === id)?.is_goalkeeper ?? false,
+        allProfiles.find((p) => p.id === id)?.nickname || "(bez nadimka)",
+        allProfiles.find((p) => p.id === id)?.is_goalkeeper ?? false,
         ratings?.find((r) => r.user_id === id)?.rating ?? 1000,
       ),
     );
