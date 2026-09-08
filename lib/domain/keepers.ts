@@ -9,6 +9,34 @@ function empty(userId: string): KeeperStats {
   };
 }
 
+export type KeeperGoalsAgainstRow = {
+  nickname: string;
+  goalsAgainst: number;
+  matchesAsKeeper: number;
+};
+
+/**
+ * Keeper with the lowest goals conceded per match spent in goal.
+ * Clean sheets are rare in recreational games; this is the useful leaderboard.
+ */
+export function bestKeeperByGoalsAgainst(
+  rows: KeeperGoalsAgainstRow[],
+): { nickname: string; average: number } | null {
+  const keepers = rows.filter((r) => r.matchesAsKeeper > 0);
+  if (keepers.length === 0) return null;
+
+  const best = [...keepers].sort((a, b) => {
+    const avgA = a.goalsAgainst / a.matchesAsKeeper;
+    const avgB = b.goalsAgainst / b.matchesAsKeeper;
+    return avgA - avgB || a.nickname.localeCompare(b.nickname, "hr");
+  })[0]!;
+
+  return {
+    nickname: best.nickname,
+    average: best.goalsAgainst / best.matchesAsKeeper,
+  };
+}
+
 function opposite(team: Team): Team {
   return team === "A" ? "B" : "A";
 }
