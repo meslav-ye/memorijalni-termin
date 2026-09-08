@@ -1,8 +1,8 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { dohvatiDostupneMetode } from "@/lib/auth-postavke";
-import { ObrazacPrijave } from "./ObrazacPrijave";
+import { getAvailableMethods } from "@/lib/auth-settings";
+import { LoginForm } from "./LoginForm";
 
 const PORUKE_GRESAKA: Record<string, string> = {
   veza: "Prijava nije dovršena. Link je možda istekao — pokušaj ponovno.",
@@ -34,7 +34,7 @@ export default async function StranicaPrijave({
   const razlog = typeof parametri.razlog === "string" ? parametri.razlog : null;
   const detalj = typeof parametri.detalj === "string" ? parametri.detalj : null;
 
-  const metode = await dohvatiDostupneMetode();
+  const metode = await getAvailableMethods();
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-10">
@@ -74,7 +74,7 @@ export default async function StranicaPrijave({
         </div>
       )}
 
-      <ObrazacPrijave googleDostupan={metode.google} />
+      <LoginForm googleDostupan={metode.google} />
 
       <p className="mt-10 text-center text-xs text-slate-400">
         Prijavom pristaješ da spremamo tvoje ime, nadimak i email — samo za rad aplikacije.

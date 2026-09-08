@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 type Tab = { oznaka: string; put: string };
 
-export function Tabovi({ grupaId, admin }: { grupaId: string; admin: boolean }) {
+export function GroupTabs({ grupaId, admin }: { grupaId: string; admin: boolean }) {
   const putanja = usePathname();
   const korijen = `/grupe/${grupaId}`;
 

@@ -43,7 +43,7 @@ export type SuggestedTeams = {
   warnings: string[];
 };
 
-// ---------- Stoperica ----------
+// ---------- Stopwatch ----------
 
 export type MatchTimerState = {
   startedAt: string | null;
@@ -51,7 +51,7 @@ export type MatchTimerState = {
   totalPausedSeconds: number;
 };
 
-// ---------- Dogadjaji ----------
+// ---------- Match events ----------
 
 export type GoalEventLite = {
   id: string;

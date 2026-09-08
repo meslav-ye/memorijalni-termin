@@ -11,7 +11,7 @@ const POLJE =
 
 type Lokacija = { id: string; name: string };
 
-export function ObrazacNoviTermin({
+export function NewMatchForm({
   grupaId,
   lokacije,
   zadanaKvota,

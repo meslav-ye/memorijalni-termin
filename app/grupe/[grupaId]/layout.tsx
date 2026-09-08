@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
-import { Tabovi } from "./Tabovi";
+import { GroupTabs } from "./Tabs";
 
 export default async function LayoutGrupe({
   children,
@@ -50,7 +50,7 @@ export default async function LayoutGrupe({
         </Link>
       </header>
 
-      <Tabovi grupaId={grupaId} admin={admin} />
+      <GroupTabs grupaId={grupaId} admin={admin} />
 
       {children}
     </div>

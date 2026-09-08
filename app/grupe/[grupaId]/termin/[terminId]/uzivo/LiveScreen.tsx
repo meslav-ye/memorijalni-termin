@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { formatClock, elapsedSeconds } from "@/lib/domain/timer";
 import type { MatchTimerState, Team } from "@/lib/domain/types";
-import { Stoperica } from "@/components/termin/Stoperica";
-import { IgracGumb } from "@/components/termin/IgracGumb";
-import { AsistencijaTraka, type CekaAsistenciju } from "@/components/termin/AsistencijaTraka";
+import { Stopwatch } from "@/components/termin/Stopwatch";
+import { PlayerButton } from "@/components/termin/PlayerButton";
+import { AssistStrip, type PendingAssist } from "@/components/termin/AssistStrip";
 import {
   addAssist,
   resumeMatch,
@@ -19,14 +19,14 @@ import {
   finishMatch,
 } from "./actions";
 
-export type IgracPostave = {
+export type LineupPlayer = {
   userId: string;
-  nadimak: string;
+  nickname: string;
   team: Team;
-  jeGolman: boolean;
+  isGoalkeeper: boolean;
 };
 
-export type Dogadjaj = {
+export type LiveEvent = {
   id: string;
   type: string;
   team: Team | null;
@@ -49,29 +49,29 @@ function pretplatiNaMrezu(promijenilo: () => void) {
   };
 }
 
-export function EkranUzivo({
+export function LiveScreen({
   grupaId,
   terminId,
   pocetnaPostava,
-  pocetniDogadjaji,
+  initialEvents,
   pocetnoStanje,
 }: {
   grupaId: string;
   terminId: string;
-  pocetnaPostava: IgracPostave[];
-  pocetniDogadjaji: Dogadjaj[];
+  pocetnaPostava: LineupPlayer[];
+  initialEvents: LiveEvent[];
   pocetnoStanje: StanjeTermina;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
   const [postava, postaviPostavu] = useState(pocetnaPostava);
-  const [dogadjaji, postaviDogadjaje] = useState(pocetniDogadjaji);
+  const [dogadjaji, setEvents] = useState(initialEvents);
   const [stanje, postaviStanje] = useState(pocetnoStanje);
 
-  const [ceka, postaviCeka] = useState<CekaAsistenciju | null>(null);
+  const [ceka, postaviCeka] = useState<PendingAssist | null>(null);
   const [duplikat, postaviDuplikat] = useState<{
-    strijelac: IgracPostave;
+    strijelac: LineupPlayer;
     sekundiPrije: number;
   } | null>(null);
   const [greska, postaviGresku] = useState<string | null>(null);
@@ -98,7 +98,7 @@ export function EkranUzivo({
     ]);
 
     if (dog) {
-      postaviDogadjaje(
+      setEvents(
         dog.map((e) => ({
           id: e.id,
           type: e.type,
@@ -117,7 +117,7 @@ export function EkranUzivo({
         prethodna.map((p) => ({
           ...p,
           team: (post.find((x) => x.user_id === p.userId)?.team ?? p.team) as Team,
-          jeGolman: post.find((x) => x.user_id === p.userId)?.is_goalkeeper ?? false,
+          isGoalkeeper: post.find((x) => x.user_id === p.userId)?.is_goalkeeper ?? false,
         })),
       );
     }
@@ -190,8 +190,8 @@ export function EkranUzivo({
   const golovaIgraca = (userId: string) =>
     vazeci.filter((e) => e.type === "goal" && e.scorerId === userId).length;
 
-  const nadimak = (userId: string | null) =>
-    postava.find((p) => p.userId === userId)?.nadimak ?? "?";
+  const nicknameOf = (userId: string | null) =>
+    postava.find((p) => p.userId === userId)?.nickname ?? "?";
 
   const ekipaA = postava.filter((p) => p.team === "A");
   const ekipaB = postava.filter((p) => p.team === "B");
@@ -203,7 +203,7 @@ export function EkranUzivo({
     return elapsedSeconds(stanje, new Date());
   }
 
-  // Stabilna referenca: AsistencijaTraka je koristi kao ovisnost odbrojavanja.
+  // Stabilna referenca: AssistStrip je koristi kao ovisnost odbrojavanja.
   const zatvoriTraku = useCallback(() => postaviCeka(null), []);
 
   // --- Radnje ---------------------------------------------------------------
@@ -213,7 +213,7 @@ export function EkranUzivo({
     router.refresh();
   }
 
-  async function gol(igrac: IgracPostave, potvrdjen = false) {
+  async function gol(igrac: LineupPlayer, potvrdjen = false) {
     postaviGresku(null);
     postaviRadim(true);
 
@@ -236,18 +236,18 @@ export function EkranUzivo({
     }
 
     postaviCeka({
-      dogadjajId: odgovor.eventId,
-      strijelac: igrac.nadimak,
-      proteklo,
-      suigraci: postava
+      eventId: odgovor.eventId,
+      scorer: igrac.nickname,
+      elapsed: proteklo,
+      teammates: postava
         .filter((p) => p.team === igrac.team && p.userId !== igrac.userId)
-        .map((p) => ({ userId: p.userId, nadimak: p.nadimak })),
+        .map((p) => ({ userId: p.userId, nickname: p.nickname })),
     });
 
     await osvjezi();
   }
 
-  async function autogol(igrac: IgracPostave) {
+  async function autogol(igrac: LineupPlayer) {
     postaviGresku(null);
     postaviRadim(true);
     const odgovor = await recordOwnGoal(terminId, igrac.userId, igrac.team, trenutnoProteklo());
@@ -257,7 +257,7 @@ export function EkranUzivo({
     await nakonPromjene();
   }
 
-  async function golman(igrac: IgracPostave) {
+  async function golman(igrac: LineupPlayer) {
     postaviRadim(true);
     await changeGoalkeeper(terminId, igrac.userId, igrac.team, trenutnoProteklo());
     postaviRadim(false);
@@ -274,7 +274,7 @@ export function EkranUzivo({
 
   async function odaberiAsistenta(asistentId: string | null) {
     if (!ceka) return;
-    const id = ceka.dogadjajId;
+    const id = ceka.eventId;
     postaviCeka(null);
     await addAssist(terminId, id, asistentId);
     await nakonPromjene();
@@ -334,7 +334,7 @@ export function EkranUzivo({
         </div>
 
         <div className="mt-2 flex justify-center">
-          <Stoperica stanje={stanje} />
+          <Stopwatch state={stanje} />
         </div>
 
         {uTijeku && (
@@ -371,29 +371,29 @@ export function EkranUzivo({
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="space-y-2">
           {ekipaA.map((p) => (
-            <IgracGumb
+            <PlayerButton
               key={p.userId}
-              nadimak={p.nadimak}
-              golovi={golovaIgraca(p.userId)}
-              jeGolman={p.jeGolman}
-              onemoguceno={zakljucano}
-              onGol={() => void gol(p)}
-              onAutogol={() => void autogol(p)}
-              onGolman={() => void golman(p)}
+              nickname={p.nickname}
+              goals={golovaIgraca(p.userId)}
+              isGoalkeeper={p.isGoalkeeper}
+              disabled={zakljucano}
+              onGoal={() => void gol(p)}
+              onOwnGoal={() => void autogol(p)}
+              onGoalkeeper={() => void golman(p)}
             />
           ))}
         </div>
         <div className="space-y-2">
           {ekipaB.map((p) => (
-            <IgracGumb
+            <PlayerButton
               key={p.userId}
-              nadimak={p.nadimak}
-              golovi={golovaIgraca(p.userId)}
-              jeGolman={p.jeGolman}
-              onemoguceno={zakljucano}
-              onGol={() => void gol(p)}
-              onAutogol={() => void autogol(p)}
-              onGolman={() => void golman(p)}
+              nickname={p.nickname}
+              goals={golovaIgraca(p.userId)}
+              isGoalkeeper={p.isGoalkeeper}
+              disabled={zakljucano}
+              onGoal={() => void gol(p)}
+              onOwnGoal={() => void autogol(p)}
+              onGoalkeeper={() => void golman(p)}
             />
           ))}
         </div>
@@ -427,21 +427,21 @@ export function EkranUzivo({
                 <span className="min-w-0 flex-1">
                   {e.type === "goal" && (
                     <>
-                      ⚽ <span className="font-medium">{nadimak(e.scorerId)}</span>
+                      ⚽ <span className="font-medium">{nicknameOf(e.scorerId)}</span>
                       {e.assistId && (
-                        <span className="text-slate-500"> ({nadimak(e.assistId)})</span>
+                        <span className="text-slate-500"> ({nicknameOf(e.assistId)})</span>
                       )}
                     </>
                   )}
                   {e.type === "own_goal" && (
                     <>
-                      🥅 <span className="font-medium">{nadimak(e.scorerId)}</span>
+                      🥅 <span className="font-medium">{nicknameOf(e.scorerId)}</span>
                       <span className="text-slate-500"> — autogol</span>
                     </>
                   )}
                   {e.type === "keeper_change" && (
                     <>
-                      🧤 <span className="font-medium">{nadimak(e.scorerId)}</span>
+                      🧤 <span className="font-medium">{nicknameOf(e.scorerId)}</span>
                       <span className="text-slate-500"> ide u gol</span>
                     </>
                   )}
@@ -472,12 +472,12 @@ export function EkranUzivo({
 
       {/* Traka za asistenciju */}
       {ceka && (
-        <AsistencijaTraka
-          key={ceka.dogadjajId}
-          ceka={ceka}
-          onOdabir={(id) => void odaberiAsistenta(id)}
-          onPonisti={() => void ponisti(ceka.dogadjajId)}
-          onIstek={zatvoriTraku}
+        <AssistStrip
+          key={ceka.eventId}
+          pending={ceka}
+          onSelect={(id) => void odaberiAsistenta(id)}
+          onUndo={() => void ponisti(ceka.eventId)}
+          onExpire={zatvoriTraku}
         />
       )}
 
@@ -487,7 +487,7 @@ export function EkranUzivo({
           <div className="mx-auto w-full max-w-md rounded-xl bg-white p-5">
             <h4 className="text-lg font-bold">Je li ovo drugi gol?</h4>
             <p className="mt-2 text-slate-600">
-              Netko je već upisao gol za <strong>{duplikat.strijelac.nadimak}</strong> prije{" "}
+              Netko je već upisao gol za <strong>{duplikat.strijelac.nickname}</strong> prije{" "}
               {duplikat.sekundiPrije} s.
             </p>
             <div className="mt-5 flex gap-2">

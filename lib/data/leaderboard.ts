@@ -2,7 +2,7 @@ import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aggregateStats, aggregateAttendance } from "@/lib/domain/stats";
-import { formatirajKratko } from "@/lib/format";
+import { formatShortDate } from "@/lib/format";
 import { isMember } from "@/lib/data/user";
 import type { MatchForStats, PlayerStats, Team } from "@/lib/domain/types";
 
@@ -320,7 +320,7 @@ function computeRecords(
     records.push({
       title: "Najveća pobjeda",
       value: largest.score,
-      who: largest.when ? formatirajKratko(largest.when) : "—",
+      who: largest.when ? formatShortDate(largest.when) : "—",
     });
   }
 

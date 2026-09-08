@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { startMatch } from "./uzivo/actions";
 
-export function GumbPokreni({
+export function StartButton({
   grupaId,
   terminId,
   vecUTijeku,

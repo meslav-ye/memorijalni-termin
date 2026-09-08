@@ -5,7 +5,7 @@ import { requestJoin, type GroupState } from "../../actions";
 
 const EMPTY: GroupState = {};
 
-export function GumbZahtjev({ kod }: { kod: string }) {
+export function JoinRequestButton({ kod }: { kod: string }) {
   const [stanje, akcija, ceka] = useActionState(requestJoin.bind(null, kod), EMPTY);
 
   // Nakon uspjesno poslanog zahtjeva gumb nema smisla ostaviti.

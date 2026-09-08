@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
-import { formatirajTermin } from "@/lib/format";
+import { formatMatchDateTime } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { proposeTeams, movePlayer, setGoalkeeper } from "../../actions";
 
@@ -187,7 +187,7 @@ export default async function StranicaEkipa({
 
       <header className="mt-4 mb-6">
         <h2 className="text-lg font-bold tracking-tight">Ekipe</h2>
-        <p className="text-sm text-slate-500">{formatirajTermin(termin.starts_at)}</p>
+        <p className="text-sm text-slate-500">{formatMatchDateTime(termin.starts_at)}</p>
       </header>
 
       {!postavaPostoji ? (

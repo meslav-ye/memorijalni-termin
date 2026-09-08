@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function GumbPodijeli({ tekst }: { tekst: string }) {
+export function ShareButton({ tekst }: { tekst: string }) {
   const [status, postaviStatus] = useState<"" | "kopirano" | "greska">("");
 
   async function podijeli() {

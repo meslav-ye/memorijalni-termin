@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
-import { baznaAdresa } from "@/lib/adresa";
-import { LinkPozivnice } from "./LinkPozivnice";
+import { getAppOrigin } from "@/lib/origin";
+import { InviteLink } from "./InviteLink";
 import { refreshInviteCode, saveSettings } from "./actions";
 
 export default async function StranicaPostavki({
@@ -38,8 +38,8 @@ export default async function StranicaPostavki({
           odobravaš u tabu <strong>Članovi</strong>.
         </p>
 
-        <LinkPozivnice
-          link={`${await baznaAdresa()}/grupe/pridruzi/${grupa.invite_code}`}
+        <InviteLink
+          link={`${await getAppOrigin()}/grupe/pridruzi/${grupa.invite_code}`}
           nazivGrupe={grupa.name}
         />
 

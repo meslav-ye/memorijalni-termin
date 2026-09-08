@@ -5,7 +5,7 @@ import { saveProfile, type ProfileState } from "./actions";
 
 const EMPTY: ProfileState = {};
 
-export function ObrazacProfila({
+export function ProfileForm({
   nadimak,
   golman,
 }: {

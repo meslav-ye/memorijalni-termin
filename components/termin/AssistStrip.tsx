@@ -3,54 +3,54 @@
 import { useEffect } from "react";
 import { formatClock } from "@/lib/domain/timer";
 
-/** Nakon ovoliko bez ikakvog dodira traka se sama zatvori, bez asistencije. */
-const SAM_SE_ZATVARA_MS = 5000;
+/** After this long with no interaction the strip closes itself, without an assist. */
+const AUTO_CLOSE_MS = 5000;
 
-export type CekaAsistenciju = {
-  dogadjajId: string;
-  strijelac: string;
-  proteklo: number;
-  suigraci: { userId: string; nadimak: string }[];
+export type PendingAssist = {
+  eventId: string;
+  scorer: string;
+  elapsed: number;
+  teammates: { userId: string; nickname: string }[];
 };
 
 /**
- * Donja traka koja se pojavi ODMAH nakon upisanog gola.
+ * Bottom strip that appears IMMEDIATELY after a recorded goal.
  *
- * Gol je vec u bazi — ovo je samo drugi dodir koji dopisuje asistenta.
- * Ako se nista ne dira 5 sekundi, traka nestaje i gol ostaje bez asistencije.
- * Nitko ne mora nista dovrsavati.
+ * The goal is already in the DB — this is only a second tap that adds the
+ * assistant. If nothing is touched for 5 seconds, the strip disappears and
+ * the goal stays without an assist. Nobody has to finish anything.
  */
-export function AsistencijaTraka({
-  ceka,
-  onOdabir,
-  onPonisti,
-  onIstek,
+export function AssistStrip({
+  pending,
+  onSelect,
+  onUndo,
+  onExpire,
 }: {
-  ceka: CekaAsistenciju;
-  onOdabir: (asistentId: string | null) => void;
-  onPonisti: () => void;
-  onIstek: () => void;
+  pending: PendingAssist;
+  onSelect: (assistantId: string | null) => void;
+  onUndo: () => void;
+  onExpire: () => void;
 }) {
-  // `onIstek` mora biti stabilan (useCallback u roditelju), inace bi se
-  // odbrojavanje resetiralo pri svakom renderu i traka se nikad ne bi zatvorila.
+  // `onExpire` must be stable (useCallback in the parent), otherwise the
+  // countdown would reset on every render and the strip would never close.
   useEffect(() => {
-    const id = setTimeout(onIstek, SAM_SE_ZATVARA_MS);
+    const id = setTimeout(onExpire, AUTO_CLOSE_MS);
     return () => clearTimeout(id);
-  }, [onIstek]);
+  }, [onExpire]);
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-slate-700 bg-marka p-3 text-white shadow-2xl">
       <div className="mx-auto max-w-2xl">
         <div className="mb-2 flex items-center justify-between gap-3">
           <p className="min-w-0 truncate font-bold">
-            ⚽ GOL — {ceka.strijelac}{" "}
+            ⚽ GOL — {pending.scorer}{" "}
             <span className="font-normal text-slate-400 tabular-nums">
-              {formatClock(ceka.proteklo)}
+              {formatClock(pending.elapsed)}
             </span>
           </p>
           <button
             type="button"
-            onClick={onPonisti}
+            onClick={onUndo}
             className="h-10 shrink-0 rounded-lg border border-red-400 px-3 text-sm
                        font-semibold text-red-300 transition active:scale-95"
           >
@@ -61,20 +61,20 @@ export function AsistencijaTraka({
         <p className="mb-2 text-sm text-slate-400">Tko je asistirao?</p>
 
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-          {ceka.suigraci.map((s) => (
+          {pending.teammates.map((s) => (
             <button
               key={s.userId}
               type="button"
-              onClick={() => onOdabir(s.userId)}
+              onClick={() => onSelect(s.userId)}
               className="h-12 shrink-0 rounded-lg bg-white px-4 text-sm font-bold
                          uppercase text-slate-900 transition active:scale-95"
             >
-              {s.nadimak}
+              {s.nickname}
             </button>
           ))}
           <button
             type="button"
-            onClick={() => onOdabir(null)}
+            onClick={() => onSelect(null)}
             className="h-12 shrink-0 rounded-lg border border-slate-500 px-4 text-sm
                        font-bold uppercase text-slate-300 transition active:scale-95"
           >

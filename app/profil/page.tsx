@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ObrazacProfila } from "./ObrazacProfila";
+import { ProfileForm } from "./ProfileForm";
 import { signOut } from "./actions";
 
 export default async function StranicaProfila() {
@@ -41,7 +41,7 @@ export default async function StranicaProfila() {
         </p>
       </header>
 
-      <ObrazacProfila
+      <ProfileForm
         nadimak={profil?.nickname ?? ""}
         golman={profil?.is_goalkeeper ?? false}
       />

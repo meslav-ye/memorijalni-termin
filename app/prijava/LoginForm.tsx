@@ -41,7 +41,7 @@ const GUMB_SPOREDNI =
   "w-full h-14 rounded-lg border-2 border-marka bg-white text-base font-semibold " +
   "text-slate-900 transition active:scale-[0.98] disabled:opacity-50";
 
-export function ObrazacPrijave({ googleDostupan }: { googleDostupan: boolean }) {
+export function LoginForm({ googleDostupan }: { googleDostupan: boolean }) {
   const [stanjeGoogle, akcijaGoogle, cekaGoogle] = useActionState(signInWithGoogle, EMPTY);
   const [stanjeLink, akcijaLink, cekaLink] = useActionState(sendMagicLink, EMPTY);
   const [stanjeLozinka, akcijaLozinka, cekaLozinka] = useActionState(signInWithPassword, EMPTY);

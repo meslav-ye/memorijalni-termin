@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
-import { ObrazacNoviTermin } from "./ObrazacNoviTermin";
+import { NewMatchForm } from "./NewMatchForm";
 
 export default async function StranicaNoviTermin({
   params,
@@ -44,7 +44,7 @@ export default async function StranicaNoviTermin({
         <h1 className="text-2xl font-bold tracking-tight">Novi termin</h1>
       </header>
 
-      <ObrazacNoviTermin
+      <NewMatchForm
         grupaId={grupaId}
         lokacije={lokacije ?? []}
         zadanaKvota={grupa.default_capacity}

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { GumbZahtjev } from "./GumbZahtjev";
+import { JoinRequestButton } from "./JoinRequestButton";
 
 export default async function StranicaPridruzivanja({
   params,
@@ -67,7 +67,7 @@ export default async function StranicaPridruzivanja({
             Zahtjev je već poslan. Čeka se odobrenje admina.
           </div>
         ) : (
-          <GumbZahtjev kod={kod} />
+          <JoinRequestButton kod={kod} />
         )}
       </div>
 

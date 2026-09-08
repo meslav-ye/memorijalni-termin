@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ObrazacNovaGrupa } from "./ObrazacNovaGrupa";
+import { NewGroupForm } from "./NewGroupForm";
 
 export default async function StranicaNovaGrupa() {
   const supabase = await createClient();
@@ -34,7 +34,7 @@ export default async function StranicaNovaGrupa() {
         </p>
       </header>
 
-      <ObrazacNovaGrupa />
+      <NewGroupForm />
     </main>
   );
 }

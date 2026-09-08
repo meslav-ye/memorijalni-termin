@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import type { Team } from "@/lib/domain/types";
 import { disambiguateNicknames } from "@/lib/domain/nickname";
-import { EkranUzivo, type Dogadjaj, type IgracPostave } from "./EkranUzivo";
+import { LiveScreen, type LiveEvent, type LineupPlayer } from "./LiveScreen";
 
 export default async function StranicaUzivo({
   params,
@@ -56,11 +56,11 @@ export default async function StranicaUzivo({
     }),
   );
 
-  const postava: IgracPostave[] = (postavaRedci ?? []).map((p) => ({
+  const postava: LineupPlayer[] = (postavaRedci ?? []).map((p) => ({
     userId: p.user_id,
-    nadimak: oznake.get(p.user_id) ?? "?",
+    nickname: oznake.get(p.user_id) ?? "?",
     team: p.team as Team,
-    jeGolman: p.is_goalkeeper,
+    isGoalkeeper: p.is_goalkeeper,
   }));
 
   const { data: dogadjajiRedci } = await supabase
@@ -69,7 +69,7 @@ export default async function StranicaUzivo({
     .eq("match_id", terminId)
     .order("created_at", { ascending: false });
 
-  const dogadjaji: Dogadjaj[] = (dogadjajiRedci ?? []).map((e) => ({
+  const dogadjaji: LiveEvent[] = (dogadjajiRedci ?? []).map((e) => ({
     id: e.id,
     type: e.type,
     team: e.team as Team | null,
@@ -89,11 +89,11 @@ export default async function StranicaUzivo({
         ← Natrag na termin
       </Link>
 
-      <EkranUzivo
+      <LiveScreen
         grupaId={grupaId}
         terminId={terminId}
         pocetnaPostava={postava}
-        pocetniDogadjaji={dogadjaji}
+        initialEvents={dogadjaji}
         pocetnoStanje={{
           status: termin.status,
           startedAt: termin.started_at,

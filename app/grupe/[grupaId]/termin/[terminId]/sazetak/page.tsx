@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
-import { formatirajKratko, formatirajTermin } from "@/lib/format";
+import { formatShortDate, formatMatchDateTime } from "@/lib/format";
 import { formatClock } from "@/lib/domain/timer";
 import type { Team } from "@/lib/domain/types";
-import { GumbPodijeli } from "./GumbPodijeli";
+import { ShareButton } from "./ShareButton";
 
 export default async function StranicaSazetka({
   params,
@@ -99,7 +99,7 @@ export default async function StranicaSazetka({
     .join(", ");
 
   const tekstZaDijeljenje = [
-    `Termin ${formatirajKratko(termin.starts_at)}${lokacija ? `, ${lokacija}` : ""}`,
+    `Termin ${formatShortDate(termin.starts_at)}${lokacija ? `, ${lokacija}` : ""}`,
     `Ekipa A ${termin.score_a} : ${termin.score_b} Ekipa B`,
     strijelci ? `⚽ ${strijelci}` : "Bez golova.",
   ].join("\n");
@@ -114,7 +114,7 @@ export default async function StranicaSazetka({
       </Link>
 
       <header className="mt-4 text-center">
-        <p className="text-sm text-slate-500">{formatirajTermin(termin.starts_at)}</p>
+        <p className="text-sm text-slate-500">{formatMatchDateTime(termin.starts_at)}</p>
 
         <div className="mt-3 rounded-xl bg-marka p-5 text-white">
           <div className="flex items-center justify-center gap-4">
@@ -169,7 +169,7 @@ export default async function StranicaSazetka({
       )}
 
       <section className="mt-8">
-        <GumbPodijeli tekst={tekstZaDijeljenje} />
+        <ShareButton tekst={tekstZaDijeljenje} />
       </section>
     </div>
   );

@@ -5,7 +5,7 @@ import { createGroup, type GroupState } from "../actions";
 
 const EMPTY: GroupState = {};
 
-export function ObrazacNovaGrupa() {
+export function NewGroupForm() {
   const [stanje, akcija, ceka] = useActionState(createGroup, EMPTY);
 
   return (

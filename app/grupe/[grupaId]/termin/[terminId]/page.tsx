@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
-import { formatirajTermin } from "@/lib/format";
+import { formatMatchDateTime } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { fillStatus, type FillTone } from "@/lib/domain/fill";
 import {
@@ -11,7 +11,7 @@ import {
   MINUTES_BEFORE_START,
 } from "@/lib/domain/startability";
 import { withdrawFromMatch, cancelMatch, signUpForMatch } from "../actions";
-import { GumbPokreni } from "./GumbPokreni";
+import { StartButton } from "./StartButton";
 
 const FILL_TONE_COLOR: Record<FillTone, string> = {
   low: "border-amber-200 bg-amber-50 text-amber-900",
@@ -95,7 +95,7 @@ export default async function StranicaTermina({
 
       <header className="mt-4">
         <h2 className="text-xl font-bold tracking-tight">
-          {formatirajTermin(termin.starts_at)}
+          {formatMatchDateTime(termin.starts_at)}
         </h2>
 
         <p className="mt-1 text-slate-600">
@@ -191,17 +191,17 @@ export default async function StranicaTermina({
       {jaSamUPostavi &&
         (termin.status === "zakljucan" || termin.status === "najavljen") &&
         (smijemPokrenuti ? (
-          <GumbPokreni grupaId={grupaId} terminId={terminId} vecUTijeku={false} />
+          <StartButton grupaId={grupaId} terminId={terminId} vecUTijeku={false} />
         ) : (
           <p className="mt-8 rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">
             Termin ne kreće sam — pokreće ga netko od igrača, a to je moguće{" "}
             <strong>{MINUTES_BEFORE_START} minuta prije početka</strong>, od{" "}
-            {formatirajTermin(earliestStartAt(termin.starts_at).toISOString())}.
+            {formatMatchDateTime(earliestStartAt(termin.starts_at).toISOString())}.
           </p>
         ))}
 
       {termin.status === "u_tijeku" && (
-        <GumbPokreni grupaId={grupaId} terminId={terminId} vecUTijeku />
+        <StartButton grupaId={grupaId} terminId={terminId} vecUTijeku />
       )}
 
       {termin.status === "zavrsen" && (

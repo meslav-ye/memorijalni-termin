@@ -7,7 +7,7 @@ import { useState } from "react";
  * ni odgodjenog prikaza — samo kopiranje i dijeljenje, koji stvarno trebaju
  * preglednik.
  */
-export function LinkPozivnice({ link, nazivGrupe }: { link: string; nazivGrupe: string }) {
+export function InviteLink({ link, nazivGrupe }: { link: string; nazivGrupe: string }) {
   const [status, postaviStatus] = useState<"" | "kopirano" | "greska">("");
 
   const poruka = `Ekipa, prijave za ${nazivGrupe} idu ovdje: ${link}`;

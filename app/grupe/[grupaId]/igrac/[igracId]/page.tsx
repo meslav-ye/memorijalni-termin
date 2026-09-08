@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
-import { formatirajKratko } from "@/lib/format";
+import { formatShortDate } from "@/lib/format";
 import { getLeaderboard } from "@/lib/data/leaderboard";
 
 export default async function StranicaIgraca({
@@ -110,7 +110,7 @@ export default async function StranicaIgraca({
                         href={`/grupe/${grupaId}/termin/${h.match_id}/sazetak`}
                         className="min-w-0 flex-1 truncate underline-offset-4 hover:underline"
                       >
-                        {formatirajKratko(h.matches!.starts_at)}
+                        {formatShortDate(h.matches!.starts_at)}
                       </Link>
                       <span className="tabular-nums text-slate-500">
                         {h.matches!.score_a} : {h.matches!.score_b}

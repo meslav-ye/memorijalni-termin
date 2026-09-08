@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { godinaTermina, osiguraSezonu } from "@/lib/sezone";
+import { matchYear, ensureSeason } from "@/lib/seasons";
 import { zagrebUIso } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { suggestTeams } from "@/lib/domain/teams";
@@ -67,7 +67,7 @@ export async function createMatch(
   // User enters Zagreb local time; the server may run in any timezone.
   const startsAt = zagrebUIso(date, time);
 
-  const seasonId = await osiguraSezonu(groupId, godinaTermina(startsAt));
+  const seasonId = await ensureSeason(groupId, matchYear(startsAt));
   if (!seasonId) return { error: "Sezona nije pripremljena. Pokušaj ponovno." };
 
   const { data: match, error } = await ctx.supabase

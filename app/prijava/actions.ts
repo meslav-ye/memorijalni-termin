@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { baznaAdresa } from "@/lib/adresa";
+import { getAppOrigin } from "@/lib/origin";
 
 /** Shared shape returned by every login action. */
 export type LoginState = {
@@ -39,7 +39,7 @@ export async function signInWithGoogle(): Promise<LoginState> {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: `${await baznaAdresa()}/auth/callback` },
+    options: { redirectTo: `${await getAppOrigin()}/auth/callback` },
   });
 
   if (error || !data.url) {
@@ -63,7 +63,7 @@ export async function sendMagicLink(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${await baznaAdresa()}/auth/callback` },
+    options: { emailRedirectTo: `${await getAppOrigin()}/auth/callback` },
   });
 
   if (error) {
@@ -110,7 +110,7 @@ export async function signUpWithPassword(
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${await baznaAdresa()}/auth/callback` },
+    options: { emailRedirectTo: `${await getAppOrigin()}/auth/callback` },
   });
 
   if (error) {

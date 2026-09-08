@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMembership, getUser } from "@/lib/data/user";
-import { formatirajTermin } from "@/lib/format";
+import { formatMatchDateTime } from "@/lib/format";
 import { getMatches, type MatchWithSignups } from "@/lib/data/matches";
 import type { FillTone } from "@/lib/domain/fill";
 
@@ -25,7 +25,7 @@ function KarticaTermina({ t, grupaId }: { t: MatchWithSignups; grupaId: string }
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-medium">{formatirajTermin(t.startsAt)}</p>
+            <p className="font-medium">{formatMatchDateTime(t.startsAt)}</p>
             <p className="text-sm text-slate-500">{t.location}</p>
           </div>
 

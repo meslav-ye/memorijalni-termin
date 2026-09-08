@@ -36,19 +36,19 @@ function dijelovi(iso: string) {
   };
 }
 
-/** npr. "uto 08.09.2026. u 20:00" */
-export function formatirajTermin(iso: string): string {
+/** e.g. "uto 08.09.2026. u 20:00" */
+export function formatMatchDateTime(iso: string): string {
   const { dan, datum, sat, minuta } = dijelovi(iso);
   return `${dan} ${datum} u ${sat}:${minuta}`;
 }
 
-/** npr. "08.09.2026." */
-export function formatirajKratko(iso: string): string {
+/** e.g. "08.09.2026." */
+export function formatShortDate(iso: string): string {
   return dijelovi(iso).datum;
 }
 
-/** npr. "20:00" */
-export function formatirajSatnicu(iso: string): string {
+/** e.g. "20:00" */
+export function formatTimeOfDay(iso: string): string {
   const { sat, minuta } = dijelovi(iso);
   return `${sat}:${minuta}`;
 }
