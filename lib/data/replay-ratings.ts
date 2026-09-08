@@ -41,6 +41,10 @@ export async function replayAllRatings(): Promise<{ games: number }> {
     return a.seq - b.seq;
   });
 
+  if (ordered.length === 0) {
+    return { games: 0 };
+  }
+
   // Wipe current ratings and history — we rewrite from scratch.
   const { error: histDelErr } = await admin
     .from("rating_history")

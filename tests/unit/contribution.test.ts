@@ -133,9 +133,8 @@ describe("computeContributions", () => {
     expect(byId.get("a2")?.raw).toBe(2 - 1);
   });
 
-  it("clamps total contribution to ±cap", () => {
-    // 4 goals = +8 → clamp +6; no keeper time
-    const goals = [1, 2, 3, 4].map((t) => goal("A", "a2", t));
+  it("awards +2 per goal for the first four, then +1", () => {
+    const goals = [1, 2, 3, 4, 5, 6].map((t) => goal("A", "a2", t));
     const byId = computeContributions({
       lineup: lineup([
         { id: "a1", team: "A", gk: true },
@@ -144,7 +143,23 @@ describe("computeContributions", () => {
       ]),
       events: goals,
     });
-    expect(byId.get("a2")?.raw).toBe(8);
+    // 4×2 + 2×1 = 10; assists unchanged elsewhere
+    expect(byId.get("a2")?.goals).toBe(6);
+    expect(byId.get("a2")?.raw).toBe(10);
+  });
+
+  it("clamps total contribution to ±cap", () => {
+    // 9 goals = 4×2 + 5×1 = 13 → clamp to CONTRIBUTION_CAP
+    const goals = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((t) => goal("A", "a2", t));
+    const byId = computeContributions({
+      lineup: lineup([
+        { id: "a1", team: "A", gk: true },
+        { id: "a2", team: "A" },
+        { id: "b1", team: "B", gk: true },
+      ]),
+      events: goals,
+    });
+    expect(byId.get("a2")?.raw).toBe(13);
     expect(byId.get("a2")?.clamped).toBe(CONTRIBUTION_CAP);
   });
 

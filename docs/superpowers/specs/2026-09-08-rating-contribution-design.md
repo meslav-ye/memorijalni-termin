@@ -14,13 +14,14 @@ Keep team Elo as the base rating move, then add a small **additive** individual 
 
 | Event | Points |
 |---|---|
-| Goal (`goal`, scorer) | +2 |
-| Assist | +1 |
+| Goal (`goal`, scorer) — first 4 in the game | +2 |
+| Goal — 5th onward | +1 |
+| Assist | +1 (always) |
 | Own goal (`own_goal`, scorer) | −1 |
 | Goals conceded while active keeper | band below |
 | Team goals conceded (every player on that side) | **−⌊n / 4⌋**, max **−3** |
 
-3. Clamp the **sum** of a player’s contribution to **[−6, +6]**.
+3. Clamp the **sum** of a player’s contribution to **[−12, +12]**.
 
 ### Team conceded ladder (defence stake)
 

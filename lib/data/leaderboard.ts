@@ -75,7 +75,7 @@ export async function getLeaderboard(
 function cachedLeaderboard(groupId: string, seasonId: string | null) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", "v8-sessions-total", groupId, seasonId ?? "all"],
+    ["leaderboard", "v10-goal-diminishing", groupId, seasonId ?? "all"],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }

@@ -189,12 +189,13 @@ export default async function SummaryPage({
               pobjedu, poraz ili neriješeno (ne ovisi o razlici golova).
             </li>
             <li>
-              Zatim <strong>osobni doprinos</strong>: gol +2, asistencija +1, autogol −1;
+              Zatim <strong>osobni doprinos</strong>: prva 4 gola +2, dalje +1;
+              asistencija +1, autogol −1;
               golman po broju primljenih dok je na golu; cijela ekipa −⌊primljenih/4⌋
               (najviše −3).
             </li>
             <li>
-              Zbroj doprinosa je ograničen na <strong>±6</strong>. Ukupno:{" "}
+              Zbroj doprinosa je ograničen na <strong>±12</strong>. Ukupno:{" "}
               <span className="font-medium text-slate-800">
                 prije + Elo + doprinos
               </span>

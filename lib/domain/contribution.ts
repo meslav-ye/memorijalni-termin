@@ -1,9 +1,13 @@
 import type { Team } from "./types";
 
 /** Max absolute individual contribution per game (after summing components). */
-export const CONTRIBUTION_CAP = 6;
+export const CONTRIBUTION_CAP = 12;
 
+/** Points for each of the first GOAL_FULL_COUNT goals in a game. */
 export const GOAL_POINTS = 2;
+/** Points for the 5th goal onward in the same game. */
+export const GOAL_POINTS_AFTER_FULL = 1;
+export const GOAL_FULL_COUNT = 4;
 export const ASSIST_POINTS = 1;
 export const OWN_GOAL_POINTS = -1;
 /** All teammates: −1 per this many goals the side conceded, capped. */
@@ -95,6 +99,11 @@ function clamp(n: number): number {
   return Math.max(-CONTRIBUTION_CAP, Math.min(CONTRIBUTION_CAP, n));
 }
 
+/** Points for the Nth goal in a game (1-based). First four are full value. */
+export function goalPointsForOrdinal(goalNumber: number): number {
+  return goalNumber <= GOAL_FULL_COUNT ? GOAL_POINTS : GOAL_POINTS_AFTER_FULL;
+}
+
 /**
  * Individual rating contribution for one finished game.
  * Additive on top of team Elo; same value for group and global.
@@ -126,7 +135,7 @@ export function computeContributions({
     if (e.type === "goal" && e.scorerId && byId.has(e.scorerId)) {
       const row = byId.get(e.scorerId)!;
       row.goals += 1;
-      row.raw += GOAL_POINTS;
+      row.raw += goalPointsForOrdinal(row.goals);
     }
     if (e.type === "own_goal" && e.scorerId && byId.has(e.scorerId)) {
       const row = byId.get(e.scorerId)!;
