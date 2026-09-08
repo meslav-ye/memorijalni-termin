@@ -13,11 +13,15 @@ const FILL_TONE_COLOR: Record<FillTone, string> = {
 
 function MatchCard({ t, grupaId }: { t: MatchWithSignups; grupaId: string }) {
   const cancelled = t.status === "otkazan";
+  const finished = t.status === "zavrsen";
+  const href = finished
+    ? `/grupe/${grupaId}/termin/${t.id}/sazetak`
+    : `/grupe/${grupaId}/termin/${t.id}`;
 
   return (
     <li>
       <Link
-        href={`/grupe/${grupaId}/termin/${t.id}`}
+        href={href}
         className={
           "block rounded-lg border p-4 transition hover:border-slate-400 active:scale-[0.99] " +
           (cancelled ? "border-slate-200 bg-slate-50 opacity-60" : "border-slate-200 bg-white")
@@ -40,6 +44,10 @@ function MatchCard({ t, grupaId }: { t: MatchWithSignups; grupaId: string }) {
             <span className="shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
               Otkazan
             </span>
+          ) : finished ? (
+            <span className="shrink-0 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700">
+              Sažetak
+            </span>
           ) : (
             <span
               className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${FILL_TONE_COLOR[t.fill.tone]}`}
@@ -49,7 +57,7 @@ function MatchCard({ t, grupaId }: { t: MatchWithSignups; grupaId: string }) {
           )}
         </div>
 
-        {!cancelled && (
+        {!cancelled && !finished && (
           <p className="mt-2 text-sm text-slate-600">
             {t.fill.label}
             {t.iAmIn && <span className="ml-2 font-medium text-emerald-700">· Dolaziš</span>}

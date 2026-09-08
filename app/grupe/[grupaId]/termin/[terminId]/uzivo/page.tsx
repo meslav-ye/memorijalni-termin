@@ -85,10 +85,14 @@ export default async function LivePage({
   return (
     <div>
       <Link
-        href={`/grupe/${grupaId}/termin/${terminId}`}
+        href={
+          match.status === "zavrsen"
+            ? `/grupe/${grupaId}/termin/${terminId}/sazetak`
+            : `/grupe/${grupaId}/termin/${terminId}`
+        }
         className="mb-4 inline-block text-sm text-slate-500 underline underline-offset-4"
       >
-        ← Natrag na termin
+        {match.status === "zavrsen" ? "← Natrag na sažetak" : "← Natrag na termin"}
       </Link>
 
       <LiveScreen

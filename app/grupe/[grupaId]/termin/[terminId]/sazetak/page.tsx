@@ -8,6 +8,8 @@ import { computeContributions } from "@/lib/domain/contribution";
 import type { Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
 import { ShareButton } from "./ShareButton";
+import { deleteMatch } from "../../actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function SummaryPage({
   params,
@@ -20,6 +22,7 @@ export default async function SummaryPage({
 
   const membership = await getMembership(grupaId);
   if (membership?.status !== "active") notFound();
+  const admin = membership.role === "admin";
 
   const { data: match } = await supabase
     .from("matches")
@@ -284,6 +287,25 @@ export default async function SummaryPage({
         <section className="mt-8">
           <ShareButton text={shareText} />
         </section>
+      )}
+
+      {admin && (
+        <form action={deleteMatch} className="mt-10 border-t border-slate-200 pt-6">
+          <input type="hidden" name="groupId" value={grupaId} />
+          <input type="hidden" name="matchId" value={terminId} />
+          <SubmitButton
+            pendingLabel="Brišem…"
+            className="flex h-12 w-full items-center justify-center rounded-lg border-2
+                       border-red-600 bg-white text-sm font-semibold text-red-700
+                       transition active:scale-[0.98] disabled:opacity-70"
+          >
+            Obriši termin
+          </SubmitButton>
+          <p className="mt-2 text-sm text-slate-500">
+            Trajno briše termin i događaje. Rating s ovog termina se vraća
+            (ako nema novijih odigranih utakmica).
+          </p>
+        </form>
       )}
     </div>
   );

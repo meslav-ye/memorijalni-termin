@@ -63,6 +63,11 @@ export default async function MatchPage({
 
   if (!match) notFound();
 
+  // Finished sessions open on the summary — signup lists are no longer useful.
+  if (match.status === "zavrsen") {
+    redirect(`/grupe/${grupaId}/termin/${terminId}/sazetak`);
+  }
+
   const { data: group } = await supabase
     .from("groups")
     .select("name")
@@ -134,10 +139,7 @@ export default async function MatchPage({
     .filter(Boolean)
     .join(", ") || match.location_text || "";
 
-  const showCalendar =
-    match.status !== "otkazan" &&
-    match.status !== "zavrsen" &&
-    fill.tone !== "low";
+  const showCalendar = match.status !== "otkazan" && fill.tone !== "low";
 
   const startsAt = new Date(match.starts_at);
   const calendarTitle = `${group?.name ?? "Termin"} — ${formatShortDate(match.starts_at)}`;
@@ -344,17 +346,6 @@ export default async function MatchPage({
         <StartButton grupaId={grupaId} terminId={terminId} alreadyLive />
       )}
 
-      {match.status === "zavrsen" && (
-        <Link
-          href={`/grupe/${grupaId}/termin/${terminId}/sazetak`}
-          className="mt-8 flex h-14 w-full items-center justify-center rounded-lg
-                     bg-marka text-base font-semibold text-white
-                     transition active:scale-[0.98]"
-        >
-          Sažetak termina
-        </Link>
-      )}
-
       {match.status !== "otkazan" && (
         <BusyLink
           href={`/grupe/${grupaId}/termin/${terminId}/ekipe`}
@@ -384,7 +375,7 @@ export default async function MatchPage({
           </form>
         )}
 
-      {admin && (match.status === "zavrsen" || match.status === "otkazan") && (
+      {admin && match.status === "otkazan" && (
         <form action={deleteMatch} className="mt-10 border-t border-slate-200 pt-6">
           <input type="hidden" name="groupId" value={grupaId} />
           <input type="hidden" name="matchId" value={terminId} />
@@ -397,8 +388,7 @@ export default async function MatchPage({
             Obriši termin
           </SubmitButton>
           <p className="mt-2 text-sm text-slate-500">
-            Trajno briše termin i događaje. Rating s ovog termina se vraća
-            (ako nema novijih odigranih utakmica).
+            Trajno briše otkazani termin.
           </p>
         </form>
       )}

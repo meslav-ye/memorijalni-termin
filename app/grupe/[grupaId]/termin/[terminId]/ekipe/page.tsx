@@ -226,10 +226,14 @@ export default async function TeamsPage({
   return (
     <div>
       <Link
-        href={`/grupe/${grupaId}/termin/${terminId}`}
+        href={
+          match.status === "zavrsen"
+            ? `/grupe/${grupaId}/termin/${terminId}/sazetak`
+            : `/grupe/${grupaId}/termin/${terminId}`
+        }
         className="text-sm text-slate-500 underline underline-offset-4"
       >
-        ← Natrag na termin
+        {match.status === "zavrsen" ? "← Natrag na sažetak" : "← Natrag na termin"}
       </Link>
 
       <header className="mt-4 mb-6">
