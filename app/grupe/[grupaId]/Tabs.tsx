@@ -9,13 +9,13 @@ type Tab = { label: string; href: string };
 function TabLabel({ label }: { label: string }) {
   const { pending } = useLinkStatus();
   return (
-    <span className={pending ? "opacity-50" : undefined}>
+    <span className={pending ? "text-marka opacity-70" : undefined}>
       {label}
       <span
         aria-hidden
         className={
-          "ml-1 inline-block h-1.5 w-1.5 rounded-full bg-marka align-middle " +
-          (pending ? "opacity-100" : "opacity-0")
+          "ml-1.5 inline-block h-2 w-2 rounded-full bg-marka align-middle " +
+          (pending ? "animate-pulse opacity-100" : "opacity-0")
         }
       />
     </span>
