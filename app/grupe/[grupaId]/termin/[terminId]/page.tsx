@@ -10,7 +10,14 @@ import {
   earliestStartAt,
   MINUTES_BEFORE_START,
 } from "@/lib/domain/startability";
-import { withdrawFromMatch, cancelMatch, signUpForMatch } from "../actions";
+import { membersNotSignedUp } from "@/lib/domain/admin-signup";
+import {
+  adminSignUpForMatch,
+  adminWithdrawFromMatch,
+  withdrawFromMatch,
+  cancelMatch,
+  signUpForMatch,
+} from "../actions";
 import { StartButton } from "./StartButton";
 
 const FILL_TONE_COLOR: Record<FillTone, string> = {
@@ -56,15 +63,34 @@ export default async function MatchPage({
     match.capacity,
   );
 
+  const activeSignupIds = [...confirmed, ...waitlist];
+
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, nickname, is_goalkeeper")
-    .in("id", [...confirmed, ...waitlist].length ? [...confirmed, ...waitlist] : ["-"]);
+    .in("id", activeSignupIds.length ? activeSignupIds : ["-"]);
 
   const nicknameOf = (id: string) =>
     profiles?.find((p) => p.id === id)?.nickname || "(bez nadimka)";
   const isGoalkeeper = (id: string) =>
     profiles?.find((p) => p.id === id)?.is_goalkeeper ?? false;
+
+  let addableMembers: { userId: string; nickname: string }[] = [];
+  if (admin && match.status === "najavljen") {
+    const { data: memberships } = await supabase
+      .from("group_members")
+      .select("user_id, profiles(nickname)")
+      .eq("group_id", grupaId)
+      .eq("status", "active");
+
+    addableMembers = membersNotSignedUp(
+      (memberships ?? []).map((m) => ({
+        userId: m.user_id,
+        nickname: m.profiles?.nickname || "(bez nadimka)",
+      })),
+      activeSignupIds,
+    );
+  }
 
   const fill = fillStatus(confirmed.length, match.min_players, match.capacity);
   const iAmIn = confirmed.includes(user.id);
@@ -153,8 +179,18 @@ export default async function MatchPage({
                 }
               >
                 <span className="w-5 text-right text-sm tabular-nums text-slate-400">{i + 1}</span>
-                <span className="font-medium">{nicknameOf(id)}</span>
+                <span className="min-w-0 flex-1 font-medium">{nicknameOf(id)}</span>
                 {isGoalkeeper(id) && <span title="Igra golmana">🧤</span>}
+                {admin && openForSignups && (
+                  <form action={adminWithdrawFromMatch}>
+                    <input type="hidden" name="groupId" value={grupaId} />
+                    <input type="hidden" name="matchId" value={terminId} />
+                    <input type="hidden" name="userId" value={id} />
+                    <button className="text-sm text-red-700 underline underline-offset-4">
+                      Odjavi
+                    </button>
+                  </form>
+                )}
               </li>
             ))}
           </ol>
@@ -178,11 +214,63 @@ export default async function MatchPage({
                 <span className="w-5 text-right text-sm tabular-nums text-slate-400">
                   {confirmed.length + i + 1}
                 </span>
-                <span className="font-medium">{nicknameOf(id)}</span>
+                <span className="min-w-0 flex-1 font-medium">{nicknameOf(id)}</span>
                 {isGoalkeeper(id) && <span title="Igra golmana">🧤</span>}
+                {admin && openForSignups && (
+                  <form action={adminWithdrawFromMatch}>
+                    <input type="hidden" name="groupId" value={grupaId} />
+                    <input type="hidden" name="matchId" value={terminId} />
+                    <input type="hidden" name="userId" value={id} />
+                    <button className="text-sm text-red-700 underline underline-offset-4">
+                      Odjavi
+                    </button>
+                  </form>
+                )}
               </li>
             ))}
           </ol>
+        </section>
+      )}
+
+      {admin && openForSignups && addableMembers.length > 0 && (
+        <section className="mt-6">
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Dodaj člana
+          </h3>
+          <form
+            action={adminSignUpForMatch}
+            className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row sm:items-end"
+          >
+            <input type="hidden" name="groupId" value={grupaId} />
+            <input type="hidden" name="matchId" value={terminId} />
+            <label className="min-w-0 flex-1 text-sm text-slate-600">
+              <span className="mb-1 block font-medium text-slate-700">Član grupe</span>
+              <select
+                name="userId"
+                required
+                className="h-12 w-full rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Odaberi…
+                </option>
+                {addableMembers.map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.nickname}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="h-12 shrink-0 rounded-lg bg-marka px-5 text-sm font-semibold text-white
+                         transition active:scale-[0.98]"
+            >
+              Prijavi
+            </button>
+          </form>
+          <p className="mt-2 text-sm text-slate-500">
+            Završi na kraju reda (ili na listi čekanja ako je kvota puna).
+          </p>
         </section>
       )}
 

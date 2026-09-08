@@ -141,6 +141,79 @@ export async function withdrawFromMatch(formData: FormData) {
   revalidatePath(`/grupe/${groupId}`);
 }
 
+/** Admin signs someone else up (WhatsApp confirmation, forgot the app). */
+export async function adminSignUpForMatch(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+  const userId = String(formData.get("userId") ?? "").trim();
+
+  if (!userId) return;
+
+  const ctx = await membership(groupId);
+  if (!ctx?.admin) return;
+
+  const { data: match } = await ctx.supabase
+    .from("matches")
+    .select("status")
+    .eq("id", matchId)
+    .maybeSingle();
+
+  if (match?.status !== "najavljen") return;
+
+  const { data: target } = await ctx.supabase
+    .from("group_members")
+    .select("user_id")
+    .eq("group_id", groupId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (!target) return;
+
+  // Same end-of-queue rule as self re-signup after withdrawing.
+  await ctx.supabase.from("match_signups").upsert(
+    {
+      match_id: matchId,
+      user_id: userId,
+      cancelled_at: null,
+      signed_up_at: new Date().toISOString(),
+    },
+    { onConflict: "match_id,user_id" },
+  );
+
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+  revalidatePath(`/grupe/${groupId}`);
+}
+
+/** Admin withdraws someone else's signup (mirror of soft self-withdraw). */
+export async function adminWithdrawFromMatch(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+  const userId = String(formData.get("userId") ?? "").trim();
+
+  if (!userId) return;
+
+  const ctx = await membership(groupId);
+  if (!ctx?.admin) return;
+
+  const { data: match } = await ctx.supabase
+    .from("matches")
+    .select("status")
+    .eq("id", matchId)
+    .maybeSingle();
+
+  if (match?.status !== "najavljen") return;
+
+  await ctx.supabase
+    .from("match_signups")
+    .update({ cancelled_at: new Date().toISOString() })
+    .eq("match_id", matchId)
+    .eq("user_id", userId);
+
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+  revalidatePath(`/grupe/${groupId}`);
+}
+
 /**
  * Build a team suggestion and save it as the lineup.
  *
