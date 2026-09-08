@@ -17,6 +17,7 @@ export function PlayerButton({
   nickname,
   goals,
   isGoalkeeper,
+  canBeGoalkeeper = true,
   disabled,
   onGoal,
   onOwnGoal,
@@ -25,6 +26,8 @@ export function PlayerButton({
   nickname: string;
   goals: number;
   isGoalkeeper: boolean;
+  /** False for outfield players — glove is hidden so accidental taps cannot steal GK. */
+  canBeGoalkeeper?: boolean;
   disabled?: boolean;
   onGoal: () => void;
   onOwnGoal: () => void;
@@ -77,9 +80,12 @@ export function PlayerButton({
         onPointerLeave={onPointerEnd}
         onPointerCancel={onPointerEnd}
         onContextMenu={(e) => e.preventDefault()}
-        className="flex h-14 min-w-0 flex-1 items-center justify-between gap-2 px-3
-                   text-left text-base font-bold uppercase tracking-tight
-                   transition select-none active:scale-[0.97] disabled:opacity-40"
+        className={
+          "flex h-14 min-w-0 flex-1 items-center justify-between gap-2 px-3 " +
+          "text-left text-base font-bold uppercase tracking-tight " +
+          "transition select-none active:scale-[0.97] disabled:opacity-40 " +
+          (canBeGoalkeeper ? "" : "rounded-r-lg")
+        }
         style={{ WebkitTouchCallout: "none" }}
         aria-label={`Gol za ${nickname}. Dugi pritisak upisuje autogol.`}
       >
@@ -91,19 +97,21 @@ export function PlayerButton({
         )}
       </button>
 
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onGoalkeeper}
-        className={
-          "w-11 shrink-0 rounded-r-lg text-lg transition active:scale-95 disabled:opacity-40 " +
-          (isGoalkeeper ? "bg-emerald-100" : "opacity-25 hover:opacity-60")
-        }
-        aria-label={isGoalkeeper ? `${nickname} je golman` : `Postavi ${nickname} za golmana`}
-        title={isGoalkeeper ? "Golman" : "Postavi za golmana"}
-      >
-        🧤
-      </button>
+      {canBeGoalkeeper && (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onGoalkeeper}
+          className={
+            "w-11 shrink-0 rounded-r-lg text-lg transition active:scale-95 disabled:opacity-40 " +
+            (isGoalkeeper ? "bg-emerald-100" : "opacity-25 hover:opacity-60")
+          }
+          aria-label={isGoalkeeper ? `${nickname} je golman` : `Postavi ${nickname} za golmana`}
+          title={isGoalkeeper ? "Golman" : "Postavi za golmana"}
+        >
+          🧤
+        </button>
+      )}
     </div>
   );
 }

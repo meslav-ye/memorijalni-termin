@@ -43,7 +43,7 @@ export default async function LivePage({
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, nickname, full_name")
+    .select("id, nickname, full_name, is_goalkeeper")
     .in("id", ids.length ? ids : ["-"]);
 
   const labels = disambiguateNicknames(
@@ -62,6 +62,7 @@ export default async function LivePage({
     nickname: labels.get(p.user_id) ?? "?",
     team: p.team as Team,
     isGoalkeeper: p.is_goalkeeper,
+    profileIsGoalkeeper: profiles?.find((x) => x.id === p.user_id)?.is_goalkeeper ?? false,
   }));
 
   const { data: eventRows } = await supabase

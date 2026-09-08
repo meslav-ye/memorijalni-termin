@@ -29,6 +29,8 @@ export type LineupPlayer = {
   nickname: string;
   team: Team;
   isGoalkeeper: boolean;
+  /** Profile "Igram golmana" — only these may take the live glove. */
+  profileIsGoalkeeper: boolean;
 };
 
 export type LiveEvent = {
@@ -183,6 +185,7 @@ export function LiveScreen({
               nickname: known?.nickname ?? "?",
               team: row.team as Team,
               isGoalkeeper: row.is_goalkeeper,
+              profileIsGoalkeeper: known?.profileIsGoalkeeper ?? false,
             });
           }
         }
@@ -297,8 +300,18 @@ export function LiveScreen({
   }
 
   async function setPlayerGoalkeeper(player: LineupPlayer) {
+    if (!player.profileIsGoalkeeper) {
+      setError("Golmana može biti samo igrač označen kao golman na profilu.");
+      return;
+    }
     setBusy(true);
-    await changeGoalkeeper(terminId, player.userId, player.team, currentElapsed());
+    const result = await changeGoalkeeper(
+      terminId,
+      player.userId,
+      player.team,
+      currentElapsed(),
+    );
+    if ("error" in result) setError(result.error);
     setBusy(false);
     await afterChange();
   }
@@ -501,6 +514,7 @@ export function LiveScreen({
               nickname={p.nickname}
               goals={playerGoals(p.userId)}
               isGoalkeeper={p.isGoalkeeper}
+              canBeGoalkeeper={p.profileIsGoalkeeper}
               disabled={locked}
               onGoal={() => void recordPlayerGoal(p)}
               onOwnGoal={() => void recordPlayerOwnGoal(p)}
@@ -515,6 +529,7 @@ export function LiveScreen({
               nickname={p.nickname}
               goals={playerGoals(p.userId)}
               isGoalkeeper={p.isGoalkeeper}
+              canBeGoalkeeper={p.profileIsGoalkeeper}
               disabled={locked}
               onGoal={() => void recordPlayerGoal(p)}
               onOwnGoal={() => void recordPlayerOwnGoal(p)}
@@ -525,7 +540,7 @@ export function LiveScreen({
       </div>
 
       <p className="mt-3 text-center text-xs text-slate-500">
-        Dodir = gol · Dugi pritisak = autogol · 🧤 = golman
+        Dodir = gol · Dugi pritisak = autogol · 🧤 = golman (samo profilni golmani)
       </p>
 
       <section className="mt-6">

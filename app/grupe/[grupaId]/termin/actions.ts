@@ -11,6 +11,10 @@ import { splitSignups } from "@/lib/domain/waitlist";
 import { suggestTeams } from "@/lib/domain/teams";
 import { normalizeTeamName } from "@/lib/domain/team-name";
 import {
+  assignLineupGoalkeeperFlags,
+  canAssignLineupGoalkeeper,
+} from "@/lib/domain/lineup-goalkeeper";
+import {
   planRatingReverts,
   usersWithLaterRatingHistory,
   type RatingScope,
@@ -352,22 +356,24 @@ export async function proposeTeams(formData: FormData) {
   const game = await ensureEditableGame(matchId, supabase);
   if (!game) return;
 
+  const flaggedA = assignLineupGoalkeeperFlags(teamA);
+  const flaggedB = assignLineupGoalkeeperFlags(teamB);
+
   await supabase.from("match_lineup").delete().eq("game_id", game.id);
   await supabase.from("match_lineup").insert([
-    ...teamA.map((p, i) => ({
+    ...flaggedA.map((p) => ({
       game_id: game.id,
       match_id: matchId,
       user_id: p.userId,
       team: "A" as const,
-      // Goalkeeper is whoever was a goalkeeper in the proposal, and only the first.
-      is_goalkeeper: i === 0 && p.isGoalkeeper,
+      is_goalkeeper: p.lineupIsGoalkeeper,
     })),
-    ...teamB.map((p, i) => ({
+    ...flaggedB.map((p) => ({
       game_id: game.id,
       match_id: matchId,
       user_id: p.userId,
       team: "B" as const,
-      is_goalkeeper: i === 0 && p.isGoalkeeper,
+      is_goalkeeper: p.lineupIsGoalkeeper,
     })),
   ]);
 
@@ -411,6 +417,15 @@ export async function setGoalkeeper(formData: FormData) {
 
   const game = await ensureEditableGame(matchId, ctx.supabase);
   if (!game) return;
+
+  const { data: profile } = await ctx.supabase
+    .from("profiles")
+    .select("is_goalkeeper")
+    .eq("id", userId)
+    .maybeSingle();
+
+  // Outfield players must not wear the glove — same rule as live changeGoalkeeper.
+  if (!canAssignLineupGoalkeeper(profile?.is_goalkeeper ?? false)) return;
 
   const { data: current } = await ctx.supabase
     .from("match_lineup")

@@ -16,6 +16,7 @@ type LineupPlayerRow = {
   nickname: string;
   rating: number;
   isGoalkeeper: boolean;
+  profileIsGoalkeeper: boolean;
 };
 
 function TeamColumn({
@@ -67,23 +68,25 @@ function TeamColumn({
           >
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.nickname}</span>
 
-            <form action={setGoalkeeper}>
-              <input type="hidden" name="groupId" value={grupaId} />
-              <input type="hidden" name="matchId" value={terminId} />
-              <input type="hidden" name="userId" value={p.userId} />
-              <input type="hidden" name="ekipa" value={team} />
-              <SubmitButton
-                pendingLabel="…"
-                title={p.isGoalkeeper ? "Skini oznaku golmana" : "Postavi za golmana"}
-                aria-label={p.isGoalkeeper ? "Skini oznaku golmana" : "Postavi za golmana"}
-                className={
-                  "h-9 w-9 rounded text-base transition active:scale-95 " +
-                  (p.isGoalkeeper ? "bg-emerald-100" : "opacity-30 hover:opacity-70")
-                }
-              >
-                🧤
-              </SubmitButton>
-            </form>
+            {p.profileIsGoalkeeper && (
+              <form action={setGoalkeeper}>
+                <input type="hidden" name="groupId" value={grupaId} />
+                <input type="hidden" name="matchId" value={terminId} />
+                <input type="hidden" name="userId" value={p.userId} />
+                <input type="hidden" name="ekipa" value={team} />
+                <SubmitButton
+                  pendingLabel="…"
+                  title={p.isGoalkeeper ? "Skini oznaku golmana" : "Postavi za golmana"}
+                  aria-label={p.isGoalkeeper ? "Skini oznaku golmana" : "Postavi za golmana"}
+                  className={
+                    "h-9 w-9 rounded text-base transition active:scale-95 " +
+                    (p.isGoalkeeper ? "bg-emerald-100" : "opacity-30 hover:opacity-70")
+                  }
+                >
+                  🧤
+                </SubmitButton>
+              </form>
+            )}
 
             <form action={movePlayer}>
               <input type="hidden" name="groupId" value={grupaId} />
@@ -179,7 +182,7 @@ export default async function TeamsPage({
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, nickname")
+    .select("id, nickname, is_goalkeeper")
     .in("id", allIds.length ? allIds : ["-"]);
 
   const { data: ratings } = await supabase
@@ -193,6 +196,7 @@ export default async function TeamsPage({
     nickname: profiles?.find((p) => p.id === userId)?.nickname || "(bez nadimka)",
     rating: ratings?.find((r) => r.user_id === userId)?.rating ?? 1000,
     isGoalkeeper,
+    profileIsGoalkeeper: profiles?.find((p) => p.id === userId)?.is_goalkeeper ?? false,
   });
 
   const teamA = (lineup ?? [])
