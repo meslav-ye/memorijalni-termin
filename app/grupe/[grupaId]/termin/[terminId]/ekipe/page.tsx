@@ -26,6 +26,7 @@ function TeamColumn({
   grupaId,
   terminId,
   arrow,
+  goalkeeperEditable,
 }: {
   title: string;
   team: "A" | "B";
@@ -33,6 +34,7 @@ function TeamColumn({
   grupaId: string;
   terminId: string;
   arrow: "→" | "←";
+  goalkeeperEditable: boolean;
 }) {
   const sum = players.reduce((s, p) => s + p.rating, 0);
   const average = players.length ? Math.round(sum / players.length) : 0;
@@ -68,7 +70,7 @@ function TeamColumn({
           >
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.nickname}</span>
 
-            {p.profileIsGoalkeeper && (
+            {p.profileIsGoalkeeper && goalkeeperEditable && (
               <form action={setGoalkeeper}>
                 <input type="hidden" name="groupId" value={grupaId} />
                 <input type="hidden" name="matchId" value={terminId} />
@@ -86,6 +88,11 @@ function TeamColumn({
                   🧤
                 </SubmitButton>
               </form>
+            )}
+            {p.isGoalkeeper && !goalkeeperEditable && (
+              <span className="flex h-9 w-9 items-center justify-center rounded bg-emerald-100 text-base" title="Golman">
+                🧤
+              </span>
             )}
 
             <form action={movePlayer}>
@@ -209,6 +216,7 @@ export default async function TeamsPage({
   const hasLineup = teamA.length + teamB.length > 0;
   const sumA = teamA.reduce((s, p) => s + p.rating, 0);
   const sumB = teamB.reduce((s, p) => s + p.rating, 0);
+  const goalkeeperEditable = game != null && game.started_at == null;
 
   // Signed up but not assigned — e.g. someone joined after teams were already set.
   const unassigned = confirmed.filter(
@@ -297,6 +305,7 @@ export default async function TeamsPage({
               grupaId={grupaId}
               terminId={terminId}
               arrow="→"
+              goalkeeperEditable={goalkeeperEditable}
             />
             <TeamColumn
               title={teamDisplayName("B", teamBName)}
@@ -305,6 +314,7 @@ export default async function TeamsPage({
               grupaId={grupaId}
               terminId={terminId}
               arrow="←"
+              goalkeeperEditable={goalkeeperEditable}
             />
           </div>
 

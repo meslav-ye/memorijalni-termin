@@ -16,7 +16,6 @@ import {
   resumeMatch,
   pauseMatch,
   undoEvent,
-  changeGoalkeeper,
   recordOwnGoal,
   recordGoal,
   finishGame,
@@ -29,7 +28,7 @@ export type LineupPlayer = {
   nickname: string;
   team: Team;
   isGoalkeeper: boolean;
-  /** Profile "Igram golmana" — only these may take the live glove. */
+  /** Profile "Igram golmana" — used for display; glove is not editable live. */
   profileIsGoalkeeper: boolean;
 };
 
@@ -299,23 +298,6 @@ export function LiveScreen({
     await afterChange();
   }
 
-  async function setPlayerGoalkeeper(player: LineupPlayer) {
-    if (!player.profileIsGoalkeeper) {
-      setError("Golmana može biti samo igrač označen kao golman na profilu.");
-      return;
-    }
-    setBusy(true);
-    const result = await changeGoalkeeper(
-      terminId,
-      player.userId,
-      player.team,
-      currentElapsed(),
-    );
-    if ("error" in result) setError(result.error);
-    setBusy(false);
-    await afterChange();
-  }
-
   async function undo(eventId: string) {
     setBusy(true);
     await undoEvent(terminId, eventId);
@@ -514,11 +496,11 @@ export function LiveScreen({
               nickname={p.nickname}
               goals={playerGoals(p.userId)}
               isGoalkeeper={p.isGoalkeeper}
-              canBeGoalkeeper={p.profileIsGoalkeeper}
+              canBeGoalkeeper={false}
               disabled={locked}
               onGoal={() => void recordPlayerGoal(p)}
               onOwnGoal={() => void recordPlayerOwnGoal(p)}
-              onGoalkeeper={() => void setPlayerGoalkeeper(p)}
+              onGoalkeeper={() => {}}
             />
           ))}
         </div>
@@ -529,18 +511,18 @@ export function LiveScreen({
               nickname={p.nickname}
               goals={playerGoals(p.userId)}
               isGoalkeeper={p.isGoalkeeper}
-              canBeGoalkeeper={p.profileIsGoalkeeper}
+              canBeGoalkeeper={false}
               disabled={locked}
               onGoal={() => void recordPlayerGoal(p)}
               onOwnGoal={() => void recordPlayerOwnGoal(p)}
-              onGoalkeeper={() => void setPlayerGoalkeeper(p)}
+              onGoalkeeper={() => {}}
             />
           ))}
         </div>
       </div>
 
       <p className="mt-3 text-center text-xs text-slate-500">
-        Dodir = gol · Dugi pritisak = autogol · 🧤 = golman (samo profilni golmani)
+        Dodir = gol · Dugi pritisak = autogol · golman se bira na Ekipama prije starta
       </p>
 
       <section className="mt-6">

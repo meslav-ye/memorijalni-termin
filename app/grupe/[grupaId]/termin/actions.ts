@@ -13,6 +13,7 @@ import { normalizeTeamName } from "@/lib/domain/team-name";
 import {
   assignLineupGoalkeeperFlags,
   canAssignLineupGoalkeeper,
+  canChangeLineupGoalkeeper,
 } from "@/lib/domain/lineup-goalkeeper";
 import {
   planRatingReverts,
@@ -417,6 +418,8 @@ export async function setGoalkeeper(formData: FormData) {
 
   const game = await ensureEditableGame(matchId, ctx.supabase);
   if (!game) return;
+
+  if (!canChangeLineupGoalkeeper(game.started_at)) return;
 
   const { data: profile } = await ctx.supabase
     .from("profiles")

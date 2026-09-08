@@ -10,7 +10,7 @@ import { INITIAL_RATING } from "@/lib/domain/elo";
 import { computeContributions } from "@/lib/domain/contribution";
 import { computeDualElo } from "@/lib/domain/settle-ratings";
 import { canStart, MINUTES_BEFORE_START } from "@/lib/domain/startability";
-import { canAssignLineupGoalkeeper } from "@/lib/domain/lineup-goalkeeper";
+import { canAssignLineupGoalkeeper, canChangeLineupGoalkeeper } from "@/lib/domain/lineup-goalkeeper";
 import type { Team } from "@/lib/domain/types";
 
 /**
@@ -594,6 +594,10 @@ export async function changeGoalkeeper(
 ): Promise<ActionResult> {
   const open = await requireOpenGame(matchId);
   if ("error" in open) return { error: "Nemaš pravo." };
+
+  if (!canChangeLineupGoalkeeper(open.game.started_at)) {
+    return { error: "Golman se bira na Ekipama prije početka utakmice." };
+  }
 
   const { data: profile } = await open.supabase
     .from("profiles")

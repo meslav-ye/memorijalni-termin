@@ -2,12 +2,20 @@ import { describe, expect, it } from "vitest";
 import {
   assignLineupGoalkeeperFlags,
   canAssignLineupGoalkeeper,
+  canChangeLineupGoalkeeper,
 } from "@/lib/domain/lineup-goalkeeper";
 
 describe("canAssignLineupGoalkeeper", () => {
   it("allows profile keepers only", () => {
     expect(canAssignLineupGoalkeeper(true)).toBe(true);
     expect(canAssignLineupGoalkeeper(false)).toBe(false);
+  });
+});
+
+describe("canChangeLineupGoalkeeper", () => {
+  it("allows changes only before the clock starts", () => {
+    expect(canChangeLineupGoalkeeper(null)).toBe(true);
+    expect(canChangeLineupGoalkeeper("2026-09-08T18:00:00Z")).toBe(false);
   });
 });
 
