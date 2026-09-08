@@ -56,7 +56,8 @@ export default async function SummaryPage({
   const { data: history } = await supabase
     .from("rating_history")
     .select("user_id, rating_before, rating_after")
-    .eq("match_id", terminId);
+    .eq("match_id", terminId)
+    .eq("scope", "group");
 
   const nicknameOf = (id: string | null) =>
     profiles?.find((p) => p.id === id)?.nickname || "?";

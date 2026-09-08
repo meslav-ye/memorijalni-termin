@@ -21,7 +21,7 @@ export default async function PlayerPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, nickname, full_name, is_goalkeeper")
+    .select("id, nickname, full_name, is_goalkeeper, global_rating, global_matches_played")
     .eq("id", igracId)
     .maybeSingle();
   if (!profile) notFound();
@@ -34,6 +34,7 @@ export default async function PlayerPage({
     .from("rating_history")
     .select("match_id, rating_before, rating_after, matches(starts_at, score_a, score_b)")
     .eq("user_id", igracId)
+    .eq("scope", "group")
     .order("match_id")
     .limit(200);
 
@@ -67,6 +68,22 @@ export default async function PlayerPage({
         {profile.full_name && <p className="text-slate-500">{profile.full_name}</p>}
       </header>
 
+      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Globalni rating</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums">{profile.global_rating}</p>
+          </div>
+          <p className="text-sm tabular-nums text-slate-500">
+            {profile.global_matches_played}{" "}
+            {profile.global_matches_played === 1 ? "termin" : "termina"}
+          </p>
+        </div>
+        <p className="mt-2 text-sm text-slate-500">
+          Prati rezultat kroz sve grupe — nije usporedba snage među grupama.
+        </p>
+      </section>
+
       {!row ? (
         <p className="mt-6 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
           Još nije odigrao nijedan termin u ovoj grupi.
@@ -75,7 +92,7 @@ export default async function PlayerPage({
         <>
           <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
-              { label: "Rating", value: String(row.rating) },
+              { label: "Rating u grupi", value: String(row.rating) },
               { label: "Golovi", value: String(row.goals) },
               { label: "Asistencije", value: String(row.assists) },
               { label: "Termini", value: `${row.matches}/${matchesPlayed}` },

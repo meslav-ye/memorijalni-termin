@@ -445,6 +445,8 @@ export type Database = {
           can_create_groups: boolean
           created_at: string
           full_name: string
+          global_matches_played: number
+          global_rating: number
           id: string
           is_goalkeeper: boolean
           nickname: string
@@ -454,6 +456,8 @@ export type Database = {
           can_create_groups?: boolean
           created_at?: string
           full_name?: string
+          global_matches_played?: number
+          global_rating?: number
           id: string
           is_goalkeeper?: boolean
           nickname?: string
@@ -463,6 +467,8 @@ export type Database = {
           can_create_groups?: boolean
           created_at?: string
           full_name?: string
+          global_matches_played?: number
+          global_rating?: number
           id?: string
           is_goalkeeper?: boolean
           nickname?: string
@@ -475,6 +481,7 @@ export type Database = {
           match_id: string
           rating_after: number
           rating_before: number
+          scope: Database["public"]["Enums"]["rating_scope"]
           user_id: string
         }
         Insert: {
@@ -482,6 +489,7 @@ export type Database = {
           match_id: string
           rating_after: number
           rating_before: number
+          scope?: Database["public"]["Enums"]["rating_scope"]
           user_id: string
         }
         Update: {
@@ -489,6 +497,7 @@ export type Database = {
           match_id?: string
           rating_after?: number
           rating_before?: number
+          scope?: Database["public"]["Enums"]["rating_scope"]
           user_id?: string
         }
         Relationships: [
@@ -545,6 +554,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_global_rating: {
+        Args: { p_rating: number; p_user: string }
+        Returns: undefined
+      }
       apply_rating: {
         Args: { p_group: string; p_rating: number; p_user: string }
         Returns: undefined
@@ -566,6 +579,7 @@ export type Database = {
         | "otkazan"
       member_role: "admin" | "member"
       member_status: "pending" | "active" | "removed"
+      rating_scope: "group" | "global"
       team_side: "A" | "B"
     }
     CompositeTypes: {
@@ -707,6 +721,7 @@ export const Constants = {
       ],
       member_role: ["admin", "member"],
       member_status: ["pending", "active", "removed"],
+      rating_scope: ["group", "global"],
       team_side: ["A", "B"],
     },
   },

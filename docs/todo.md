@@ -16,63 +16,7 @@ mjesta:
 
 ---
 
-## 1. Razrada igrača: grupni i globalni rating
-
-Igrač može biti u više grupa. Uz rating po grupi treba postojati i **globalni**,
-koji ga prati kroz sve grupe u kojima igra.
-
-**Grupni rating već postoji.** `player_ratings` je ključan na `(group_id, user_id)`,
-a `profiles` ima jedan red po korisniku — dakle podjela je već napravljena, posao
-je globalni rating i način na koji se prikazuje.
-
-### Ovo treba pročitati prije nego se počne
-
-Grupe su zatvorene i **nikad ne igraju jedna protiv druge**. Nema zajedničkih
-protivnika između njih, pa ratinzi iz različitih grupa **nisu na istoj skali** —
-1200 u jednoj grupi ne znači isto što i 1200 u drugoj. Ako je jedna grupa jača,
-njezini igrači imaju niže brojke za istu kvalitetu.
-
-Zato **globalni rating kao prosjek grupnih ne radi.** Izgledao bi kao broj koji
-nešto znači, a ne bi značio.
-
-Što radi: **jedan globalni rating koji se ažurira svakim odigranim terminom, u
-kojoj god grupi bio.** Elo je nula-suma po terminu pa ostaje interno dosljedan.
-Ali i tada mjeri „kako si prošao protiv onih s kojima si igrao", ne apsolutnu
-kvalitetu. To treba i u sučelju biti jasno — ne predstavljati ga kao više nego
-što jest.
-
-### Zamka u shemi
-
-`rating_history` ima samo `match_id, user_id, rating_before, rating_after` —
-**nema stupca koji kaže o kojem se ratingu radi.** Sad je nedvosmisleno jer je
-grupa izvediva preko `match_id → matches.group_id`. Čim postoje dva ratinga po
-igraču po terminu, svaki red mora reći koji je koji — inače „zadnjih 10 termina s
-promjenom ratinga" na profilu igrača prikazuje dvostruke redove bez objašnjenja.
-
-### Gdje se to spaja
-
-Rating upisuje `apply_rating`, funkcija sa `security definer` koju zove
-`zavrsiTermin`. Definirana je u `supabase/migrations/20260906125103_events_ratings.sql`
-i `20260906125106_rating_upsert.sql`, a prava su joj zatvorena u
-`20260906220000_zatvori_apply_rating.sql`. Globalni rating se dodaje tu, u istoj
-transakciji — ne zasebnim pozivom, da se dva ratinga ne mogu razići ako drugi
-poziv padne.
-
-### Na što još paziti
-
-- Ljestvica je po definiciji **po grupi** i takva ostaje. Globalni rating ima
-  smisla na profilu igrača, ne u grupnoj ljestvici.
-- Početni rating je 1000 (`POCETNI_RATING`), K faktor 24 (`K_FAKTOR`). Odlučiti
-  vrijedi li isti K za globalni — igrač koji igra u tri grupe skuplja tri puta
-  više promjena, pa mu globalni rating skače tri puta brže.
-- Predmemorija ljestvice ima oznaku **po grupi** (`ljestvica-<grupaId>`). Termin u
-  jednoj grupi mijenja globalni rating, koji se vidi i u drugima — pa poništavanje
-  po jednoj grupi više nije dovoljno ako se globalni rating negdje prikazuje uz
-  predmemorirane podatke.
-
----
-
-## 2. Ideja: povezivanje profila sa Stravom
+## 1. Ideja: povezivanje profila sa Stravom
 
 Povezati profil igrača sa Stravom i prikazati **pretrčane kilometre, brzinu i
 puls** po terminu.
@@ -168,7 +112,7 @@ To je najveći dio posla koji je već riješen.
 
 ---
 
-## 3. Stalni termin
+## 2. Stalni termin
 
 Mogućnost da se termin označi kao **stalni**, da se za grupu koja ionako igra
 svaki tjedan ne mora svaki put otvarati novi.
@@ -268,7 +212,7 @@ Prelazak na zimsko vrijeme je 25.10.2026., dan prije te pojave. Ekipa bi došla 
 
 ---
 
-## 4. Ponovno pokretanje utakmice unutar termina
+## 3. Ponovno pokretanje utakmice unutar termina
 
 Mogućnost da se utakmica pokrene ispočetka: **rezultat, minutaža, golovi i
 asistencije kreću od nule**, a dotadašnje stanje se spremi. Nakon toga se igrači

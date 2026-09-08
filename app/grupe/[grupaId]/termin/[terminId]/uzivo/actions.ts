@@ -5,7 +5,8 @@ import { leaderboardTag } from "@/lib/data/leaderboard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findRecentDuplicate, secondsAgo, DUPLICATE_WINDOW_SECONDS } from "@/lib/domain/duplicates";
-import { computeElo, INITIAL_RATING } from "@/lib/domain/elo";
+import { INITIAL_RATING } from "@/lib/domain/elo";
+import { computeDualElo } from "@/lib/domain/settle-ratings";
 import { canStart, MINUTES_BEFORE_START } from "@/lib/domain/startability";
 import type { Team } from "@/lib/domain/types";
 
@@ -262,14 +263,14 @@ export async function undoEvent(matchId: string, eventId: string): Promise<Actio
 }
 
 /**
- * Elo rating settlement for a finished match.
+ * Elo rating settlement for a finished match (group + global).
  *
  * Goes through the service role because player_ratings intentionally has no
  * write policy — nobody in the browser may touch ratings, theirs or anyone else's.
  *
- * Idempotent: if rating_history already has a row for this match, settlement
- * already ran and a second call does nothing. Without that, two simultaneous
- * taps on "Finish" would move ratings twice.
+ * Idempotent: if rating_history already has a group-scope row for this match,
+ * settlement already ran and a second call does nothing. Without that, two
+ * simultaneous taps on "Finish" would move ratings twice.
  */
 async function settleRatings(groupId: string, matchId: string) {
   const admin = createAdminClient();
@@ -278,6 +279,7 @@ async function settleRatings(groupId: string, matchId: string) {
     .from("rating_history")
     .select("id")
     .eq("match_id", matchId)
+    .eq("scope", "group")
     .limit(1);
 
   if (alreadySettled && alreadySettled.length > 0) return;
@@ -295,46 +297,70 @@ async function settleRatings(groupId: string, matchId: string) {
 
   if (!match || !lineup?.length) return;
 
+  const userIds = lineup.map((p) => p.user_id);
+
   const { data: ratings } = await admin
     .from("player_ratings")
     .select("user_id, rating")
     .eq("group_id", groupId)
-    .in(
-      "user_id",
-      lineup.map((p) => p.user_id),
-    );
+    .in("user_id", userIds);
+
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, global_rating")
+    .in("id", userIds);
 
   const teamPlayers = (side: Team) =>
     lineup
       .filter((p) => p.team === side)
       .map((p) => ({
         userId: p.user_id,
-        rating: ratings?.find((r) => r.user_id === p.user_id)?.rating ?? INITIAL_RATING,
+        groupRating:
+          ratings?.find((r) => r.user_id === p.user_id)?.rating ?? INITIAL_RATING,
+        globalRating:
+          profiles?.find((pr) => pr.id === p.user_id)?.global_rating ?? INITIAL_RATING,
       }));
 
-  const result = computeElo({
+  const { group, global } = computeDualElo({
     teamA: teamPlayers("A"),
     teamB: teamPlayers("B"),
     scoreA: match.score_a,
     scoreB: match.score_b,
   });
 
-  if (result.updates.length === 0) return;
+  if (group.updates.length === 0) return;
 
   // History first: if a rating write stalls halfway, history shows where we got to.
   await admin.from("rating_history").upsert(
-    result.updates.map((u) => ({
-      match_id: matchId,
-      user_id: u.userId,
-      rating_before: u.ratingBefore,
-      rating_after: u.ratingAfter,
-    })),
-    { onConflict: "match_id,user_id" },
+    [
+      ...group.updates.map((u) => ({
+        match_id: matchId,
+        user_id: u.userId,
+        scope: "group" as const,
+        rating_before: u.ratingBefore,
+        rating_after: u.ratingAfter,
+      })),
+      ...global.updates.map((u) => ({
+        match_id: matchId,
+        user_id: u.userId,
+        scope: "global" as const,
+        rating_before: u.ratingBefore,
+        rating_after: u.ratingAfter,
+      })),
+    ],
+    { onConflict: "match_id,user_id,scope" },
   );
 
-  for (const u of result.updates) {
+  for (const u of group.updates) {
     await admin.rpc("apply_rating", {
       p_group: groupId,
+      p_user: u.userId,
+      p_rating: u.ratingAfter,
+    });
+  }
+
+  for (const u of global.updates) {
+    await admin.rpc("apply_global_rating", {
       p_user: u.userId,
       p_rating: u.ratingAfter,
     });
