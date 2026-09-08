@@ -11,8 +11,11 @@ Enrich group **Rekordi** with match dates on single-game feats, add G+A and fewe
 | Najviše golova na utakmici | goals by one player in one finished game | `Nadimak · {formatShortDate}` |
 | Najviše G+A | goals + assists by one player in one game | same |
 | Najmanje primljenih na utakmici | goals/own_goals conceded while that player was in goal for that game (any lineup/keeper_change keeper, not only profile) | same |
+| Najviše termina ukupno | `sessionsAttended` | nickname only |
 | Najveća pobjeda | unchanged (score + date already) | — |
-| Najviše termina zaredom | unchanged | nickname only |
+
+Removed: Najviše termina zaredom (streak stays on player profile only).
+
 
 ## Rules
 

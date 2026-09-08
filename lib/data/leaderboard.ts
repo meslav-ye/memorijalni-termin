@@ -75,7 +75,7 @@ export async function getLeaderboard(
 function cachedLeaderboard(groupId: string, seasonId: string | null) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", "v7-records-dates", groupId, seasonId ?? "all"],
+    ["leaderboard", "v8-sessions-total", groupId, seasonId ?? "all"],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }
@@ -404,17 +404,16 @@ function computeRecords(
     });
   }
 
-  // A streak of one session is still a streak. The threshold used to be `> 1`,
-  // so after the first played match nobody was shown.
-  const longestStreak = rows.reduce(
-    (best, r) => (best && r.longestStreak > best.longestStreak ? r : (best ?? r)),
+  const mostSessions = rows.reduce(
+    (best, r) =>
+      best && r.sessionsAttended > best.sessionsAttended ? r : (best ?? r),
     rows[0] as LeaderboardRow | undefined,
   );
-  if (longestStreak && longestStreak.longestStreak > 0) {
+  if (mostSessions && mostSessions.sessionsAttended > 0) {
     records.push({
-      title: "Najviše termina zaredom",
-      value: String(longestStreak.longestStreak),
-      who: longestStreak.nickname,
+      title: "Najviše termina ukupno",
+      value: String(mostSessions.sessionsAttended),
+      who: mostSessions.nickname,
     });
   }
 

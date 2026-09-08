@@ -300,7 +300,7 @@ export default async function StatsPage({
             "Najviše G+A",
             "Najmanje primljenih na utakmici",
             "Najveća pobjeda",
-            "Najviše termina zaredom",
+            "Najviše termina ukupno",
           ].map((title) => {
             const found = records.find((r) => r.title === title);
             return (
