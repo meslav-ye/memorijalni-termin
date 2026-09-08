@@ -104,6 +104,20 @@ export default async function StatsPage({
   // would "lead".
   const topRating = matchesPlayed > 0 ? leader(rows, (r) => r.rating) : null;
 
+  const keepers = [...rows]
+    .filter((r) => r.isGoalkeeper)
+    .sort((a, b) => {
+      const avgA =
+        a.matchesAsKeeper > 0 ? a.goalsAgainst / a.matchesAsKeeper : Number.POSITIVE_INFINITY;
+      const avgB =
+        b.matchesAsKeeper > 0 ? b.goalsAgainst / b.matchesAsKeeper : Number.POSITIVE_INFINITY;
+      return (
+        avgA - avgB ||
+        b.matchesAsKeeper - a.matchesAsKeeper ||
+        a.nickname.localeCompare(b.nickname, "hr")
+      );
+    });
+
   const totalGoals = rows.reduce((s, r) => s + r.goals, 0);
   const totalAssists = rows.reduce((s, r) => s + r.assists, 0);
 
@@ -205,6 +219,53 @@ export default async function StatsPage({
           />
         </div>
       </section>
+
+      {keepers.length > 0 && (
+        <section>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Golmani
+          </h3>
+          <ul className="space-y-1">
+            {keepers.map((r) => {
+              const avg =
+                r.matchesAsKeeper > 0
+                  ? (r.goalsAgainst / r.matchesAsKeeper).toFixed(1)
+                  : "—";
+              return (
+                <li
+                  key={r.userId}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                >
+                  <Link
+                    href={`/grupe/${grupaId}/igrac/${r.userId}?from=statistika`}
+                    className="min-w-0 flex-1 truncate font-medium underline-offset-4 hover:underline"
+                  >
+                    {r.nickname}
+                    <span title="Igra golmana"> 🧤</span>
+                  </Link>
+                  <span className="tabular-nums text-slate-500" title="Utakmice na golu">
+                    {r.matchesAsKeeper}{" "}
+                    {r.matchesAsKeeper === 1 ? "utakmica" : "utakmice"}
+                  </span>
+                  <span className="w-16 text-right font-semibold tabular-nums" title="Primljeni golovi">
+                    {r.goalsAgainst} PG
+                  </span>
+                  <span className="w-14 text-right tabular-nums text-slate-500" title="Prosjek po utakmici">
+                    {avg}
+                    {avg !== "—" ? "/U" : ""}
+                  </span>
+                  <span className="w-12 text-right tabular-nums text-slate-500" title="Čiste mreže">
+                    {r.cleanSheets} CS
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-2 text-sm text-slate-500">
+            PG = primljeni golovi · CS = utakmice bez primljenog · samo dok je igrač na golu.
+          </p>
+        </section>
+      )}
 
       {/* Records — shown even when empty so it is clear what is tracked */}
       <section>

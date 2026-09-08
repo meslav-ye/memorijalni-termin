@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
+import { BusyProvider } from "@/components/BusyProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -50,18 +52,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
-        {children}
+        <Suspense fallback={null}>
+          <BusyProvider>
+            {children}
 
-        {/* Google trazi javno dostupnu stranicu o privatnosti za objavu
+            {/* Google trazi javno dostupnu stranicu o privatnosti za objavu
             OAuth aplikacije; a i ionako spremamo tudje podatke. */}
-        <footer className="mt-auto px-5 py-6 text-center">
-          <Link
-            href="/privatnost"
-            className="text-xs text-slate-400 underline underline-offset-4"
-          >
-            Privatnost
-          </Link>
-        </footer>
+            <footer className="mt-auto px-5 py-6 text-center">
+              <Link
+                href="/privatnost"
+                className="text-xs text-slate-400 underline underline-offset-4"
+              >
+                Privatnost
+              </Link>
+            </footer>
+          </BusyProvider>
+        </Suspense>
       </body>
     </html>
   );

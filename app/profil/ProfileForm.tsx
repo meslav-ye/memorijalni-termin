@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { saveProfile, type ProfileState } from "./actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const EMPTY: ProfileState = {};
 
@@ -12,7 +13,7 @@ export function ProfileForm({
   nickname: string;
   isGoalkeeper: boolean;
 }) {
-  const [state, action, pending] = useActionState(saveProfile, EMPTY);
+  const [state, action] = useActionState(saveProfile, EMPTY);
 
   return (
     <form action={action} className="space-y-6">
@@ -52,14 +53,14 @@ export function ProfileForm({
         </span>
       </label>
 
-      <button
+      <SubmitButton
         type="submit"
-        disabled={pending}
+        pendingLabel="Spremam…"
         className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
-        {pending ? "Spremam…" : "Spremi"}
-      </button>
+        Spremi
+      </SubmitButton>
 
       {state.error && (
         <p role="alert" className="text-sm font-medium text-red-600">

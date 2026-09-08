@@ -249,6 +249,7 @@ export async function adminSignUpForMatch(formData: FormData) {
   );
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
   revalidatePath(`/grupe/${groupId}`);
 }
 
@@ -278,6 +279,7 @@ export async function adminWithdrawFromMatch(formData: FormData) {
     .eq("user_id", userId);
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
   revalidatePath(`/grupe/${groupId}`);
 }
 

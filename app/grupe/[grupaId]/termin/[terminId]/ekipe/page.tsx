@@ -5,8 +5,11 @@ import { getMembership, getUser } from "@/lib/data/user";
 import { ensureEditableGame, getCurrentGame } from "@/lib/data/games";
 import { formatMatchDateTime } from "@/lib/format";
 import { splitSignups } from "@/lib/domain/waitlist";
+import { membersNotSignedUp } from "@/lib/domain/admin-signup";
 import { MAX_TEAM_NAME_LENGTH, teamDisplayName } from "@/lib/domain/team-name";
 import { proposeTeams, movePlayer, setGoalkeeper, setTeamNames } from "../../actions";
+import { AdminAddSignups } from "../AdminAddSignups";
+import { SubmitButton } from "@/components/SubmitButton";
 
 type LineupPlayerRow = {
   userId: string;
@@ -69,7 +72,8 @@ function TeamColumn({
               <input type="hidden" name="matchId" value={terminId} />
               <input type="hidden" name="userId" value={p.userId} />
               <input type="hidden" name="ekipa" value={team} />
-              <button
+              <SubmitButton
+                pendingLabel="…"
                 title={p.isGoalkeeper ? "Skini oznaku golmana" : "Postavi za golmana"}
                 aria-label={p.isGoalkeeper ? "Skini oznaku golmana" : "Postavi za golmana"}
                 className={
@@ -78,7 +82,7 @@ function TeamColumn({
                 }
               >
                 🧤
-              </button>
+              </SubmitButton>
             </form>
 
             <form action={movePlayer}>
@@ -86,14 +90,15 @@ function TeamColumn({
               <input type="hidden" name="matchId" value={terminId} />
               <input type="hidden" name="userId" value={p.userId} />
               <input type="hidden" name="ekipa" value={team === "A" ? "B" : "A"} />
-              <button
+              <SubmitButton
+                pendingLabel="…"
                 title="Premjesti u drugu ekipu"
                 aria-label={`Premjesti ${p.nickname} u drugu ekipu`}
                 className="h-9 w-9 rounded border border-slate-200 text-sm text-slate-500
                            transition active:scale-95 hover:bg-slate-100"
               >
                 {arrow}
-              </button>
+              </SubmitButton>
             </form>
           </li>
         ))}
@@ -113,6 +118,7 @@ export default async function TeamsPage({
 
   const membership = await getMembership(grupaId);
   if (membership?.status !== "active") notFound();
+  const admin = membership.role === "admin";
 
   const { data: match } = await supabase
     .from("matches")
@@ -140,7 +146,7 @@ export default async function TeamsPage({
     .select("user_id, signed_up_at, manual_order, cancelled_at")
     .eq("match_id", terminId);
 
-  const { confirmed } = splitSignups(
+  const { confirmed, waitlist } = splitSignups(
     (signups ?? []).map((p) => ({
       userId: p.user_id,
       signedUpAt: p.signed_up_at,
@@ -149,6 +155,25 @@ export default async function TeamsPage({
     })),
     match.capacity,
   );
+
+  const activeSignupIds = [...confirmed, ...waitlist];
+
+  let addableMembers: { userId: string; nickname: string }[] = [];
+  if (admin && match.status === "najavljen") {
+    const { data: memberships } = await supabase
+      .from("group_members")
+      .select("user_id, profiles(nickname)")
+      .eq("group_id", grupaId)
+      .eq("status", "active");
+
+    addableMembers = membersNotSignedUp(
+      (memberships ?? []).map((m) => ({
+        userId: m.user_id,
+        nickname: m.profiles?.nickname || "(bez nadimka)",
+      })),
+      activeSignupIds,
+    );
+  }
 
   const allIds = [...new Set([...(lineup ?? []).map((p) => p.user_id), ...confirmed])];
 
@@ -200,6 +225,16 @@ export default async function TeamsPage({
         <p className="text-sm text-slate-500">{formatMatchDateTime(match.starts_at)}</p>
       </header>
 
+      {admin && match.status === "najavljen" && addableMembers.length > 0 && (
+        <div className="mb-8">
+          <AdminAddSignups
+            groupId={grupaId}
+            matchId={terminId}
+            members={addableMembers}
+          />
+        </div>
+      )}
+
       {!hasLineup ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
           <p className="font-medium">Ekipe još nisu složene</p>
@@ -240,13 +275,14 @@ export default async function TeamsPage({
                            font-medium outline-none focus:border-marka"
               />
             </label>
-            <button
+            <SubmitButton
               type="submit"
+              pendingLabel="Spremam…"
               className="col-span-2 h-11 rounded-lg border border-slate-300 bg-white text-sm
                          font-semibold transition active:scale-[0.98]"
             >
               Spremi imena
-            </button>
+            </SubmitButton>
           </form>
 
           <div className="flex gap-3">
@@ -289,12 +325,13 @@ export default async function TeamsPage({
         <form action={proposeTeams} className="mt-6">
           <input type="hidden" name="groupId" value={grupaId} />
           <input type="hidden" name="matchId" value={terminId} />
-          <button
+          <SubmitButton
+            pendingLabel={hasLineup ? "Miješam…" : "Predlažem…"}
             className="h-14 w-full rounded-lg bg-marka text-base font-semibold text-white
                        transition active:scale-[0.98]"
           >
             {hasLineup ? "Promiješaj ponovno" : "Predloži ekipe"}
-          </button>
+          </SubmitButton>
         </form>
       )}
 

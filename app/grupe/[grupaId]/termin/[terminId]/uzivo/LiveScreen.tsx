@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatClock, elapsedSeconds } from "@/lib/domain/timer";
 import type { MatchTimerState, Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
+import { useOptionalBusy } from "@/components/BusyProvider";
 import { Stopwatch } from "@/components/termin/Stopwatch";
 import { PlayerButton } from "@/components/termin/PlayerButton";
 import { AssistStrip, type PendingAssist } from "@/components/termin/AssistStrip";
@@ -78,6 +79,7 @@ export function LiveScreen({
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const { setBusy: setGlobalBusy } = useOptionalBusy();
 
   const [lineup, setLineup] = useState(initialLineup);
   const [events, setEvents] = useState(initialEvents);
@@ -92,6 +94,11 @@ export function LiveScreen({
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setGlobalBusy(busy);
+    return () => setGlobalBusy(false);
+  }, [busy, setGlobalBusy]);
 
   const refresh = useCallback(async () => {
     const [{ data: matchRow }, { data: openGame }, { data: latestGame }] = await Promise.all([

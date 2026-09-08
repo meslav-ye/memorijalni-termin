@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { useOptionalBusy } from "@/components/BusyProvider";
 import { adminSignUpForMatch } from "../actions";
 
 type Member = { userId: string; nickname: string };
@@ -16,6 +17,12 @@ export function AdminAddSignups({
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [pending, startTransition] = useTransition();
+  const { setBusy } = useOptionalBusy();
+
+  useEffect(() => {
+    setBusy(pending);
+    return () => setBusy(false);
+  }, [pending, setBusy]);
 
   const toggle = (userId: string) => {
     setSelected((prev) => {
@@ -52,6 +59,7 @@ export function AdminAddSignups({
         </h3>
         <button
           type="button"
+          data-no-loading
           onClick={toggleAll}
           className="text-sm font-medium text-marka underline underline-offset-4"
         >

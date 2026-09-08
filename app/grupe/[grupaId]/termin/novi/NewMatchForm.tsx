@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createMatch, type MatchFormState } from "../actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const EMPTY: MatchFormState = {};
 
@@ -22,7 +23,7 @@ export function NewMatchForm({
   defaultCapacity: number;
   defaultMin: number;
 }) {
-  const [state, action, pending] = useActionState(
+  const [state, action] = useActionState(
     createMatch.bind(null, grupaId),
     EMPTY,
   );
@@ -176,14 +177,14 @@ export function NewMatchForm({
         </label>
       )}
 
-      <button
+      <SubmitButton
         type="submit"
-        disabled={pending}
+        pendingLabel="Otvaram…"
         className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
-        {pending ? "Otvaram…" : playNow ? "Otvori i idi na ekipe" : "Otvori termin"}
-      </button>
+        {playNow ? "Otvori i idi na ekipe" : "Otvori termin"}
+      </SubmitButton>
 
       {state.error && (
         <p role="alert" className="text-sm font-medium text-red-600">

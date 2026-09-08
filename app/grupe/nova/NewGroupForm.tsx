@@ -2,11 +2,12 @@
 
 import { useActionState } from "react";
 import { createGroup, type GroupState } from "../actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const EMPTY: GroupState = {};
 
 export function NewGroupForm() {
-  const [state, action, pending] = useActionState(createGroup, EMPTY);
+  const [state, action] = useActionState(createGroup, EMPTY);
 
   return (
     <form action={action} className="space-y-6">
@@ -53,14 +54,14 @@ export function NewGroupForm() {
         </p>
       </div>
 
-      <button
+      <SubmitButton
         type="submit"
-        disabled={pending}
+        pendingLabel="Otvaram…"
         className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
-        {pending ? "Otvaram…" : "Otvori grupu"}
-      </button>
+        Otvori grupu
+      </SubmitButton>
 
       {state.error && (
         <p role="alert" className="text-sm font-medium text-red-600">

@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useOptionalBusy } from "@/components/BusyProvider";
 import {
   sendMagicLink,
   signInWithGoogle,
@@ -52,6 +53,12 @@ export function LoginForm({ googleAvailable }: { googleAvailable: boolean }) {
 
   const [passwordOpen, setPasswordOpen] = useState(false);
   const anyPending = googlePending || linkPending || passwordPending || signUpPending;
+  const { setBusy } = useOptionalBusy();
+
+  useEffect(() => {
+    setBusy(anyPending);
+    return () => setBusy(false);
+  }, [anyPending, setBusy]);
 
   return (
     <div className="space-y-6">

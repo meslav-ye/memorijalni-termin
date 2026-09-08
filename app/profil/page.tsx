@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "./ProfileForm";
 import { signOut } from "./actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -48,12 +49,13 @@ export default async function ProfilePage() {
 
       {!firstTime && (
         <form action={signOut} className="mt-10 border-t border-slate-200 pt-6">
-          <button
+          <SubmitButton
             type="submit"
+            pendingLabel="Odjavljujem…"
             className="text-sm font-medium text-slate-500 underline underline-offset-4"
           >
             Odjavi se
-          </button>
+          </SubmitButton>
         </form>
       )}
     </main>

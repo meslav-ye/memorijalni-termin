@@ -22,6 +22,8 @@ import {
 } from "../actions";
 import { AdminAddSignups } from "./AdminAddSignups";
 import { StartButton } from "./StartButton";
+import { SubmitButton } from "@/components/SubmitButton";
+import { BusyLink } from "@/components/BusyLink";
 
 const FILL_TONE_COLOR: Record<FillTone, string> = {
   low: "border-amber-200 bg-amber-50 text-amber-900",
@@ -202,9 +204,12 @@ export default async function MatchPage({
                     <input type="hidden" name="groupId" value={grupaId} />
                     <input type="hidden" name="matchId" value={terminId} />
                     <input type="hidden" name="userId" value={id} />
-                    <button className="text-sm text-red-700 underline underline-offset-4">
+                    <SubmitButton
+                      pendingLabel="…"
+                      className="text-sm text-red-700 underline underline-offset-4"
+                    >
                       Odjavi
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </li>
@@ -237,9 +242,12 @@ export default async function MatchPage({
                     <input type="hidden" name="groupId" value={grupaId} />
                     <input type="hidden" name="matchId" value={terminId} />
                     <input type="hidden" name="userId" value={id} />
-                    <button className="text-sm text-red-700 underline underline-offset-4">
+                    <SubmitButton
+                      pendingLabel="…"
+                      className="text-sm text-red-700 underline underline-offset-4"
+                    >
                       Odjavi
-                    </button>
+                    </SubmitButton>
                   </form>
                 )}
               </li>
@@ -287,14 +295,14 @@ export default async function MatchPage({
       )}
 
       {match.status !== "otkazan" && (
-        <Link
+        <BusyLink
           href={`/grupe/${grupaId}/termin/${terminId}/ekipe`}
           className="mt-8 flex h-12 w-full items-center justify-center rounded-lg
                      border border-slate-300 bg-white text-sm font-semibold
                      transition active:scale-[0.98] hover:border-slate-400"
         >
           Ekipe
-        </Link>
+        </BusyLink>
       )}
 
       {admin &&
@@ -302,9 +310,12 @@ export default async function MatchPage({
           <form action={cancelMatch} className="mt-10 border-t border-slate-200 pt-6">
             <input type="hidden" name="groupId" value={grupaId} />
             <input type="hidden" name="matchId" value={terminId} />
-            <button className="text-sm text-red-700 underline underline-offset-4">
+            <SubmitButton
+              pendingLabel="Otkazujem…"
+              className="text-sm text-red-700 underline underline-offset-4"
+            >
               Otkaži ovaj termin
-            </button>
+            </SubmitButton>
             <p className="mt-1 text-sm text-slate-500">
               Otkazuje samo ovaj tjedan
               {match.series_id ? ", ne cijeli stalni termin." : "."}
@@ -316,10 +327,15 @@ export default async function MatchPage({
         <form action={deleteMatch} className="mt-10 border-t border-slate-200 pt-6">
           <input type="hidden" name="groupId" value={grupaId} />
           <input type="hidden" name="matchId" value={terminId} />
-          <button className="text-sm text-red-700 underline underline-offset-4">
+          <SubmitButton
+            pendingLabel="Brišem…"
+            className="flex h-12 w-full items-center justify-center rounded-lg border-2
+                       border-red-600 bg-white text-sm font-semibold text-red-700
+                       transition active:scale-[0.98] disabled:opacity-70"
+          >
             Obriši termin
-          </button>
-          <p className="mt-1 text-sm text-slate-500">
+          </SubmitButton>
+          <p className="mt-2 text-sm text-slate-500">
             Trajno briše termin i događaje. Rating s ovog termina se vraća
             (ako nema novijih odigranih utakmica).
           </p>
@@ -334,9 +350,12 @@ export default async function MatchPage({
           <input type="hidden" name="groupId" value={grupaId} />
           <input type="hidden" name="seriesId" value={match.series_id} />
           <input type="hidden" name="matchId" value={terminId} />
-          <button className="text-sm text-slate-700 underline underline-offset-4">
+          <SubmitButton
+            pendingLabel="…"
+            className="text-sm text-slate-700 underline underline-offset-4"
+          >
             {seriesPaused ? "Uključi stalni termin" : "Ugasi stalni termin"}
-          </button>
+          </SubmitButton>
           <p className="mt-1 text-sm text-slate-500">
             {seriesPaused
               ? "Ponovno će se stvarati tjedne pojave."
@@ -352,7 +371,8 @@ export default async function MatchPage({
             <form action={signedUp ? withdrawFromMatch : signUpForMatch}>
               <input type="hidden" name="groupId" value={grupaId} />
               <input type="hidden" name="matchId" value={terminId} />
-              <button
+              <SubmitButton
+                pendingLabel={signedUp ? "Odjavljujem…" : "Prijavljujem…"}
                 className={
                   "h-14 w-full rounded-lg text-base font-semibold transition active:scale-[0.98] " +
                   (signedUp
@@ -365,7 +385,7 @@ export default async function MatchPage({
                   : fill.freeSlots === 0
                     ? "Stavi me na listu čekanja"
                     : "Dolazim"}
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>

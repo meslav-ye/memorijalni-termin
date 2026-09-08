@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard } from "@/lib/data/leaderboard";
+import { LeaderboardTable } from "./LeaderboardTable";
 
 export default async function LeaderboardPage({
   params,
@@ -41,6 +42,22 @@ export default async function LeaderboardPage({
   }
 
   const pct = (x: number) => `${Math.round(x * 100)}%`;
+
+  const tableRows = rows.map((r) => ({
+    userId: r.userId,
+    nickname: r.nickname,
+    isGoalkeeper: r.isGoalkeeper,
+    goals: r.goals,
+    assists: r.assists,
+    ownGoals: r.ownGoals,
+    matches: r.matches,
+    goalsPerMatch: r.goalsPerMatch,
+    wins: r.wins,
+    draws: r.draws,
+    losses: r.losses,
+    winRate: r.winRate,
+    rating: r.rating,
+  }));
 
   return (
     <div>
@@ -86,55 +103,7 @@ export default async function LeaderboardPage({
         </p>
       )}
 
-      {/* Table: narrow on mobile, wider columns hide */}
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-3 py-2 text-left font-semibold">Igrač</th>
-              <th className="px-2 py-2 text-right font-semibold" title="Golovi">G</th>
-              <th className="px-2 py-2 text-right font-semibold" title="Asistencije">A</th>
-              <th className="hidden px-2 py-2 text-right font-semibold sm:table-cell" title="Autogolovi">AG</th>
-              <th className="px-2 py-2 text-right font-semibold" title="Odigrane utakmice">U</th>
-              <th className="hidden px-2 py-2 text-right font-semibold sm:table-cell" title="Golova po utakmici">G/U</th>
-              <th className="hidden px-2 py-2 text-right font-semibold md:table-cell" title="Pobjede-Neriješeno-Porazi">P-N-P</th>
-              <th className="px-2 py-2 text-right font-semibold" title="Postotak pobjeda">%</th>
-              <th className="px-3 py-2 text-right font-semibold">Rating</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.userId} className="border-b border-slate-100 last:border-0">
-                <td className="px-3 py-2">
-                  <Link
-                    href={`/grupe/${grupaId}/igrac/${r.userId}?from=ljestvica`}
-                    className="font-medium underline-offset-4 hover:underline"
-                  >
-                    {r.nickname}
-                  </Link>
-                  {r.isGoalkeeper && <span title="Igra golmana"> 🧤</span>}
-                </td>
-                <td className="px-2 py-2 text-right font-semibold tabular-nums">{r.goals}</td>
-                <td className="px-2 py-2 text-right tabular-nums">{r.assists}</td>
-                <td className="hidden px-2 py-2 text-right tabular-nums text-slate-400 sm:table-cell">
-                  {r.ownGoals || ""}
-                </td>
-                <td className="px-2 py-2 text-right tabular-nums text-slate-500">{r.matches}</td>
-                <td className="hidden px-2 py-2 text-right tabular-nums text-slate-500 sm:table-cell">
-                  {r.goalsPerMatch.toFixed(2)}
-                </td>
-                <td className="hidden px-2 py-2 text-right tabular-nums text-slate-500 md:table-cell">
-                  {r.wins}-{r.draws}-{r.losses}
-                </td>
-                <td className="px-2 py-2 text-right tabular-nums text-slate-500">
-                  {pct(r.winRate)}
-                </td>
-                <td className="px-3 py-2 text-right font-semibold tabular-nums">{r.rating}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <LeaderboardTable grupaId={grupaId} rows={tableRows} />
 
       {/* Attendance */}
       <section className="mt-8">

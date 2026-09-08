@@ -63,10 +63,17 @@ export default async function PlayerPage({
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
   const fromMembers = query.from === "clanovi";
+  const fromStats = query.from === "statistika";
   const backHref = fromMembers
     ? `/grupe/${grupaId}/clanovi`
-    : `/grupe/${grupaId}/ljestvica`;
-  const backLabel = fromMembers ? "← Natrag na članove" : "← Natrag na ljestvicu";
+    : fromStats
+      ? `/grupe/${grupaId}/statistika`
+      : `/grupe/${grupaId}/ljestvica`;
+  const backLabel = fromMembers
+    ? "← Natrag na članove"
+    : fromStats
+      ? "← Natrag na statistiku"
+      : "← Natrag na ljestvicu";
 
   return (
     <div>
@@ -99,9 +106,31 @@ export default async function PlayerPage({
       </section>
 
       {!row ? (
-        <p className="mt-6 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
-          Još nije odigrao nijednu utakmicu u ovoj grupi.
-        </p>
+        <>
+          <p className="mt-6 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
+            Još nije odigrao nijednu utakmicu u ovoj grupi.
+          </p>
+          {profile.is_goalkeeper && (
+            <section className="mt-6">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Statistika golmana
+              </h3>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: "Primljeni golovi", value: "0" },
+                  { label: "Utakmice na golu", value: "0" },
+                  { label: "Prosjek primljenih", value: "—" },
+                  { label: "Čiste mreže", value: "0" },
+                ].map((k) => (
+                  <div key={k.label} className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">{k.label}</p>
+                    <p className="mt-1 text-xl font-bold tabular-nums">{k.value}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       ) : (
         <>
           <div className="mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -122,6 +151,39 @@ export default async function PlayerPage({
               </div>
             ))}
           </div>
+
+          {profile.is_goalkeeper && (
+            <section className="mt-6">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Statistika golmana
+              </h3>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[
+                  { label: "Primljeni golovi", value: String(row.goalsAgainst) },
+                  {
+                    label: "Utakmice na golu",
+                    value: String(row.matchesAsKeeper),
+                  },
+                  {
+                    label: "Prosjek primljenih",
+                    value:
+                      row.matchesAsKeeper > 0
+                        ? (row.goalsAgainst / row.matchesAsKeeper).toFixed(2)
+                        : "—",
+                  },
+                  { label: "Čiste mreže", value: String(row.cleanSheets) },
+                ].map((k) => (
+                  <div key={k.label} className="rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">{k.label}</p>
+                    <p className="mt-1 text-xl font-bold tabular-nums">{k.value}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-sm text-slate-500">
+                Broji se samo vrijeme dok je igrač bio na golu (uključujući izmjene).
+              </p>
+            </section>
+          )}
 
           {row.longestStreak > 1 && (
             <p className="mt-3 text-sm text-slate-500">

@@ -2,11 +2,12 @@
 
 import { useActionState } from "react";
 import { requestJoin, type GroupState } from "../../actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const EMPTY: GroupState = {};
 
 export function JoinRequestButton({ kod }: { kod: string }) {
-  const [state, action, pending] = useActionState(requestJoin.bind(null, kod), EMPTY);
+  const [state, action] = useActionState(requestJoin.bind(null, kod), EMPTY);
 
   // After a successful request the button no longer makes sense.
   if (state.message) {
@@ -21,14 +22,14 @@ export function JoinRequestButton({ kod }: { kod: string }) {
 
   return (
     <form action={action} className="space-y-3">
-      <button
+      <SubmitButton
         type="submit"
-        disabled={pending}
+        pendingLabel="Šaljem…"
         className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
-        {pending ? "Šaljem…" : "Pošalji zahtjev za članstvo"}
-      </button>
+        Pošalji zahtjev za članstvo
+      </SubmitButton>
 
       {state.error && (
         <p role="alert" className="text-sm font-medium text-red-600">

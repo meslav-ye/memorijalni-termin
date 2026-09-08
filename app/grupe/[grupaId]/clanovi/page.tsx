@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rejectMember, approveMember, removeMember, changeRole } from "./actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 const SMALL_BTN =
   "h-10 rounded-lg px-3 text-sm font-medium transition active:scale-[0.97]";
@@ -83,14 +84,22 @@ export default async function MembersPage({
                   <form action={approveMember}>
                     <input type="hidden" name="groupId" value={grupaId} />
                     <input type="hidden" name="userId" value={z.user_id} />
-                    <button className={`${SMALL_BTN} bg-marka text-white`}>Odobri</button>
+                    <SubmitButton
+                      pendingLabel="…"
+                      className={`${SMALL_BTN} bg-marka text-white`}
+                    >
+                      Odobri
+                    </SubmitButton>
                   </form>
                   <form action={rejectMember}>
                     <input type="hidden" name="groupId" value={grupaId} />
                     <input type="hidden" name="userId" value={z.user_id} />
-                    <button className={`${SMALL_BTN} border border-slate-300 bg-white`}>
+                    <SubmitButton
+                      pendingLabel="…"
+                      className={`${SMALL_BTN} border border-slate-300 bg-white`}
+                    >
                       Odbij
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </li>
@@ -149,16 +158,22 @@ export default async function MembersPage({
                         name="role"
                         value={c.role === "admin" ? "member" : "admin"}
                       />
-                      <button className={`${SMALL_BTN} border border-slate-300 bg-white`}>
+                      <SubmitButton
+                        pendingLabel="…"
+                        className={`${SMALL_BTN} border border-slate-300 bg-white`}
+                      >
                         {c.role === "admin" ? "Skini admina" : "Napravi adminom"}
-                      </button>
+                      </SubmitButton>
                     </form>
                     <form action={removeMember}>
                       <input type="hidden" name="groupId" value={grupaId} />
                       <input type="hidden" name="userId" value={c.user_id} />
-                      <button className={`${SMALL_BTN} border border-red-300 bg-white text-red-700`}>
+                      <SubmitButton
+                        pendingLabel="…"
+                        className={`${SMALL_BTN} border border-red-300 bg-white text-red-700`}
+                      >
                         Izbaci
-                      </button>
+                      </SubmitButton>
                     </form>
                   </div>
                 )}

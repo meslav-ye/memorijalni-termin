@@ -4,6 +4,7 @@ import { getMembership, getUser } from "@/lib/data/user";
 import { getAppOrigin } from "@/lib/origin";
 import { InviteLink } from "./InviteLink";
 import { refreshInviteCode, saveSettings } from "./actions";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export default async function SettingsPage({
   params,
@@ -45,9 +46,12 @@ export default async function SettingsPage({
 
         <form action={refreshInviteCode} className="mt-4">
           <input type="hidden" name="groupId" value={grupaId} />
-          <button className="text-sm text-slate-500 underline underline-offset-4">
+          <SubmitButton
+            pendingLabel="…"
+            className="text-sm text-slate-500 underline underline-offset-4"
+          >
             Izdaj novi link
-          </button>
+          </SubmitButton>
           <p className="mt-1 text-sm text-slate-500">
             Stari link odmah prestaje raditi. Koristi ako je procurio izvan društva.
           </p>
@@ -99,13 +103,14 @@ export default async function SettingsPage({
             </p>
           </div>
 
-          <button
+          <SubmitButton
             type="submit"
+            pendingLabel="Spremam…"
             className="h-12 rounded-lg bg-marka px-6 text-sm font-semibold text-white
                        transition active:scale-[0.98]"
           >
             Spremi
-          </button>
+          </SubmitButton>
         </form>
       </section>
     </div>
