@@ -3,6 +3,11 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aggregateStats, aggregateAttendance } from "@/lib/domain/stats";
 import { aggregateKeeperStats } from "@/lib/domain/keepers";
+import {
+  bestGoalsAssistsInSingleGame,
+  bestGoalsInSingleGame,
+  fewestGoalsAgainstInSingleGame,
+} from "@/lib/domain/records";
 import { formatShortDate } from "@/lib/format";
 import { isMember } from "@/lib/data/user";
 import type { MatchForStats, PlayerStats, Team } from "@/lib/domain/types";
@@ -70,7 +75,7 @@ export async function getLeaderboard(
 function cachedLeaderboard(groupId: string, seasonId: string | null) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", "v6-zdravko-keeper", groupId, seasonId ?? "all"],
+    ["leaderboard", "v7-records-dates", groupId, seasonId ?? "all"],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }
@@ -341,24 +346,35 @@ function computeRecords(
 ): StatRecord[] {
   const records: StatRecord[] = [];
   const nickname = (id: string) => rows.find((r) => r.userId === id)?.nickname ?? "?";
+  const whoWithDate = (userId: string, startsAt: string | null) => {
+    const date = startsAt ? formatShortDate(startsAt) : "—";
+    return `${nickname(userId)} · ${date}`;
+  };
 
-  // Most goals by one player in a single game.
-  let bestMatch = { goals: 0, who: "" };
-  for (const t of matches) {
-    const counts = new Map<string, number>();
-    for (const e of t.events) {
-      if (e.type !== "goal" || e.deletedAt !== null || !e.scorerId) continue;
-      counts.set(e.scorerId, (counts.get(e.scorerId) ?? 0) + 1);
-    }
-    for (const [id, n] of counts) {
-      if (n > bestMatch.goals) bestMatch = { goals: n, who: nickname(id) };
-    }
-  }
-  if (bestMatch.goals > 0) {
+  const bestGoals = bestGoalsInSingleGame(matches);
+  if (bestGoals) {
     records.push({
       title: "Najviše golova na utakmici",
-      value: String(bestMatch.goals),
-      who: bestMatch.who,
+      value: String(bestGoals.value),
+      who: whoWithDate(bestGoals.userId, bestGoals.startsAt),
+    });
+  }
+
+  const bestGa = bestGoalsAssistsInSingleGame(matches);
+  if (bestGa) {
+    records.push({
+      title: "Najviše G+A",
+      value: String(bestGa.value),
+      who: whoWithDate(bestGa.userId, bestGa.startsAt),
+    });
+  }
+
+  const fewestGa = fewestGoalsAgainstInSingleGame(matches);
+  if (fewestGa) {
+    records.push({
+      title: "Najmanje primljenih na utakmici",
+      value: String(fewestGa.value),
+      who: whoWithDate(fewestGa.userId, fewestGa.startsAt),
     });
   }
 

@@ -297,6 +297,8 @@ export default async function StatsPage({
         <div className="grid gap-2 sm:grid-cols-2">
           {[
             "Najviše golova na utakmici",
+            "Najviše G+A",
+            "Najmanje primljenih na utakmici",
             "Najveća pobjeda",
             "Najviše termina zaredom",
           ].map((title) => {
