@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatShortDate } from "@/lib/format";
 import { getLeaderboard } from "@/lib/data/leaderboard";
+import { computeContributions } from "@/lib/domain/contribution";
+import { formatRatingBreakdown } from "@/lib/domain/rating-breakdown";
+import type { Team } from "@/lib/domain/types";
 
 export default async function PlayerPage({
   params,
@@ -59,6 +62,49 @@ export default async function PlayerPage({
         b.game.seq - a.game.seq,
     )
     .slice(0, 10);
+
+  const gameIds = last10.map((h) => h.game_id);
+  const [{ data: lineups }, { data: events }] =
+    gameIds.length > 0
+      ? await Promise.all([
+          supabase
+            .from("match_lineup")
+            .select("game_id, user_id, team, is_goalkeeper")
+            .in("game_id", gameIds),
+          supabase
+            .from("match_events")
+            .select("game_id, type, team, scorer_id, assist_id, elapsed_seconds, deleted_at")
+            .in("game_id", gameIds)
+            .in("type", ["goal", "own_goal", "keeper_change"]),
+        ])
+      : [{ data: [] }, { data: [] }];
+
+  const breakdownByGame = new Map<string, string>();
+  for (const h of last10) {
+    const gameLineup = (lineups ?? []).filter((p) => p.game_id === h.game_id);
+    if (gameLineup.length === 0) continue;
+    const gameEvents = (events ?? []).filter((e) => e.game_id === h.game_id);
+    const contrib = computeContributions({
+      lineup: gameLineup.map((p) => ({
+        userId: p.user_id,
+        team: p.team as Team,
+        isGoalkeeper: p.is_goalkeeper,
+      })),
+      events: gameEvents.map((e) => ({
+        type: e.type as "goal" | "own_goal" | "keeper_change",
+        team: e.team as Team | null,
+        scorerId: e.scorer_id,
+        assistId: e.assist_id,
+        elapsedSeconds: e.elapsed_seconds,
+        deletedAt: e.deleted_at,
+      })),
+    });
+    const mine = contrib.get(igracId);
+    if (!mine) continue;
+    const delta = h.rating_after - h.rating_before;
+    const eloDelta = delta - mine.clamped;
+    breakdownByGame.set(h.game_id, formatRatingBreakdown(eloDelta, mine));
+  }
 
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -182,6 +228,12 @@ export default async function PlayerPage({
               <p className="mt-2 text-sm text-slate-500">
                 Broji se samo vrijeme dok je igrač bio na golu (uključujući izmjene).
               </p>
+              {row.matches > 0 && row.matchesAsKeeper === 0 && (
+                <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  U odigranim utakmicama nisi bio označen kao golman u postavi (🧤
+                  na stranici Ekipe). Bez te oznake se primljeni golovi ne broje.
+                </p>
+              )}
             </section>
           )}
 
@@ -200,33 +252,39 @@ export default async function PlayerPage({
               <ul className="space-y-1">
                 {last10.map((h) => {
                   const delta = h.rating_after - h.rating_before;
+                  const breakdown = breakdownByGame.get(h.game_id);
                   return (
                     <li
                       key={h.game_id}
-                      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
                     >
-                      <Link
-                        href={`/grupe/${grupaId}/termin/${h.match_id}/sazetak`}
-                        className="min-w-0 flex-1 truncate underline-offset-4 hover:underline"
-                      >
-                        {formatShortDate(h.game.matches!.starts_at)}
-                        {h.game.seq > 1 ? ` · #${h.game.seq}` : ""}
-                      </Link>
-                      <span className="tabular-nums text-slate-500">
-                        {h.game.score_a} : {h.game.score_b}
-                      </span>
-                      <span
-                        className={
-                          "w-10 text-right font-semibold tabular-nums " +
-                          (delta > 0
-                            ? "text-emerald-700"
-                            : delta < 0
-                              ? "text-red-600"
-                              : "text-slate-400")
-                        }
-                      >
-                        {delta > 0 ? `+${delta}` : delta}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <Link
+                          href={`/grupe/${grupaId}/termin/${h.match_id}/sazetak`}
+                          className="min-w-0 flex-1 truncate underline-offset-4 hover:underline"
+                        >
+                          {formatShortDate(h.game.matches!.starts_at)}
+                          {h.game.seq > 1 ? ` · #${h.game.seq}` : ""}
+                        </Link>
+                        <span className="tabular-nums text-slate-500">
+                          {h.game.score_a} : {h.game.score_b}
+                        </span>
+                        <span
+                          className={
+                            "w-10 text-right font-semibold tabular-nums " +
+                            (delta > 0
+                              ? "text-emerald-700"
+                              : delta < 0
+                                ? "text-red-600"
+                                : "text-slate-400")
+                          }
+                        >
+                          {delta > 0 ? `+${delta}` : delta}
+                        </span>
+                      </div>
+                      {breakdown && (
+                        <p className="mt-1 text-xs tabular-nums text-slate-500">{breakdown}</p>
+                      )}
                     </li>
                   );
                 })}

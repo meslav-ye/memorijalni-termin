@@ -178,6 +178,35 @@ export default async function SummaryPage({
         </h2>
       </header>
 
+      {gameBlocks.length > 0 && (
+        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Kako se računa rating
+          </h3>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>
+              Prvo <strong>timski Elo</strong> — svi u ekipi dobiju isti pomak za
+              pobjedu, poraz ili neriješeno (ne ovisi o razlici golova).
+            </li>
+            <li>
+              Zatim <strong>osobni doprinos</strong>: gol +2, asistencija +1, autogol −1;
+              golman po broju primljenih dok je na golu; cijela ekipa −⌊primljenih/4⌋
+              (najviše −3).
+            </li>
+            <li>
+              Zbroj doprinosa je ograničen na <strong>±6</strong>. Ukupno:{" "}
+              <span className="font-medium text-slate-800">
+                prije + Elo + doprinos
+              </span>
+              .
+            </li>
+          </ul>
+          <p className="mt-2 text-slate-500">
+            Broj uz ime igrača je ukupna promjena ratinga u toj utakmici.
+          </p>
+        </section>
+      )}
+
       {gameBlocks.length === 0 ? (
         <p className="mt-6 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
           Termin je završen bez odigrane utakmice.
@@ -312,11 +341,6 @@ function TeamColumn({
                 className={
                   "shrink-0 min-w-10 text-right text-xs font-semibold tabular-nums " +
                   (i.delta > 0 ? "text-emerald-700" : i.delta < 0 ? "text-red-600" : "text-slate-400")
-                }
-                title={
-                  i.eloDelta !== null
-                    ? `Elo ${fmt(i.eloDelta)} · doprinos ${fmt(i.contribution)} · rating ${i.rating}`
-                    : `Rating: ${i.rating}`
                 }
               >
                 {fmt(i.delta)}

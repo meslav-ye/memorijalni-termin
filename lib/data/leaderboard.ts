@@ -70,7 +70,7 @@ export async function getLeaderboard(
 function cachedLeaderboard(groupId: string, seasonId: string | null) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", "v4-played-only", groupId, seasonId ?? "all"],
+    ["leaderboard", "v6-zdravko-keeper", groupId, seasonId ?? "all"],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }
