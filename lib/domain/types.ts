@@ -48,6 +48,8 @@ export type SuggestedTeams = {
 export type MatchTimerState = {
   startedAt: string | null;
   pausedAt: string | null;
+  /** When set, the clock freezes here (finished game). Takes priority over pausedAt. */
+  endedAt?: string | null;
   totalPausedSeconds: number;
 };
 

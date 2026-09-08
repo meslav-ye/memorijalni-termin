@@ -124,6 +124,7 @@ export function LiveScreen({
       gameSeq: game.seq,
       startedAt: game.started_at,
       pausedAt: game.paused_at,
+      endedAt: game.ended_at,
       totalPausedSeconds: game.total_paused_seconds,
     });
 
@@ -348,6 +349,13 @@ export function LiveScreen({
     }
     setConfirmFinish(false);
     setPendingAssist(null);
+    // Freeze the clock immediately; refresh will confirm ended_at from the server.
+    setState((s) => ({
+      ...s,
+      gameStatus: "zavrsena",
+      endedAt: s.pausedAt ?? new Date().toISOString(),
+      pausedAt: null,
+    }));
     await afterChange();
   }
 

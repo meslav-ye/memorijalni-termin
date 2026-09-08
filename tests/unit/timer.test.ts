@@ -57,14 +57,30 @@ describe("elapsedSeconds", () => {
     ).toBe(0);
   });
 
-  it("dva uredjaja spojena u razlicito vrijeme vide isti broj", () => {
-    // Ovo je razlog zasto se stoperica izvodi iz vremena SERVERA, a ne broji
-    // lokalno: onaj tko otvori ekran u 23. minuti mora vidjeti 23, ne 0.
-    const stanje = { startedAt: T0, pausedAt: null, totalPausedSeconds: 0 };
-    const trenutak = new Date("2026-09-08T18:23:14.000Z");
+  it("stoji nakon zavrsetka utakmice", () => {
+    const stanje = {
+      startedAt: T0,
+      pausedAt: null,
+      endedAt: "2026-09-08T18:20:00.000Z",
+      totalPausedSeconds: 0,
+    };
+    expect(elapsedSeconds(stanje, new Date("2026-09-08T18:20:30.000Z"))).toBe(1200);
+    expect(elapsedSeconds(stanje, new Date("2026-09-08T19:00:00.000Z"))).toBe(1200);
+  });
 
-    expect(elapsedSeconds(stanje, trenutak)).toBe(elapsedSeconds(stanje, trenutak));
-    expect(elapsedSeconds(stanje, trenutak)).toBe(1394);
+  it("zavrsena utakmica ima prednost nad pauzom za kraj brojanja", () => {
+    // endedAt wins; finish-while-paused should set endedAt to the pause moment.
+    expect(
+      elapsedSeconds(
+        {
+          startedAt: T0,
+          pausedAt: "2026-09-08T18:05:00.000Z",
+          endedAt: "2026-09-08T18:05:00.000Z",
+          totalPausedSeconds: 0,
+        },
+        new Date("2026-09-08T18:40:00.000Z"),
+      ),
+    ).toBe(300);
   });
 });
 

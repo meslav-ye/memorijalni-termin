@@ -21,18 +21,24 @@ const currentSecond = () => Math.floor(Date.now() / 1000);
 
 /**
  * The stopwatch is NOT sent over the network. Each device computes it from
- * started_at / paused_at / total_paused_seconds set by the server — so
- * everyone shows the same time, including someone who joins in minute 23.
+ * started_at / paused_at / ended_at / total_paused_seconds set by the server —
+ * so everyone shows the same time, including someone who joins in minute 23.
  */
 export function Stopwatch({ state }: { state: MatchTimerState }) {
+  const frozen = Boolean(state.endedAt || state.pausedAt);
+
   const second = useSyncExternalStore(
-    subscribeToTicks,
+    frozen ? () => () => {} : subscribeToTicks,
     currentSecond,
     // No clock on the server or during hydration; the first tick fixes the display.
     () => 0,
   );
 
-  const elapsed = second === 0 ? 0 : elapsedSeconds(state, new Date(second * 1000));
+  const elapsed = frozen
+    ? elapsedSeconds(state, new Date())
+    : second === 0
+      ? 0
+      : elapsedSeconds(state, new Date(second * 1000));
 
   return (
     <div
@@ -41,7 +47,7 @@ export function Stopwatch({ state }: { state: MatchTimerState }) {
       aria-label="Proteklo vrijeme"
     >
       {formatClock(elapsed)}
-      {state.pausedAt && (
+      {state.pausedAt && !state.endedAt && (
         <span className="ml-3 align-middle text-base font-semibold text-amber-600">
           PAUZA
         </span>

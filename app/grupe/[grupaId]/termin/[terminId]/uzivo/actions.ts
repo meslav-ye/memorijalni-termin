@@ -436,11 +436,15 @@ export async function finishGame(groupId: string, matchId: string): Promise<Acti
 
   await refreshScore(game.id);
 
+  // Freeze the clock at pause time if already paused; otherwise at finish click.
+  // Clearing paused_at without ended_at would let the stopwatch keep running.
+  const endedAt = game.paused_at ?? new Date().toISOString();
+
   const { error } = await ctx.supabase
     .from("games")
     .update({
       status: "zavrsena",
-      ended_at: new Date().toISOString(),
+      ended_at: endedAt,
       paused_at: null,
     })
     .eq("id", game.id);

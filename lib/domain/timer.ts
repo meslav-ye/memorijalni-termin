@@ -3,15 +3,17 @@ import type { MatchTimerState } from "./types";
 /**
  * Proteklo vrijeme utakmice u sekundama.
  *
- * Izvodi se iz vremena SERVERA (started_at, paused_at, total_paused_seconds),
- * a ne broji lokalno. Zato svaki uredjaj — i onaj koji se spojio u 23. minuti —
- * pokazuje isti broj, bez ikakve sinkronizacije preko mreze.
+ * Izvodi se iz vremena SERVERA (started_at, paused_at, ended_at,
+ * total_paused_seconds), a ne broji lokalno. Zato svaki uredjaj — i onaj koji
+ * se spojio u 23. minuti — pokazuje isti broj, bez ikakve sinkronizacije
+ * preko mreze.
  */
 export function elapsedSeconds(state: MatchTimerState, now: Date): number {
   if (!state.startedAt) return 0;
 
   const pocetak = new Date(state.startedAt).getTime();
-  const kraj = state.pausedAt ? new Date(state.pausedAt).getTime() : now.getTime();
+  const freezeAt = state.endedAt ?? state.pausedAt;
+  const kraj = freezeAt ? new Date(freezeAt).getTime() : now.getTime();
   const sirovo = Math.floor((kraj - pocetak) / 1000) - state.totalPausedSeconds;
 
   return Math.max(0, sirovo);

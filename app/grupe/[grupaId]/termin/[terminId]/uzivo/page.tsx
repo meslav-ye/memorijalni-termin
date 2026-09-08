@@ -102,6 +102,7 @@ export default async function LivePage({
           gameSeq: game.seq,
           startedAt: game.started_at,
           pausedAt: game.paused_at,
+          endedAt: game.ended_at,
           totalPausedSeconds: game.total_paused_seconds,
         }}
         teamAName={teamDisplayName("A", game.team_a_name)}
