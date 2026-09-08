@@ -62,14 +62,19 @@ function TeamColumn({
             key={p.userId}
             className={
               "flex items-center gap-1 rounded-lg border p-1 pl-2 " +
-              // Goalkeeper must be obvious at a glance, not only after
-              // inspecting the icon — so the whole row is colored.
               (p.isGoalkeeper
                 ? "border-emerald-400 bg-emerald-50 ring-1 ring-emerald-400/40"
                 : teamPanelClass(team))
             }
           >
-            <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.nickname}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+              {p.nickname}
+              {p.isGoalkeeper && (
+                <span className="ml-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                  · Golman
+                </span>
+              )}
+            </span>
 
             {p.profileIsGoalkeeper && goalkeeperEditable && (
               <form action={setGoalkeeper}>
@@ -83,7 +88,9 @@ function TeamColumn({
                   aria-label={p.isGoalkeeper ? "Skini oznaku golmana" : "Postavi za golmana"}
                   className={
                     "h-9 w-9 rounded text-base transition active:scale-95 " +
-                    (p.isGoalkeeper ? "bg-emerald-100" : "opacity-30 hover:opacity-70")
+                    (p.isGoalkeeper
+                      ? "bg-emerald-200 ring-1 ring-emerald-500"
+                      : "bg-white/70 opacity-50 hover:opacity-100")
                   }
                 >
                   🧤
@@ -91,7 +98,18 @@ function TeamColumn({
               </form>
             )}
             {p.isGoalkeeper && !goalkeeperEditable && (
-              <span className="flex h-9 w-9 items-center justify-center rounded bg-emerald-100 text-base" title="Golman">
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded bg-emerald-200 text-base ring-1 ring-emerald-500"
+                title="Golman"
+              >
+                🧤
+              </span>
+            )}
+            {!p.isGoalkeeper && p.profileIsGoalkeeper && !goalkeeperEditable && (
+              <span
+                className="flex h-9 w-9 items-center justify-center text-base opacity-30"
+                title="Igra golmana na profilu"
+              >
                 🧤
               </span>
             )}
@@ -356,6 +374,13 @@ export default async function TeamsPage({
 
       <p className="mt-4 text-center text-sm text-slate-500">
         Ekipe smije mijenjati bilo tko iz grupe.
+        {hasLineup && (
+          <>
+            {" "}
+            Zeleni red · Golman / 🧤 je na golu (s profila „Igram golmana“, po jedan u
+            ekipu).
+          </>
+        )}
       </p>
     </div>
   );
