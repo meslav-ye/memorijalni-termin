@@ -7,7 +7,7 @@ import { formatClock } from "@/lib/domain/timer";
 import type { Team } from "@/lib/domain/types";
 import { ShareButton } from "./ShareButton";
 
-export default async function StranicaSazetka({
+export default async function SummaryPage({
   params,
 }: PageProps<"/grupe/[grupaId]/termin/[terminId]/sazetak">) {
   const { grupaId, terminId } = await params;
@@ -16,35 +16,35 @@ export default async function StranicaSazetka({
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await getMembership(grupaId);
-  if (clanstvo?.status !== "active") notFound();
+  const membership = await getMembership(grupaId);
+  if (membership?.status !== "active") notFound();
 
-  const { data: termin } = await supabase
+  const { data: match } = await supabase
     .from("matches")
     .select(
       "id, status, starts_at, score_a, score_b, started_at, ended_at, total_paused_seconds, location_text, locations(name)",
     )
     .eq("id", terminId)
     .maybeSingle();
-  if (!termin) notFound();
+  if (!match) notFound();
 
-  if (termin.status !== "zavrsen") {
+  if (match.status !== "zavrsen") {
     redirect(`/grupe/${grupaId}/termin/${terminId}`);
   }
 
-  const { data: postava } = await supabase
+  const { data: lineup } = await supabase
     .from("match_lineup")
     .select("user_id, team")
     .eq("match_id", terminId);
 
-  const idevi = (postava ?? []).map((p) => p.user_id);
+  const ids = (lineup ?? []).map((p) => p.user_id);
 
-  const { data: profili } = await supabase
+  const { data: profiles } = await supabase
     .from("profiles")
     .select("id, nickname")
-    .in("id", idevi.length ? idevi : ["-"]);
+    .in("id", ids.length ? ids : ["-"]);
 
-  const { data: dogadjaji } = await supabase
+  const { data: events } = await supabase
     .from("match_events")
     .select("type, team, scorer_id, assist_id, elapsed_seconds")
     .eq("match_id", terminId)
@@ -52,56 +52,56 @@ export default async function StranicaSazetka({
     .in("type", ["goal", "own_goal"])
     .order("elapsed_seconds");
 
-  const { data: povijest } = await supabase
+  const { data: history } = await supabase
     .from("rating_history")
     .select("user_id, rating_before, rating_after")
     .eq("match_id", terminId);
 
-  const nadimak = (id: string | null) =>
-    profili?.find((p) => p.id === id)?.nickname || "?";
+  const nicknameOf = (id: string | null) =>
+    profiles?.find((p) => p.id === id)?.nickname || "?";
 
-  const golovi = dogadjaji ?? [];
+  const goals = events ?? [];
 
-  const igraci = (postava ?? []).map((p) => {
-    const zapis = povijest?.find((r) => r.user_id === p.user_id);
+  const players = (lineup ?? []).map((p) => {
+    const record = history?.find((r) => r.user_id === p.user_id);
     return {
       userId: p.user_id,
-      nadimak: nadimak(p.user_id),
+      nickname: nicknameOf(p.user_id),
       team: p.team as Team,
-      golovi: golovi.filter((e) => e.type === "goal" && e.scorer_id === p.user_id).length,
-      asistencije: golovi.filter((e) => e.assist_id === p.user_id).length,
-      autogolovi: golovi.filter((e) => e.type === "own_goal" && e.scorer_id === p.user_id).length,
-      pomak: zapis ? zapis.rating_after - zapis.rating_before : null,
-      rating: zapis?.rating_after ?? null,
+      goals: goals.filter((e) => e.type === "goal" && e.scorer_id === p.user_id).length,
+      assists: goals.filter((e) => e.assist_id === p.user_id).length,
+      ownGoals: goals.filter((e) => e.type === "own_goal" && e.scorer_id === p.user_id).length,
+      delta: record ? record.rating_after - record.rating_before : null,
+      rating: record?.rating_after ?? null,
     };
   });
 
-  const pobjednik =
-    termin.score_a > termin.score_b ? "A" : termin.score_b > termin.score_a ? "B" : null;
+  const winner =
+    match.score_a > match.score_b ? "A" : match.score_b > match.score_a ? "B" : null;
 
-  const trajanje =
-    termin.started_at && termin.ended_at
+  const duration =
+    match.started_at && match.ended_at
       ? Math.max(
           0,
           Math.floor(
-            (new Date(termin.ended_at).getTime() - new Date(termin.started_at).getTime()) / 1000,
-          ) - termin.total_paused_seconds,
+            (new Date(match.ended_at).getTime() - new Date(match.started_at).getTime()) / 1000,
+          ) - match.total_paused_seconds,
         )
       : null;
 
-  const lokacija = termin.locations?.name ?? termin.location_text ?? "";
+  const location = match.locations?.name ?? match.location_text ?? "";
 
-  // Tekst za WhatsApp: kratak, citljiv i bez linkova koji se lome.
-  const strijelci = igraci
-    .filter((i) => i.golovi > 0)
-    .sort((a, b) => b.golovi - a.golovi)
-    .map((i) => `${i.nadimak} ${i.golovi}`)
+  // WhatsApp text: short, readable, no links that break.
+  const scorers = players
+    .filter((i) => i.goals > 0)
+    .sort((a, b) => b.goals - a.goals)
+    .map((i) => `${i.nickname} ${i.goals}`)
     .join(", ");
 
-  const tekstZaDijeljenje = [
-    `Termin ${formatShortDate(termin.starts_at)}${lokacija ? `, ${lokacija}` : ""}`,
-    `Ekipa A ${termin.score_a} : ${termin.score_b} Ekipa B`,
-    strijelci ? `⚽ ${strijelci}` : "Bez golova.",
+  const shareText = [
+    `Termin ${formatShortDate(match.starts_at)}${location ? `, ${location}` : ""}`,
+    `Ekipa A ${match.score_a} : ${match.score_b} Ekipa B`,
+    scorers ? `⚽ ${scorers}` : "Bez golova.",
   ].join("\n");
 
   return (
@@ -114,7 +114,7 @@ export default async function StranicaSazetka({
       </Link>
 
       <header className="mt-4 text-center">
-        <p className="text-sm text-slate-500">{formatMatchDateTime(termin.starts_at)}</p>
+        <p className="text-sm text-slate-500">{formatMatchDateTime(match.starts_at)}</p>
 
         <div className="mt-3 rounded-xl bg-marka p-5 text-white">
           <div className="flex items-center justify-center gap-4">
@@ -122,7 +122,7 @@ export default async function StranicaSazetka({
               Ekipa A
             </span>
             <span className="text-4xl font-bold tabular-nums">
-              {termin.score_a} : {termin.score_b}
+              {match.score_a} : {match.score_b}
             </span>
             <span className="flex-1 text-left text-sm font-semibold uppercase text-slate-400">
               Ekipa B
@@ -130,24 +130,24 @@ export default async function StranicaSazetka({
           </div>
 
           <p className="mt-2 text-sm text-slate-400">
-            {pobjednik ? `Pobijedila Ekipa ${pobjednik}` : "Neriješeno"}
-            {trajanje !== null && ` · ${formatClock(trajanje)}`}
+            {winner ? `Pobijedila Ekipa ${winner}` : "Neriješeno"}
+            {duration !== null && ` · ${formatClock(duration)}`}
           </p>
         </div>
       </header>
 
       <section className="mt-6 flex gap-3">
-        <Kolona strana="A" igraci={igraci} pobjednik={pobjednik} />
-        <Kolona strana="B" igraci={igraci} pobjednik={pobjednik} />
+        <TeamColumn side="A" players={players} winner={winner} />
+        <TeamColumn side="B" players={players} winner={winner} />
       </section>
 
-      {golovi.length > 0 && (
+      {goals.length > 0 && (
         <section className="mt-8">
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
             Kronologija
           </h3>
           <ul className="space-y-1">
-            {golovi.map((e, i) => (
+            {goals.map((e, i) => (
               <li
                 key={i}
                 className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -157,8 +157,10 @@ export default async function StranicaSazetka({
                 </span>
                 <span className="min-w-0 flex-1">
                   {e.type === "goal" ? "⚽ " : "🥅 "}
-                  <span className="font-medium">{nadimak(e.scorer_id)}</span>
-                  {e.assist_id && <span className="text-slate-500"> ({nadimak(e.assist_id)})</span>}
+                  <span className="font-medium">{nicknameOf(e.scorer_id)}</span>
+                  {e.assist_id && (
+                    <span className="text-slate-500"> ({nicknameOf(e.assist_id)})</span>
+                  )}
                   {e.type === "own_goal" && <span className="text-slate-500"> — autogol</span>}
                 </span>
                 <span className="shrink-0 text-xs font-semibold text-slate-400">{e.team}</span>
@@ -169,68 +171,68 @@ export default async function StranicaSazetka({
       )}
 
       <section className="mt-8">
-        <ShareButton tekst={tekstZaDijeljenje} />
+        <ShareButton text={shareText} />
       </section>
     </div>
   );
 }
 
-type IgracSazetka = {
+type SummaryPlayer = {
   userId: string;
-  nadimak: string;
+  nickname: string;
   team: Team;
-  golovi: number;
-  asistencije: number;
-  autogolovi: number;
-  pomak: number | null;
+  goals: number;
+  assists: number;
+  ownGoals: number;
+  delta: number | null;
   rating: number | null;
 };
 
-/** Izvan komponente stranice: unutra bi se stvarala iznova pri svakom renderu. */
-function Kolona({
-  strana,
-  igraci,
-  pobjednik,
+/** Outside the page component: inside it would be recreated on every render. */
+function TeamColumn({
+  side,
+  players,
+  winner,
 }: {
-  strana: Team;
-  igraci: IgracSazetka[];
-  pobjednik: Team | null;
+  side: Team;
+  players: SummaryPlayer[];
+  winner: Team | null;
 }) {
-  const clanovi = igraci.filter((i) => i.team === strana);
-  const pobijedila = pobjednik === strana;
+  const members = players.filter((i) => i.team === side);
+  const won = winner === side;
 
   return (
-      <div className="flex-1">
-        <h3 className="mb-2 font-bold">
-          Ekipa {strana}
-          {pobijedila && <span className="ml-2 text-sm font-semibold text-emerald-700">✓</span>}
-        </h3>
-        <ul className="space-y-1">
-          {clanovi.map((i) => (
-            <li
-              key={i.userId}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              <span className="min-w-0 flex-1 truncate font-medium">{i.nadimak}</span>
+    <div className="flex-1">
+      <h3 className="mb-2 font-bold">
+        Ekipa {side}
+        {won && <span className="ml-2 text-sm font-semibold text-emerald-700">✓</span>}
+      </h3>
+      <ul className="space-y-1">
+        {members.map((i) => (
+          <li
+            key={i.userId}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+          >
+            <span className="min-w-0 flex-1 truncate font-medium">{i.nickname}</span>
 
-              {i.golovi > 0 && <span className="shrink-0 text-slate-500">⚽{i.golovi}</span>}
-              {i.asistencije > 0 && <span className="shrink-0 text-slate-400">🅰{i.asistencije}</span>}
-              {i.autogolovi > 0 && <span className="shrink-0 text-red-500">🥅{i.autogolovi}</span>}
+            {i.goals > 0 && <span className="shrink-0 text-slate-500">⚽{i.goals}</span>}
+            {i.assists > 0 && <span className="shrink-0 text-slate-400">🅰{i.assists}</span>}
+            {i.ownGoals > 0 && <span className="shrink-0 text-red-500">🥅{i.ownGoals}</span>}
 
-              {i.pomak !== null && (
-                <span
-                  className={
-                    "shrink-0 w-10 text-right text-xs font-semibold tabular-nums " +
-                    (i.pomak > 0 ? "text-emerald-700" : i.pomak < 0 ? "text-red-600" : "text-slate-400")
-                  }
-                  title={`Rating: ${i.rating}`}
-                >
-                  {i.pomak > 0 ? `+${i.pomak}` : i.pomak}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
+            {i.delta !== null && (
+              <span
+                className={
+                  "shrink-0 w-10 text-right text-xs font-semibold tabular-nums " +
+                  (i.delta > 0 ? "text-emerald-700" : i.delta < 0 ? "text-red-600" : "text-slate-400")
+                }
+                title={`Rating: ${i.rating}`}
+              >
+                {i.delta > 0 ? `+${i.delta}` : i.delta}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

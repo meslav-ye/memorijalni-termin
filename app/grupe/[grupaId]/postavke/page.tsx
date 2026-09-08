@@ -5,7 +5,7 @@ import { getAppOrigin } from "@/lib/origin";
 import { InviteLink } from "./InviteLink";
 import { refreshInviteCode, saveSettings } from "./actions";
 
-export default async function StranicaPostavki({
+export default async function SettingsPage({
   params,
 }: PageProps<"/grupe/[grupaId]/postavke">) {
   const { grupaId } = await params;
@@ -14,18 +14,18 @@ export default async function StranicaPostavki({
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await getMembership(grupaId);
+  const membership = await getMembership(grupaId);
 
-  // Postavke su iskljucivo adminove. Obicnom clanu se ponasa kao da ne postoje.
-  if (clanstvo?.role !== "admin" || clanstvo.status !== "active") notFound();
+  // Settings are admin-only. To a regular member they behave as if missing.
+  if (membership?.role !== "admin" || membership.status !== "active") notFound();
 
-  const { data: grupa } = await supabase
+  const { data: group } = await supabase
     .from("groups")
     .select("id, name, default_capacity, invite_code")
     .eq("id", grupaId)
     .maybeSingle();
 
-  if (!grupa) notFound();
+  if (!group) notFound();
 
   return (
     <div className="space-y-10">
@@ -39,12 +39,12 @@ export default async function StranicaPostavki({
         </p>
 
         <InviteLink
-          link={`${await getAppOrigin()}/grupe/pridruzi/${grupa.invite_code}`}
-          nazivGrupe={grupa.name}
+          link={`${await getAppOrigin()}/grupe/pridruzi/${group.invite_code}`}
+          groupName={group.name}
         />
 
         <form action={refreshInviteCode} className="mt-4">
-          <input type="hidden" name="grupaId" value={grupaId} />
+          <input type="hidden" name="groupId" value={grupaId} />
           <button className="text-sm text-slate-500 underline underline-offset-4">
             Izdaj novi link
           </button>
@@ -60,7 +60,7 @@ export default async function StranicaPostavki({
         </h2>
 
         <form action={saveSettings} className="space-y-5">
-          <input type="hidden" name="grupaId" value={grupaId} />
+          <input type="hidden" name="groupId" value={grupaId} />
 
           <div className="space-y-2">
             <label htmlFor="naziv" className="block text-sm font-medium text-slate-700">
@@ -69,7 +69,7 @@ export default async function StranicaPostavki({
             <input
               id="naziv"
               name="naziv"
-              defaultValue={grupa.name}
+              defaultValue={group.name}
               required
               minLength={2}
               maxLength={60}
@@ -87,7 +87,7 @@ export default async function StranicaPostavki({
               name="kvota"
               type="number"
               inputMode="numeric"
-              defaultValue={grupa.default_capacity}
+              defaultValue={group.default_capacity}
               min={2}
               max={30}
               required

@@ -6,10 +6,10 @@ import { createGroup, type GroupState } from "../actions";
 const EMPTY: GroupState = {};
 
 export function NewGroupForm() {
-  const [stanje, akcija, ceka] = useActionState(createGroup, EMPTY);
+  const [state, action, pending] = useActionState(createGroup, EMPTY);
 
   return (
-    <form action={akcija} className="space-y-6">
+    <form action={action} className="space-y-6">
       <div className="space-y-2">
         <label htmlFor="naziv" className="block text-sm font-medium text-slate-700">
           Naziv grupe
@@ -55,16 +55,16 @@ export function NewGroupForm() {
 
       <button
         type="submit"
-        disabled={ceka}
+        disabled={pending}
         className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
-        {ceka ? "Otvaram…" : "Otvori grupu"}
+        {pending ? "Otvaram…" : "Otvori grupu"}
       </button>
 
-      {stanje.error && (
+      {state.error && (
         <p role="alert" className="text-sm font-medium text-red-600">
-          {stanje.error}
+          {state.error}
         </p>
       )}
     </form>

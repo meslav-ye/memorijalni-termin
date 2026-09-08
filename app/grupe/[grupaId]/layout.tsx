@@ -4,31 +4,31 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { GroupTabs } from "./Tabs";
 
-export default async function LayoutGrupe({
+export default async function GroupLayout({
   children,
   params,
 }: LayoutProps<"/grupe/[grupaId]">) {
   const { grupaId } = await params;
 
-  // Korisnik i clanstvo idu kroz cache() — stranica ispod pita isto,
-  // a ovako se prema bazi ode samo jednom po zahtjevu.
-  const korisnik = await getUser();
-  if (!korisnik) redirect("/prijava");
+  // User and membership go through cache() — the page below asks for the
+  // same data, so this way we hit the DB only once per request.
+  const user = await getUser();
+  if (!user) redirect("/prijava");
 
   const supabase = await createClient();
 
-  // RLS vec ogranicava vidljivost na grupe cijim si aktivnim clanom,
-  // pa prazan rezultat znaci "nisi clan" jednako kao i "ne postoji".
-  const { data: grupa } = await supabase
+  // RLS already limits visibility to groups you are an active member of,
+  // so an empty result means "not a member" the same as "does not exist".
+  const { data: group } = await supabase
     .from("groups")
     .select("id, name")
     .eq("id", grupaId)
     .maybeSingle();
 
-  if (!grupa) notFound();
+  if (!group) notFound();
 
-  const clanstvo = await getMembership(grupaId);
-  const admin = clanstvo?.role === "admin" && clanstvo.status === "active";
+  const membership = await getMembership(grupaId);
+  const admin = membership?.role === "admin" && membership.status === "active";
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-5 py-8">
@@ -40,7 +40,7 @@ export default async function LayoutGrupe({
           >
             ← Moje grupe
           </Link>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight">{grupa.name}</h1>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight">{group.name}</h1>
         </div>
         <Link
           href="/profil"

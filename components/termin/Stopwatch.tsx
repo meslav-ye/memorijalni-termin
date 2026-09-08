@@ -36,7 +36,7 @@ export function Stopwatch({ state }: { state: MatchTimerState }) {
 
   return (
     <div
-      className="stoperica text-5xl font-bold tabular-nums"
+      className="stopwatch text-5xl font-bold tabular-nums"
       role="timer"
       aria-label="Proteklo vrijeme"
     >

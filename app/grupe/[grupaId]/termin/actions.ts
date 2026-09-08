@@ -92,8 +92,8 @@ export async function createMatch(
 }
 
 export async function signUpForMatch(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const matchId = String(formData.get("terminId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
 
   const ctx = await membership(groupId);
   if (!ctx) return;
@@ -123,8 +123,8 @@ export async function signUpForMatch(formData: FormData) {
 }
 
 export async function withdrawFromMatch(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const matchId = String(formData.get("terminId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
 
   const ctx = await membership(groupId);
   if (!ctx) return;
@@ -146,8 +146,8 @@ export async function withdrawFromMatch(formData: FormData) {
  * meant as "reshuffle", so every call produces a clean proposal.
  */
 export async function proposeTeams(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const matchId = String(formData.get("terminId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
 
   const ctx = await membership(groupId);
   if (!ctx) return;
@@ -226,9 +226,9 @@ export async function proposeTeams(formData: FormData) {
 }
 
 export async function movePlayer(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const matchId = String(formData.get("terminId") ?? "");
-  const userId = String(formData.get("korisnikId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
   const team = String(formData.get("ekipa") ?? "");
 
   if (team !== "A" && team !== "B") return;
@@ -247,9 +247,9 @@ export async function movePlayer(formData: FormData) {
 }
 
 export async function setGoalkeeper(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const matchId = String(formData.get("terminId") ?? "");
-  const userId = String(formData.get("korisnikId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
   const team = String(formData.get("ekipa") ?? "");
 
   if (team !== "A" && team !== "B") return;
@@ -286,8 +286,8 @@ export async function setGoalkeeper(formData: FormData) {
 }
 
 export async function cancelMatch(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const matchId = String(formData.get("terminId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
 
   const ctx = await membership(groupId);
   if (!ctx?.admin) return;

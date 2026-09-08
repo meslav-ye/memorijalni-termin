@@ -32,8 +32,8 @@ async function requireAdmin(groupId: string) {
 }
 
 export async function approveMember(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const userId = String(formData.get("korisnikId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
 
   const ctx = await requireAdmin(groupId);
   if (!ctx) return;
@@ -60,8 +60,8 @@ export async function approveMember(formData: FormData) {
 }
 
 export async function rejectMember(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const userId = String(formData.get("korisnikId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
 
   const ctx = await requireAdmin(groupId);
   if (!ctx) return;
@@ -78,8 +78,8 @@ export async function rejectMember(formData: FormData) {
 }
 
 export async function removeMember(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const userId = String(formData.get("korisnikId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
 
   const ctx = await requireAdmin(groupId);
   if (!ctx) return;
@@ -98,9 +98,9 @@ export async function removeMember(formData: FormData) {
 }
 
 export async function changeRole(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
-  const userId = String(formData.get("korisnikId") ?? "");
-  const newRole = String(formData.get("uloga") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
+  const userId = String(formData.get("userId") ?? "");
+  const newRole = String(formData.get("role") ?? "");
 
   if (newRole !== "admin" && newRole !== "member") return;
 

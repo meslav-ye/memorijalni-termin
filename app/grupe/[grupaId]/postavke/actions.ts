@@ -23,7 +23,7 @@ async function requireAdmin(groupId: string) {
 }
 
 export async function saveSettings(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
   const name = String(formData.get("naziv") ?? "").trim();
   const capacity = Number(formData.get("kvota") ?? 10);
 
@@ -46,7 +46,7 @@ export async function saveSettings(formData: FormData) {
  * the point: use this when a code has leaked outside the group.
  */
 export async function refreshInviteCode(formData: FormData) {
-  const groupId = String(formData.get("grupaId") ?? "");
+  const groupId = String(formData.get("groupId") ?? "");
 
   const supabase = await requireAdmin(groupId);
   if (!supabase) return;

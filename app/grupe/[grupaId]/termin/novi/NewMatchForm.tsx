@@ -5,39 +5,39 @@ import { createMatch, type MatchFormState } from "../actions";
 
 const EMPTY: MatchFormState = {};
 
-const POLJE =
+const FIELD =
   "w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base " +
   "focus:border-marka focus:outline-none focus:ring-2 focus:ring-marka/20";
 
-type Lokacija = { id: string; name: string };
+type LocationOption = { id: string; name: string };
 
 export function NewMatchForm({
   grupaId,
-  lokacije,
-  zadanaKvota,
-  zadaniMin,
+  locations,
+  defaultCapacity,
+  defaultMin,
 }: {
   grupaId: string;
-  lokacije: Lokacija[];
-  zadanaKvota: number;
-  zadaniMin: number;
+  locations: LocationOption[];
+  defaultCapacity: number;
+  defaultMin: number;
 }) {
-  const [stanje, akcija, ceka] = useActionState(
+  const [state, action, pending] = useActionState(
     createMatch.bind(null, grupaId),
     EMPTY,
   );
 
-  // Ako grupa jos nema spremljenih lokacija, odmah nudimo slobodan unos.
-  const [drugaLokacija, postaviDrugu] = useState(lokacije.length === 0);
+  // If the group has no saved locations yet, offer free-text input immediately.
+  const [otherLocation, setOtherLocation] = useState(locations.length === 0);
 
   return (
-    <form action={akcija} className="space-y-6">
+    <form action={action} className="space-y-6">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <label htmlFor="datum" className="block text-sm font-medium text-slate-700">
             Datum
           </label>
-          <input id="datum" name="datum" type="date" required className={POLJE} />
+          <input id="datum" name="datum" type="date" required className={FIELD} />
         </div>
         <div className="space-y-2">
           <label htmlFor="vrijeme" className="block text-sm font-medium text-slate-700">
@@ -49,7 +49,7 @@ export function NewMatchForm({
             type="time"
             defaultValue="20:00"
             required
-            className={POLJE}
+            className={FIELD}
           />
         </div>
       </div>
@@ -59,15 +59,15 @@ export function NewMatchForm({
           Lokacija
         </label>
 
-        {lokacije.length > 0 && (
+        {locations.length > 0 && (
           <select
             id="lokacija"
             name="lokacija"
-            className={POLJE}
-            defaultValue={lokacije[0]?.id}
-            onChange={(e) => postaviDrugu(e.target.value === "")}
+            className={FIELD}
+            defaultValue={locations[0]?.id}
+            onChange={(e) => setOtherLocation(e.target.value === "")}
           >
-            {lokacije.map((l) => (
+            {locations.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
               </option>
@@ -76,13 +76,13 @@ export function NewMatchForm({
           </select>
         )}
 
-        {drugaLokacija && (
+        {otherLocation && (
           <input
             name="lokacijaTekst"
             type="text"
             placeholder="npr. Dvorana Trnje"
             required
-            className={POLJE}
+            className={FIELD}
             aria-label="Upiši lokaciju"
           />
         )}
@@ -98,11 +98,11 @@ export function NewMatchForm({
             name="minIgraca"
             type="number"
             inputMode="numeric"
-            defaultValue={zadaniMin}
+            defaultValue={defaultMin}
             min={2}
             max={30}
             required
-            className={POLJE}
+            className={FIELD}
           />
         </div>
         <div className="space-y-2">
@@ -114,11 +114,11 @@ export function NewMatchForm({
             name="kvota"
             type="number"
             inputMode="numeric"
-            defaultValue={zadanaKvota}
+            defaultValue={defaultCapacity}
             min={2}
             max={30}
             required
-            className={POLJE}
+            className={FIELD}
           />
         </div>
       </div>
@@ -136,22 +136,22 @@ export function NewMatchForm({
           name="napomena"
           type="text"
           placeholder="npr. ponesi svijetli i tamni dres"
-          className={POLJE}
+          className={FIELD}
         />
       </div>
 
       <button
         type="submit"
-        disabled={ceka}
+        disabled={pending}
         className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
-        {ceka ? "Otvaram…" : "Otvori termin"}
+        {pending ? "Otvaram…" : "Otvori termin"}
       </button>
 
-      {stanje.error && (
+      {state.error && (
         <p role="alert" className="text-sm font-medium text-red-600">
-          {stanje.error}
+          {state.error}
         </p>
       )}
     </form>

@@ -3,40 +3,40 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Tab = { oznaka: string; put: string };
+type Tab = { label: string; href: string };
 
 export function GroupTabs({ grupaId, admin }: { grupaId: string; admin: boolean }) {
-  const putanja = usePathname();
-  const korijen = `/grupe/${grupaId}`;
+  const pathname = usePathname();
+  const root = `/grupe/${grupaId}`;
 
-  const tabovi: Tab[] = [
-    { oznaka: "Termini", put: korijen },
-    { oznaka: "Statistika", put: `${korijen}/statistika` },
-    { oznaka: "Ljestvica", put: `${korijen}/ljestvica` },
-    { oznaka: "Članovi", put: `${korijen}/clanovi` },
-    ...(admin ? [{ oznaka: "Postavke", put: `${korijen}/postavke` }] : []),
+  const tabs: Tab[] = [
+    { label: "Termini", href: root },
+    { label: "Statistika", href: `${root}/statistika` },
+    { label: "Ljestvica", href: `${root}/ljestvica` },
+    { label: "Članovi", href: `${root}/clanovi` },
+    ...(admin ? [{ label: "Postavke", href: `${root}/postavke` }] : []),
   ];
 
   return (
     <nav className="-mx-5 mb-6 overflow-x-auto border-b border-slate-200 px-5">
       <ul className="flex gap-1">
-        {tabovi.map((t) => {
-          // Tab "Termini" je korijen, pa se ne smije podudarati s podrutama.
-          const aktivan = t.put === korijen ? putanja === korijen : putanja.startsWith(t.put);
+        {tabs.map((t) => {
+          // The "Termini" tab is the root, so it must not match sub-routes.
+          const active = t.href === root ? pathname === root : pathname.startsWith(t.href);
 
           return (
-            <li key={t.put}>
+            <li key={t.href}>
               <Link
-                href={t.put}
-                aria-current={aktivan ? "page" : undefined}
+                href={t.href}
+                aria-current={active ? "page" : undefined}
                 className={
                   "block whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition " +
-                  (aktivan
+                  (active
                     ? "border-marka text-slate-900"
                     : "border-transparent text-slate-500 hover:text-slate-800")
                 }
               >
-                {t.oznaka}
+                {t.label}
               </Link>
             </li>
           );

@@ -7,7 +7,7 @@ import { useEffect } from "react";
  *
  * Korisniku se NIKAD ne prikazuje `error.message` — moze sadrzavati imena
  * tablica, upite i druge detalje koji nikome ne pomazu, a nekome smetaju.
- * Prava poruka ide u konzolu i u logove poslužitelja.
+ * The real message goes to the console and server logs.
  */
 export default function Greska({
   error,
@@ -17,7 +17,7 @@ export default function Greska({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[greska]", error);
+    console.error("[error]", error);
   }, [error]);
 
   return (

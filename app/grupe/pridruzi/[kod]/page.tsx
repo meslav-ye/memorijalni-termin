@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { JoinRequestButton } from "./JoinRequestButton";
 
-export default async function StranicaPridruzivanja({
+export default async function JoinGroupPage({
   params,
 }: PageProps<"/grupe/pridruzi/[kod]">) {
   const { kod } = await params;
@@ -16,17 +16,17 @@ export default async function StranicaPridruzivanja({
 
   if (!user) redirect(`/prijava?povratak=${encodeURIComponent(`/grupe/pridruzi/${kod}`)}`);
 
-  // Onaj tko jos nije clan po RLS-u ne smije citati grupu — a mora vidjeti
-  // barem njezin naziv da zna gdje se prijavljuje. Zato tajni kljuc, i to
-  // iskljucivo za dohvat naziva.
+  // Someone who is not yet a member cannot read the group under RLS — but
+  // they must see at least its name to know where they are joining. So the
+  // service role is used, exclusively for fetching the name.
   const admin = createAdminClient();
-  const { data: grupa } = await admin
+  const { data: group } = await admin
     .from("groups")
     .select("id, name")
     .eq("invite_code", kod)
     .maybeSingle();
 
-  if (!grupa) {
+  if (!group) {
     return (
       <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
@@ -45,24 +45,24 @@ export default async function StranicaPridruzivanja({
     );
   }
 
-  const { data: clanstvo } = await admin
+  const { data: membership } = await admin
     .from("group_members")
     .select("status")
-    .eq("group_id", grupa.id)
+    .eq("group_id", group.id)
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (clanstvo?.status === "active") redirect(`/grupe/${grupa.id}`);
+  if (membership?.status === "active") redirect(`/grupe/${group.id}`);
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-10">
       <div className="rounded-lg border border-slate-200 bg-white p-6 text-center">
         <p className="text-sm text-slate-500">Pozvan si u grupu</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">{grupa.name}</h1>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight">{group.name}</h1>
       </div>
 
       <div className="mt-6">
-        {clanstvo?.status === "pending" ? (
+        {membership?.status === "pending" ? (
           <div className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-center text-slate-600">
             Zahtjev je već poslan. Čeka se odobrenje admina.
           </div>

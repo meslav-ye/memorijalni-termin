@@ -6,16 +6,16 @@ import { saveProfile, type ProfileState } from "./actions";
 const EMPTY: ProfileState = {};
 
 export function ProfileForm({
-  nadimak,
-  golman,
+  nickname,
+  isGoalkeeper,
 }: {
-  nadimak: string;
-  golman: boolean;
+  nickname: string;
+  isGoalkeeper: boolean;
 }) {
-  const [stanje, akcija, ceka] = useActionState(saveProfile, EMPTY);
+  const [state, action, pending] = useActionState(saveProfile, EMPTY);
 
   return (
-    <form action={akcija} className="space-y-6">
+    <form action={action} className="space-y-6">
       <div className="space-y-2">
         <label htmlFor="nickname" className="block text-sm font-medium text-slate-700">
           Nadimak
@@ -23,7 +23,7 @@ export function ProfileForm({
         <input
           id="nickname"
           name="nickname"
-          defaultValue={nadimak}
+          defaultValue={nickname}
           maxLength={12}
           minLength={2}
           required
@@ -39,8 +39,8 @@ export function ProfileForm({
       <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4">
         <input
           type="checkbox"
-          name="golman"
-          defaultChecked={golman}
+          name="goalkeeper"
+          defaultChecked={isGoalkeeper}
           className="mt-1 h-5 w-5 rounded border-slate-300"
         />
         <span>
@@ -54,21 +54,21 @@ export function ProfileForm({
 
       <button
         type="submit"
-        disabled={ceka}
+        disabled={pending}
         className="w-full h-14 rounded-lg bg-marka text-base font-semibold text-white
                    transition active:scale-[0.98] disabled:opacity-50"
       >
-        {ceka ? "Spremam…" : "Spremi"}
+        {pending ? "Spremam…" : "Spremi"}
       </button>
 
-      {stanje.error && (
+      {state.error && (
         <p role="alert" className="text-sm font-medium text-red-600">
-          {stanje.error}
+          {state.error}
         </p>
       )}
-      {stanje.message && (
+      {state.message && (
         <p role="status" className="text-sm font-medium text-emerald-700">
-          {stanje.message}
+          {state.message}
         </p>
       )}
     </form>

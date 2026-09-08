@@ -2,48 +2,47 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Odrediste nakon Google prijave, magic linka ili potvrde registracije.
- * Ovdje se jednokratni kod mijenja za sesiju.
+ * Destination after Google sign-in, magic link, or registration confirmation.
+ * Here the one-time code is exchanged for a session.
  *
- * Razlozi neuspjeha se RAZLIKUJU u odgovoru (parametar `razlog`) — bez toga se
- * svaki kvar cini istim i ne moze se dijagnosticirati.
+ * Failure reasons DIFFER in the response (the `razlog` param) — without that
+ * every failure looks the same and cannot be diagnosed.
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
 
   const code = searchParams.get("code");
-  const oauthGreska = searchParams.get("error");
-  const oauthOpis = searchParams.get("error_description");
+  const oauthError = searchParams.get("error");
+  const oauthDescription = searchParams.get("error_description");
 
-  function natrag(razlog: string, detalj?: string | null) {
+  function backToLogin(reason: string, detail?: string | null) {
     const url = new URL("/prijava", origin);
-    url.searchParams.set("greska", "veza");
-    url.searchParams.set("razlog", razlog);
-    if (detalj) url.searchParams.set("detalj", detalj.slice(0, 200));
+    url.searchParams.set("error", "link");
+    url.searchParams.set("reason", reason);
+    if (detail) url.searchParams.set("detail", detail.slice(0, 200));
     return NextResponse.redirect(url);
   }
 
-  // 1. Google ili Supabase su odbili prijavu jos prije nego smo dosli do koda.
-  if (oauthGreska) {
-    console.error("[auth/callback] OAuth greska:", oauthGreska, oauthOpis);
-    return natrag(oauthGreska, oauthOpis);
+  // 1. Google or Supabase rejected the sign-in before we got a code.
+  if (oauthError) {
+    console.error("[auth/callback] OAuth error:", oauthError, oauthDescription);
+    return backToLogin(oauthError, oauthDescription);
   }
 
-  // 2. Nema koda — netko je dosao izravno na ovu adresu, ili je preusmjeravanje
-  //    izgubilo parametre.
+  // 2. No code — someone hit this URL directly, or the redirect lost params.
   if (!code) {
-    console.error("[auth/callback] Nema `code` parametra. Upit:", searchParams.toString());
-    return natrag("bez_koda");
+    console.error("[auth/callback] Missing `code` param. Query:", searchParams.toString());
+    return backToLogin("no_code");
   }
 
-  // 3. Kod postoji, ali zamjena za sesiju moze pasti — najcesce zato sto
-  //    PKCE kolacic (code verifier) nije stigao natrag uz zahtjev.
+  // 3. Code exists, but session exchange can fail — most often because the
+  //    PKCE cookie (code verifier) did not come back with the request.
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
     console.error("[auth/callback] exchangeCodeForSession:", error.message, error.status);
-    return natrag("zamjena", error.message);
+    return backToLogin("exchange", error.message);
   }
 
   return NextResponse.redirect(new URL("/", origin));

@@ -2,11 +2,11 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 /**
- * Klijent s tajnim kljucem — ZAOBILAZI SVA RLS PRAVILA.
+ * Client with the service-role key — BYPASSES ALL RLS RULES.
  *
- * Koristi se ISKLJUCIVO u server actionima, i to samo ondje gdje obicni korisnik
- * po pravilima ne smije pisati: odobravanje clanova i upis ratinga.
- * Nikad ga ne uvoziti u komponentu koja ide pregledniku.
+ * Used EXCLUSIVELY in server actions, and only where a regular user is not
+ * allowed to write under the rules: approving members and writing ratings.
+ * Never import it into a component that goes to the browser.
  */
 export function createAdminClient() {
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;

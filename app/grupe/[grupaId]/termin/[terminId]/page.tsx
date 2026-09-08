@@ -19,7 +19,7 @@ const FILL_TONE_COLOR: Record<FillTone, string> = {
   full: "border-slate-200 bg-slate-100 text-slate-700",
 };
 
-export default async function StranicaTermina({
+export default async function MatchPage({
   params,
 }: PageProps<"/grupe/[grupaId]/termin/[terminId]">) {
   const { grupaId, terminId } = await params;
@@ -28,61 +28,62 @@ export default async function StranicaTermina({
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await getMembership(grupaId);
+  const membership = await getMembership(grupaId);
 
-  if (clanstvo?.status !== "active") notFound();
-  const admin = clanstvo.role === "admin";
+  if (membership?.status !== "active") notFound();
+  const admin = membership.role === "admin";
 
-  const { data: termin } = await supabase
+  const { data: match } = await supabase
     .from("matches")
     .select("id, starts_at, capacity, min_players, status, notes, location_text, locations(name, address, maps_url)")
     .eq("id", terminId)
     .maybeSingle();
 
-  if (!termin) notFound();
+  if (!match) notFound();
 
-  const { data: prijave } = await supabase
+  const { data: signups } = await supabase
     .from("match_signups")
     .select("user_id, signed_up_at, manual_order, cancelled_at")
     .eq("match_id", terminId);
 
   const { confirmed, waitlist } = splitSignups(
-    (prijave ?? []).map((p) => ({
+    (signups ?? []).map((p) => ({
       userId: p.user_id,
       signedUpAt: p.signed_up_at,
       manualOrder: p.manual_order,
       cancelledAt: p.cancelled_at,
     })),
-    termin.capacity,
+    match.capacity,
   );
 
-  const { data: profili } = await supabase
+  const { data: profiles } = await supabase
     .from("profiles")
     .select("id, nickname, is_goalkeeper")
     .in("id", [...confirmed, ...waitlist].length ? [...confirmed, ...waitlist] : ["-"]);
 
-  const nadimak = (id: string) =>
-    profili?.find((p) => p.id === id)?.nickname || "(bez nadimka)";
-  const jeGolman = (id: string) => profili?.find((p) => p.id === id)?.is_goalkeeper ?? false;
+  const nicknameOf = (id: string) =>
+    profiles?.find((p) => p.id === id)?.nickname || "(bez nadimka)";
+  const isGoalkeeper = (id: string) =>
+    profiles?.find((p) => p.id === id)?.is_goalkeeper ?? false;
 
-  const stanje = fillStatus(confirmed.length, termin.min_players, termin.capacity);
-  const jaSamUnutra = confirmed.includes(user.id);
-  const jaCekam = waitlist.includes(user.id);
-  const prijavljen = jaSamUnutra || jaCekam;
-  const otvorenoZaPrijave = termin.status === "najavljen";
+  const fill = fillStatus(confirmed.length, match.min_players, match.capacity);
+  const iAmIn = confirmed.includes(user.id);
+  const iAmWaiting = waitlist.includes(user.id);
+  const signedUp = iAmIn || iAmWaiting;
+  const openForSignups = match.status === "najavljen";
 
-  const lokacija = termin.locations;
+  const location = match.locations;
 
-  // Termin uzivo pokrece i vodi netko tko je u postavi, ne nuzno admin.
-  const { data: mojaPostava } = await supabase
+  // Live match is started and run by someone in the lineup, not necessarily admin.
+  const { data: myLineup } = await supabase
     .from("match_lineup")
     .select("user_id")
     .eq("match_id", terminId)
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const jaSamUPostavi = Boolean(mojaPostava);
-  const smijemPokrenuti = canStart(termin.starts_at, new Date());
+  const iAmInLineup = Boolean(myLineup);
+  const mayStart = canStart(match.starts_at, new Date());
 
   return (
     <div className="pb-28">
@@ -95,47 +96,47 @@ export default async function StranicaTermina({
 
       <header className="mt-4">
         <h2 className="text-xl font-bold tracking-tight">
-          {formatMatchDateTime(termin.starts_at)}
+          {formatMatchDateTime(match.starts_at)}
         </h2>
 
         <p className="mt-1 text-slate-600">
-          {lokacija?.maps_url ? (
+          {location?.maps_url ? (
             <a
-              href={lokacija.maps_url}
+              href={location.maps_url}
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-4"
             >
-              {lokacija.name}
+              {location.name}
             </a>
           ) : (
-            (lokacija?.name ?? termin.location_text ?? "Lokacija nije upisana")
+            (location?.name ?? match.location_text ?? "Lokacija nije upisana")
           )}
-          {lokacija?.address && (
-            <span className="block text-sm text-slate-500">{lokacija.address}</span>
+          {location?.address && (
+            <span className="block text-sm text-slate-500">{location.address}</span>
           )}
         </p>
 
-        {termin.notes && (
+        {match.notes && (
           <p className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
-            {termin.notes}
+            {match.notes}
           </p>
         )}
       </header>
 
-      {termin.status === "otkazan" ? (
+      {match.status === "otkazan" ? (
         <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-center font-medium text-red-800">
           Termin je otkazan.
         </div>
       ) : (
-        <div className={`mt-6 rounded-lg border p-4 text-center font-medium ${FILL_TONE_COLOR[stanje.tone]}`}>
-          {stanje.label}
+        <div className={`mt-6 rounded-lg border p-4 text-center font-medium ${FILL_TONE_COLOR[fill.tone]}`}>
+          {fill.label}
         </div>
       )}
 
       <section className="mt-8">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Dolaze ({confirmed.length}/{termin.capacity})
+          Dolaze ({confirmed.length}/{match.capacity})
         </h3>
         {confirmed.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
@@ -152,8 +153,8 @@ export default async function StranicaTermina({
                 }
               >
                 <span className="w-5 text-right text-sm tabular-nums text-slate-400">{i + 1}</span>
-                <span className="font-medium">{nadimak(id)}</span>
-                {jeGolman(id) && <span title="Igra golmana">🧤</span>}
+                <span className="font-medium">{nicknameOf(id)}</span>
+                {isGoalkeeper(id) && <span title="Igra golmana">🧤</span>}
               </li>
             ))}
           </ol>
@@ -177,34 +178,34 @@ export default async function StranicaTermina({
                 <span className="w-5 text-right text-sm tabular-nums text-slate-400">
                   {confirmed.length + i + 1}
                 </span>
-                <span className="font-medium">{nadimak(id)}</span>
-                {jeGolman(id) && <span title="Igra golmana">🧤</span>}
+                <span className="font-medium">{nicknameOf(id)}</span>
+                {isGoalkeeper(id) && <span title="Igra golmana">🧤</span>}
               </li>
             ))}
           </ol>
         </section>
       )}
 
-      {/* Termin uzivo pokrece bilo tko iz postave, ali tek pola sata prije
-          pocetka. Prije toga se gumb NE prikazuje — bolje nego da ga korisnik
-          klikne pa dobije odbijenicu. */}
-      {jaSamUPostavi &&
-        (termin.status === "zakljucan" || termin.status === "najavljen") &&
-        (smijemPokrenuti ? (
-          <StartButton grupaId={grupaId} terminId={terminId} vecUTijeku={false} />
+      {/* Anyone in the lineup can start live, but only half an hour before
+          kickoff. Before that the button is NOT shown — better than the user
+          tapping it and getting a rejection. */}
+      {iAmInLineup &&
+        (match.status === "zakljucan" || match.status === "najavljen") &&
+        (mayStart ? (
+          <StartButton grupaId={grupaId} terminId={terminId} alreadyLive={false} />
         ) : (
           <p className="mt-8 rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">
             Termin ne kreće sam — pokreće ga netko od igrača, a to je moguće{" "}
             <strong>{MINUTES_BEFORE_START} minuta prije početka</strong>, od{" "}
-            {formatMatchDateTime(earliestStartAt(termin.starts_at).toISOString())}.
+            {formatMatchDateTime(earliestStartAt(match.starts_at).toISOString())}.
           </p>
         ))}
 
-      {termin.status === "u_tijeku" && (
-        <StartButton grupaId={grupaId} terminId={terminId} vecUTijeku />
+      {match.status === "u_tijeku" && (
+        <StartButton grupaId={grupaId} terminId={terminId} alreadyLive />
       )}
 
-      {termin.status === "zavrsen" && (
+      {match.status === "zavrsen" && (
         <Link
           href={`/grupe/${grupaId}/termin/${terminId}/sazetak`}
           className="mt-8 flex h-14 w-full items-center justify-center rounded-lg
@@ -215,7 +216,7 @@ export default async function StranicaTermina({
         </Link>
       )}
 
-      {termin.status !== "otkazan" && (
+      {match.status !== "otkazan" && (
         <Link
           href={`/grupe/${grupaId}/termin/${terminId}/ekipe`}
           className="mt-8 flex h-12 w-full items-center justify-center rounded-lg
@@ -226,34 +227,34 @@ export default async function StranicaTermina({
         </Link>
       )}
 
-      {admin && termin.status !== "otkazan" && (
+      {admin && match.status !== "otkazan" && (
         <form action={cancelMatch} className="mt-10 border-t border-slate-200 pt-6">
-          <input type="hidden" name="grupaId" value={grupaId} />
-          <input type="hidden" name="terminId" value={terminId} />
+          <input type="hidden" name="groupId" value={grupaId} />
+          <input type="hidden" name="matchId" value={terminId} />
           <button className="text-sm text-red-700 underline underline-offset-4">
             Otkaži termin
           </button>
         </form>
       )}
 
-      {/* Glavni gumb je zalijepljen za dno — palac ga pogadja bez pomicanja ruke. */}
-      {otvorenoZaPrijave && (
+      {/* Primary button sticks to the bottom — thumb hits it without moving the hand. */}
+      {openForSignups && (
         <div className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
           <div className="mx-auto max-w-2xl">
-            <form action={prijavljen ? withdrawFromMatch : signUpForMatch}>
-              <input type="hidden" name="grupaId" value={grupaId} />
-              <input type="hidden" name="terminId" value={terminId} />
+            <form action={signedUp ? withdrawFromMatch : signUpForMatch}>
+              <input type="hidden" name="groupId" value={grupaId} />
+              <input type="hidden" name="matchId" value={terminId} />
               <button
                 className={
                   "h-14 w-full rounded-lg text-base font-semibold transition active:scale-[0.98] " +
-                  (prijavljen
+                  (signedUp
                     ? "border-2 border-red-600 bg-white text-red-700"
                     : "bg-marka text-white")
                 }
               >
-                {prijavljen
+                {signedUp
                   ? "Odustajem"
-                  : stanje.freeSlots === 0
+                  : fill.freeSlots === 0
                     ? "Stavi me na listu čekanja"
                     : "Dolazim"}
               </button>

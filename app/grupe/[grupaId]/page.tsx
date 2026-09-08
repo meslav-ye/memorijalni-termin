@@ -11,8 +11,8 @@ const FILL_TONE_COLOR: Record<FillTone, string> = {
   full: "bg-slate-200 text-slate-700",
 };
 
-function KarticaTermina({ t, grupaId }: { t: MatchWithSignups; grupaId: string }) {
-  const otkazan = t.status === "otkazan";
+function MatchCard({ t, grupaId }: { t: MatchWithSignups; grupaId: string }) {
+  const cancelled = t.status === "otkazan";
 
   return (
     <li>
@@ -20,7 +20,7 @@ function KarticaTermina({ t, grupaId }: { t: MatchWithSignups; grupaId: string }
         href={`/grupe/${grupaId}/termin/${t.id}`}
         className={
           "block rounded-lg border p-4 transition hover:border-slate-400 active:scale-[0.99] " +
-          (otkazan ? "border-slate-200 bg-slate-50 opacity-60" : "border-slate-200 bg-white")
+          (cancelled ? "border-slate-200 bg-slate-50 opacity-60" : "border-slate-200 bg-white")
         }
       >
         <div className="flex items-start justify-between gap-3">
@@ -29,7 +29,7 @@ function KarticaTermina({ t, grupaId }: { t: MatchWithSignups; grupaId: string }
             <p className="text-sm text-slate-500">{t.location}</p>
           </div>
 
-          {otkazan ? (
+          {cancelled ? (
             <span className="shrink-0 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
               Otkazan
             </span>
@@ -42,7 +42,7 @@ function KarticaTermina({ t, grupaId }: { t: MatchWithSignups; grupaId: string }
           )}
         </div>
 
-        {!otkazan && (
+        {!cancelled && (
           <p className="mt-2 text-sm text-slate-600">
             {t.fill.label}
             {t.iAmIn && <span className="ml-2 font-medium text-emerald-700">· Dolaziš</span>}
@@ -54,7 +54,7 @@ function KarticaTermina({ t, grupaId }: { t: MatchWithSignups; grupaId: string }
   );
 }
 
-export default async function StranicaTermina({
+export default async function GroupMatchesPage({
   params,
 }: PageProps<"/grupe/[grupaId]">) {
   const { grupaId } = await params;
@@ -62,9 +62,9 @@ export default async function StranicaTermina({
   const user = await getUser();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await getMembership(grupaId);
+  const membership = await getMembership(grupaId);
 
-  const admin = clanstvo?.role === "admin";
+  const admin = membership?.role === "admin";
   const { upcoming, past } = await getMatches(grupaId, user.id);
 
   return (
@@ -92,7 +92,7 @@ export default async function StranicaTermina({
         ) : (
           <ul className="space-y-3">
             {upcoming.map((t) => (
-              <KarticaTermina key={t.id} t={t} grupaId={grupaId} />
+              <MatchCard key={t.id} t={t} grupaId={grupaId} />
             ))}
           </ul>
         )}
@@ -105,7 +105,7 @@ export default async function StranicaTermina({
           </h2>
           <ul className="space-y-3">
             {past.slice(0, 20).map((t) => (
-              <KarticaTermina key={t.id} t={t} grupaId={grupaId} />
+              <MatchCard key={t.id} t={t} grupaId={grupaId} />
             ))}
           </ul>
         </section>

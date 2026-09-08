@@ -2,11 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * U Next 16 je `middleware` preimenovan u `proxy` — datoteka se mora zvati
- * proxy.ts i izvoziti funkciju `proxy`.
+ * In Next 16, `middleware` was renamed to `proxy` — the file must be named
+ * proxy.ts and export a `proxy` function.
  *
- * Zadaca: osvjeziti Supabase sesiju prije nego se stranica prikaze. Bez ovoga
- * istekli token nikad ne bi bio obnovljen i korisnika bi nasumicno izbacivalo.
+ * Job: refresh the Supabase session before the page is rendered. Without this
+ * an expired token would never renew and users would be signed out at random.
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

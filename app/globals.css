@@ -35,8 +35,8 @@
     font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   }
 
-  /* Znamenke jednake sirine — stoperica ne smije poskakivati dok broji. */
-  .stoperica {
+  /* Equal-width digits — the stopwatch must not jump while counting. */
+  .stopwatch {
     font-family: var(--font-mono), ui-monospace, monospace;
     font-variant-numeric: tabular-nums;
   }

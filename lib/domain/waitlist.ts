@@ -1,20 +1,20 @@
 import type { SignupRow, SignupBuckets } from "./types";
 
 /**
- * Dijeli prijave na potvrdjene i listu cekanja.
+ * Splits signups into confirmed and waitlist.
  *
- * Redoslijed: rucni redoslijed (ako je postavljen) ima prednost, zatim vrijeme
- * prijave. Otkazane prijave se preskacu — zato se lista cekanja "sama" popunjava
- * cim netko odustane, bez ikakve dodatne logike.
+ * Order: manual order (if set) wins, then signup time. Cancelled signups are
+ * skipped — that is why the waitlist "fills itself" when someone withdraws,
+ * with no extra logic.
  *
- * Status se namjerno NE sprema u bazu, nego se uvijek izracunava. Time nema
- * stanja koje se moze razici sa stvarnoscu.
+ * Status is intentionally NOT stored in the DB; it is always computed. That
+ * way there is no state that can drift from reality.
  */
 export function splitSignups(signups: SignupRow[], capacity: number): SignupBuckets {
   const ordered = signups
     .filter((s) => s.cancelledAt === null)
     .sort((a, b) => {
-      // Rucni redoslijed prvi; tko ga nema ide iza svih koji ga imaju.
+      // Manual order first; anyone without it goes after those who have it.
       if (a.manualOrder !== null && b.manualOrder !== null) {
         if (a.manualOrder !== b.manualOrder) return a.manualOrder - b.manualOrder;
       } else if (a.manualOrder !== null) {

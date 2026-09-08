@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { NewMatchForm } from "./NewMatchForm";
 
-export default async function StranicaNoviTermin({
+export default async function NewMatchPage({
   params,
 }: PageProps<"/grupe/[grupaId]/termin/novi">) {
   const { grupaId } = await params;
@@ -13,19 +13,19 @@ export default async function StranicaNoviTermin({
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await getMembership(grupaId);
+  const membership = await getMembership(grupaId);
 
-  if (clanstvo?.role !== "admin" || clanstvo.status !== "active") notFound();
+  if (membership?.role !== "admin" || membership.status !== "active") notFound();
 
-  const { data: grupa } = await supabase
+  const { data: group } = await supabase
     .from("groups")
     .select("default_capacity, default_min_players")
     .eq("id", grupaId)
     .maybeSingle();
 
-  if (!grupa) notFound();
+  if (!group) notFound();
 
-  const { data: lokacije } = await supabase
+  const { data: locations } = await supabase
     .from("locations")
     .select("id, name")
     .eq("group_id", grupaId)
@@ -46,9 +46,9 @@ export default async function StranicaNoviTermin({
 
       <NewMatchForm
         grupaId={grupaId}
-        lokacije={lokacije ?? []}
-        zadanaKvota={grupa.default_capacity}
-        zadaniMin={grupa.default_min_players}
+        locations={locations ?? []}
+        defaultCapacity={group.default_capacity}
+        defaultMin={group.default_min_players}
       />
     </main>
   );

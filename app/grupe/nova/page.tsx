@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { NewGroupForm } from "./NewGroupForm";
 
-export default async function StranicaNovaGrupa() {
+export default async function NewGroupPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -11,15 +11,15 @@ export default async function StranicaNovaGrupa() {
 
   if (!user) redirect("/prijava");
 
-  // Bez dopustenja se ovaj ekran ni ne otvara — inace bi korisnik ispunio
-  // obrazac pa tek na kraju doznao da ne smije.
-  const { data: mojProfil } = await supabase
+  // Without permission this screen does not open — otherwise the user would
+  // fill the form and only learn at the end that they are not allowed.
+  const { data: myProfile } = await supabase
     .from("profiles")
     .select("can_create_groups")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!mojProfil?.can_create_groups) notFound();
+  if (!myProfile?.can_create_groups) notFound();
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">

@@ -21,8 +21,8 @@ export async function createClient() {
               cookieStore.set(name, value, options),
             );
           } catch {
-            // Server komponenta ne smije pisati kolacice. To nije greska —
-            // osvjezavanje sesije preuzima proxy.ts prije nego se stranica prikaze.
+            // Server components must not write cookies. That is not an error —
+            // proxy.ts refreshes the session before the page is rendered.
           }
         },
       },

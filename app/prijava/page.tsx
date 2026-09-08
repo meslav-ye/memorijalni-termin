@@ -4,19 +4,23 @@ import { createClient } from "@/lib/supabase/server";
 import { getAvailableMethods } from "@/lib/auth-settings";
 import { LoginForm } from "./LoginForm";
 
-const PORUKE_GRESAKA: Record<string, string> = {
-  veza: "Prijava nije dovršena. Link je možda istekao — pokušaj ponovno.",
+const ERROR_MESSAGES: Record<string, string> = {
+  link: "Prijava nije dovršena. Link je možda istekao — pokušaj ponovno.",
   google: "Prijava Googleom nije uspjela.",
+  // Legacy query value from older callbacks
+  veza: "Prijava nije dovršena. Link je možda istekao — pokušaj ponovno.",
 };
 
-/** Razlozi koje vraca /auth/callback, prevedeni u nesto citljivo. */
-const RAZLOZI: Record<string, string> = {
+/** Reasons returned by /auth/callback, translated into something readable. */
+const REASONS: Record<string, string> = {
+  no_code: "Nismo dobili kod za prijavu — preusmjeravanje je izgubilo parametre.",
+  exchange: "Kod je stigao, ali ga nismo mogli zamijeniti za sesiju.",
   bez_koda: "Nismo dobili kod za prijavu — preusmjeravanje je izgubilo parametre.",
   zamjena: "Kod je stigao, ali ga nismo mogli zamijeniti za sesiju.",
   access_denied: "Prijava je odbijena na Google strani.",
 };
 
-export default async function StranicaPrijave({
+export default async function LoginPage({
   searchParams,
 }: PageProps<"/prijava">) {
   const supabase = await createClient();
@@ -24,28 +28,44 @@ export default async function StranicaPrijave({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Tko je vec prijavljen nema sto traziti na ekranu prijave.
+  // Already signed in — nothing to do on the login screen.
   if (user) redirect("/");
 
-  const parametri = await searchParams;
-  const kodGreske = typeof parametri.greska === "string" ? parametri.greska : null;
-  const greskaIzUrla = kodGreske ? (PORUKE_GRESAKA[kodGreske] ?? PORUKE_GRESAKA.veza) : null;
+  const params = await searchParams;
+  // Accept both new (`error`) and legacy (`greska`) query keys.
+  const errorCode =
+    typeof params.error === "string"
+      ? params.error
+      : typeof params.greska === "string"
+        ? params.greska
+        : null;
+  const errorFromUrl = errorCode ? (ERROR_MESSAGES[errorCode] ?? ERROR_MESSAGES.link) : null;
 
-  const razlog = typeof parametri.razlog === "string" ? parametri.razlog : null;
-  const detalj = typeof parametri.detalj === "string" ? parametri.detalj : null;
+  const reason =
+    typeof params.reason === "string"
+      ? params.reason
+      : typeof params.razlog === "string"
+        ? params.razlog
+        : null;
+  const detail =
+    typeof params.detail === "string"
+      ? params.detail
+      : typeof params.detalj === "string"
+        ? params.detalj
+        : null;
 
-  const metode = await getAvailableMethods();
+  const methods = await getAvailableMethods();
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-10">
       <header className="mb-8">
-        {/* Logo nosi naziv aplikacije, pa je h1 skriven — ostaje samo za
-            citace ekrana i trazilice. `priority` jer je ovo prvo sto se vidi. */}
+        {/* The logo carries the app name, so h1 is visually hidden — kept for
+            screen readers and search. `priority` because it is the first thing seen. */}
         <h1 className="sr-only">Memorijalni termin</h1>
 
-        {/* Novi znak nosi vlastitu tamnu plocicu ispod teksta, pa radi i na
-            svijetloj i na tamnoj podlozi — za razliku od prethodnog, kojem je
-            tekst bio tamnozelen i nestajao na tamnom. */}
+        {/* The new mark has its own dark plate under the text, so it works on
+            both light and dark backgrounds — unlike the previous one, whose
+            text was dark green and disappeared on dark. */}
         <Image
           src="/logo.png"
           alt="Memorijalni termin"
@@ -58,23 +78,23 @@ export default async function StranicaPrijave({
         <p className="mt-4 text-slate-600">Prijavi se da vidiš termine svoje grupe.</p>
       </header>
 
-      {greskaIzUrla && (
+      {errorFromUrl && (
         <div
           role="alert"
           className="mb-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
         >
-          <p className="font-medium">{greskaIzUrla}</p>
+          <p className="font-medium">{errorFromUrl}</p>
 
-          {(razlog || detalj) && (
+          {(reason || detail) && (
             <p className="mt-2 text-xs text-red-600">
-              {razlog && (RAZLOZI[razlog] ?? `Razlog: ${razlog}`)}
-              {detalj && <span className="mt-1 block font-mono break-all">{detalj}</span>}
+              {reason && (REASONS[reason] ?? `Razlog: ${reason}`)}
+              {detail && <span className="mt-1 block font-mono break-all">{detail}</span>}
             </p>
           )}
         </div>
       )}
 
-      <LoginForm googleDostupan={metode.google} />
+      <LoginForm googleAvailable={methods.google} />
 
       <p className="mt-10 text-center text-xs text-slate-400">
         Prijavom pristaješ da spremamo tvoje ime, nadimak i email — samo za rad aplikacije.

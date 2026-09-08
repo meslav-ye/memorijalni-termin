@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function StranicaGrupa() {
+export default async function GroupsPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -10,30 +10,30 @@ export default async function StranicaGrupa() {
 
   if (!user) redirect("/prijava");
 
-  const { data: clanstva } = await supabase
+  const { data: memberships } = await supabase
     .from("group_members")
     .select("status, groups(id, name)")
     .eq("user_id", user.id);
 
-  const aktivne = (clanstva ?? []).filter((c) => c.status === "active" && c.groups);
-  const naCekanju = (clanstva ?? []).filter((c) => c.status === "pending" && c.groups);
+  const activeGroups = (memberships ?? []).filter((c) => c.status === "active" && c.groups);
+  const pendingGroups = (memberships ?? []).filter((c) => c.status === "pending" && c.groups);
 
-  // Otvaranje grupe trazi izricito dopustenje; ulazak u tudju grupu ne trazi.
-  const { data: mojProfil } = await supabase
+  // Creating a group needs explicit permission; joining another does not.
+  const { data: myProfile } = await supabase
     .from("profiles")
     .select("can_create_groups")
     .eq("id", user.id)
     .maybeSingle();
 
-  const smijemOtvarati = mojProfil?.can_create_groups ?? false;
+  const canCreate = myProfile?.can_create_groups ?? false;
 
-  // OVDJE se NE preusmjerava, iako je clan mozda samo u jednoj grupi.
+  // Do NOT redirect here, even if the member is only in one group.
   //
-  // Prvo je ovdje stajao precac "jedna grupa -> udji ravno u nju". Posljedica
-  // je bila da se popis grupa nije mogao ni vidjeti: svaki klik na "Moje grupe"
-  // vracao je natrag u istu grupu, pa ni gumb za otvaranje nove nije bio
-  // dostupan. Precac je ostao, ali na ulazu (app/page.tsx) — ondje je korisnik
-  // "nekamo krenuo", a ovdje je izricito trazio popis.
+  // There used to be a shortcut "one group -> go straight in". The result was
+  // that the group list could never be seen: every click on "Moje grupe" sent
+  // you back into the same group, so the create-new button was unreachable.
+  // The shortcut remains on the entry point (app/page.tsx) — there the user
+  // "went somewhere"; here they explicitly asked for the list.
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
@@ -44,7 +44,7 @@ export default async function StranicaGrupa() {
         </Link>
       </header>
 
-      {aktivne.length === 0 && naCekanju.length === 0 && (
+      {activeGroups.length === 0 && pendingGroups.length === 0 && (
         <div className="mb-8 rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
           <p className="font-medium">Još nisi ni u jednoj grupi</p>
           <p className="mt-1 text-sm text-slate-500">
@@ -54,7 +54,7 @@ export default async function StranicaGrupa() {
       )}
 
       <ul className="mb-8 space-y-3">
-        {aktivne.map((c) => (
+        {activeGroups.map((c) => (
           <li key={c.groups!.id}>
             <Link
               href={`/grupe/${c.groups!.id}`}
@@ -65,7 +65,7 @@ export default async function StranicaGrupa() {
             </Link>
           </li>
         ))}
-        {naCekanju.map((c) => (
+        {pendingGroups.map((c) => (
           <li
             key={c.groups!.id}
             className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-slate-500"
@@ -76,7 +76,7 @@ export default async function StranicaGrupa() {
         ))}
       </ul>
 
-      {smijemOtvarati ? (
+      {canCreate ? (
         <>
           <Link
             href="/grupe/nova"

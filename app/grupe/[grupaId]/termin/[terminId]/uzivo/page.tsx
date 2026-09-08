@@ -6,7 +6,7 @@ import type { Team } from "@/lib/domain/types";
 import { disambiguateNicknames } from "@/lib/domain/nickname";
 import { LiveScreen, type LiveEvent, type LineupPlayer } from "./LiveScreen";
 
-export default async function StranicaUzivo({
+export default async function LivePage({
   params,
 }: PageProps<"/grupe/[grupaId]/termin/[terminId]/uzivo">) {
   const { grupaId, terminId } = await params;
@@ -15,61 +15,61 @@ export default async function StranicaUzivo({
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const clanstvo = await getMembership(grupaId);
-  if (clanstvo?.status !== "active") notFound();
+  const membership = await getMembership(grupaId);
+  if (membership?.status !== "active") notFound();
 
-  const { data: termin } = await supabase
+  const { data: match } = await supabase
     .from("matches")
     .select("id, status, started_at, paused_at, total_paused_seconds")
     .eq("id", terminId)
     .maybeSingle();
-  if (!termin) notFound();
+  if (!match) notFound();
 
-  // Na ovaj ekran se dolazi tek kad je termin pokrenut ili zavrsen.
-  if (termin.status !== "u_tijeku" && termin.status !== "zavrsen") {
+  // This screen is only for matches that have started or finished.
+  if (match.status !== "u_tijeku" && match.status !== "zavrsen") {
     redirect(`/grupe/${grupaId}/termin/${terminId}`);
   }
 
-  const { data: postavaRedci } = await supabase
+  const { data: lineupRows } = await supabase
     .from("match_lineup")
     .select("user_id, team, is_goalkeeper")
     .eq("match_id", terminId);
 
-  const idevi = (postavaRedci ?? []).map((p) => p.user_id);
+  const ids = (lineupRows ?? []).map((p) => p.user_id);
 
-  const { data: profili } = await supabase
+  const { data: profiles } = await supabase
     .from("profiles")
     .select("id, nickname, full_name")
-    .in("id", idevi.length ? idevi : ["-"]);
+    .in("id", ids.length ? ids : ["-"]);
 
-  // Ako dvoje u postavi ima isti nadimak, oznaka dobiva razlikovni dodatak
-  // (prezime). Racuna se OVDJE, pri dohvatu, pa ekran uzivo dobije gotov
-  // tekst i ne mora nista znati o kolizijama.
-  const oznake = disambiguateNicknames(
-    (postavaRedci ?? []).map((p) => {
-      const profil = profili?.find((x) => x.id === p.user_id);
+  // If two players share a nickname, the label gets a disambiguating
+  // suffix (surname). Computed HERE on fetch so the live screen gets
+  // ready text and does not need to know about collisions.
+  const labels = disambiguateNicknames(
+    (lineupRows ?? []).map((p) => {
+      const profile = profiles?.find((x) => x.id === p.user_id);
       return {
         userId: p.user_id,
-        nickname: profil?.nickname || "?",
-        fullName: profil?.full_name ?? null,
+        nickname: profile?.nickname || "?",
+        fullName: profile?.full_name ?? null,
       };
     }),
   );
 
-  const postava: LineupPlayer[] = (postavaRedci ?? []).map((p) => ({
+  const lineup: LineupPlayer[] = (lineupRows ?? []).map((p) => ({
     userId: p.user_id,
-    nickname: oznake.get(p.user_id) ?? "?",
+    nickname: labels.get(p.user_id) ?? "?",
     team: p.team as Team,
     isGoalkeeper: p.is_goalkeeper,
   }));
 
-  const { data: dogadjajiRedci } = await supabase
+  const { data: eventRows } = await supabase
     .from("match_events")
     .select("id, type, team, scorer_id, assist_id, elapsed_seconds, created_at, deleted_at")
     .eq("match_id", terminId)
     .order("created_at", { ascending: false });
 
-  const dogadjaji: LiveEvent[] = (dogadjajiRedci ?? []).map((e) => ({
+  const events: LiveEvent[] = (eventRows ?? []).map((e) => ({
     id: e.id,
     type: e.type,
     team: e.team as Team | null,
@@ -92,13 +92,13 @@ export default async function StranicaUzivo({
       <LiveScreen
         grupaId={grupaId}
         terminId={terminId}
-        pocetnaPostava={postava}
-        initialEvents={dogadjaji}
-        pocetnoStanje={{
-          status: termin.status,
-          startedAt: termin.started_at,
-          pausedAt: termin.paused_at,
-          totalPausedSeconds: termin.total_paused_seconds,
+        initialLineup={lineup}
+        initialEvents={events}
+        initialState={{
+          status: match.status,
+          startedAt: match.started_at,
+          pausedAt: match.paused_at,
+          totalPausedSeconds: match.total_paused_seconds,
         }}
       />
     </div>

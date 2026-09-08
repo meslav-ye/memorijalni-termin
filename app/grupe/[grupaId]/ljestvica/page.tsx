@@ -4,31 +4,31 @@ import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard } from "@/lib/data/leaderboard";
 
-export default async function StranicaLjestvice({
+export default async function LeaderboardPage({
   params,
   searchParams,
 }: PageProps<"/grupe/[grupaId]/ljestvica">) {
   const { grupaId } = await params;
-  const upit = await searchParams;
+  const query = await searchParams;
 
   const user = await getUser();
   if (!user) redirect("/prijava");
 
-  const trazenaSezona = typeof upit.sezona === "string" ? upit.sezona : null;
-  const sveVrijeme = trazenaSezona === "sve";
+  const requestedSeason = typeof query.sezona === "string" ? query.sezona : null;
+  const allTime = requestedSeason === "sve";
 
-  // Bez odabira gledamo najnoviju sezonu — to je ono sto ljude zanima.
-  const sezonaZaPrikaz = sveVrijeme
+  // With no selection, show the newest season — what people care about.
+  const seasonToShow = allTime
     ? null
-    : (trazenaSezona ?? (await najnovijaSezona(grupaId)));
+    : (requestedSeason ?? (await latestSeason(grupaId)));
 
   const { rows, seasons, matchesPlayed, records } = await getLeaderboard(
     grupaId,
-    sezonaZaPrikaz,
+    seasonToShow,
   );
 
-  // Kad jos nema odigranih termina, tablica se svejedno prikazuje — sa svim
-  // clanovima na nuli. Prazan ekran ne bi rekao ni tko je u grupi ni sto se prati.
+  // When no matches have been played yet, still show the table — all members
+  // at zero. An empty screen would not say who is in the group or what is tracked.
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
@@ -40,11 +40,11 @@ export default async function StranicaLjestvice({
     );
   }
 
-  const postotak = (x: number) => `${Math.round(x * 100)}%`;
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
 
   return (
     <div>
-      {/* Prekidac seasons */}
+      {/* Season switcher */}
       <div className="mb-4 flex flex-wrap gap-2">
         {seasons.map((s) => (
           <Link
@@ -52,7 +52,7 @@ export default async function StranicaLjestvice({
             href={`/grupe/${grupaId}/ljestvica?sezona=${s.id}`}
             className={
               "h-9 rounded-lg border px-3 text-sm font-medium leading-9 transition " +
-              (trazenaSezona === s.id || (!trazenaSezona && !sveVrijeme)
+              (requestedSeason === s.id || (!requestedSeason && !allTime)
                 ? "border-marka bg-marka text-white"
                 : "border-slate-300 bg-white text-slate-700")
             }
@@ -64,7 +64,7 @@ export default async function StranicaLjestvice({
           href={`/grupe/${grupaId}/ljestvica?sezona=sve`}
           className={
             "h-9 rounded-lg border px-3 text-sm font-medium leading-9 transition " +
-            (sveVrijeme
+            (allTime
               ? "border-marka bg-marka text-white"
               : "border-slate-300 bg-white text-slate-700")
           }
@@ -84,7 +84,7 @@ export default async function StranicaLjestvice({
         </p>
       )}
 
-      {/* Tablica: uska na mobitelu, sire kolone se skrivaju */}
+      {/* Table: narrow on mobile, wider columns hide */}
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-500">
@@ -125,7 +125,7 @@ export default async function StranicaLjestvice({
                   {r.wins}-{r.draws}-{r.losses}
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums text-slate-500">
-                  {postotak(r.winRate)}
+                  {pct(r.winRate)}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold tabular-nums">{r.rating}</td>
               </tr>
@@ -134,7 +134,7 @@ export default async function StranicaLjestvice({
         </table>
       </div>
 
-      {/* Dolaznost */}
+      {/* Attendance */}
       <section className="mt-8">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Dolaznost
@@ -152,7 +152,7 @@ export default async function StranicaLjestvice({
                   {r.matches}/{matchesPlayed}
                 </span>
                 <span className="w-12 text-right font-semibold tabular-nums">
-                  {postotak(r.attendanceRate)}
+                  {pct(r.attendanceRate)}
                 </span>
                 {r.currentStreak > 1 && (
                   <span
@@ -167,7 +167,7 @@ export default async function StranicaLjestvice({
         </ul>
       </section>
 
-      {/* Rekordi */}
+      {/* Records */}
       {records.length > 0 && (
         <section className="mt-8">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -191,7 +191,7 @@ export default async function StranicaLjestvice({
 }
 
 /** Id of the group's newest season, or null if there are none. */
-async function najnovijaSezona(grupaId: string): Promise<string | null> {
+async function latestSeason(grupaId: string): Promise<string | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("seasons")

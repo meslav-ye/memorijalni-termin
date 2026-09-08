@@ -67,7 +67,7 @@ export async function saveProfile(
   if ("error" in check) return { error: check.error };
 
   const nickname = check.nickname;
-  const isGoalkeeper = formData.get("golman") === "on";
+  const isGoalkeeper = formData.get("goalkeeper") === "on";
 
   const supabase = await createClient();
   const {

@@ -4,10 +4,10 @@ import { getMembership, getUser } from "@/lib/data/user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rejectMember, approveMember, removeMember, changeRole } from "./actions";
 
-const GUMB_MALI =
+const SMALL_BTN =
   "h-10 rounded-lg px-3 text-sm font-medium transition active:scale-[0.97]";
 
-export default async function StranicaClanova({
+export default async function MembersPage({
   params,
 }: PageProps<"/grupe/[grupaId]/clanovi">) {
   const { grupaId } = await params;
@@ -16,56 +16,57 @@ export default async function StranicaClanova({
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const ja = await getMembership(grupaId);
+  const me = await getMembership(grupaId);
 
-  const admin = ja?.role === "admin";
+  const admin = me?.role === "admin";
 
-  const { data: clanstva } = await supabase
+  const { data: memberships } = await supabase
     .from("group_members")
     .select("user_id, role, status, profiles(nickname, full_name, is_goalkeeper)")
     .eq("group_id", grupaId);
 
-  const { data: ratinzi } = await supabase
+  const { data: ratings } = await supabase
     .from("player_ratings")
     .select("user_id, rating, matches_played")
     .eq("group_id", grupaId);
 
-  // Zahtjevi na cekanju su nevidljivi obicnom clanu po RLS-u, pa ih adminu
-  // dohvacamo tajnim kljucem — ali tek nakon sto smo potvrdili da je admin.
-  let zahtjevi: { user_id: string; nickname: string; full_name: string }[] = [];
+  // Pending requests are invisible to a regular member under RLS, so we
+  // fetch them for the admin with the service role — only after confirming
+  // they are an admin.
+  let requests: { user_id: string; nickname: string; full_name: string }[] = [];
   if (admin) {
-    const adminKlijent = createAdminClient();
-    const { data } = await adminKlijent
+    const adminClient = createAdminClient();
+    const { data } = await adminClient
       .from("group_members")
       .select("user_id, profiles(nickname, full_name)")
       .eq("group_id", grupaId)
       .eq("status", "pending");
 
-    zahtjevi = (data ?? []).map((z) => ({
+    requests = (data ?? []).map((z) => ({
       user_id: z.user_id,
       nickname: z.profiles?.nickname || "(bez nadimka)",
       full_name: z.profiles?.full_name || "",
     }));
   }
 
-  const aktivni = (clanstva ?? [])
+  const activeMembers = (memberships ?? [])
     .filter((c) => c.status === "active")
     .map((c) => ({
       ...c,
-      rating: ratinzi?.find((r) => r.user_id === c.user_id)?.rating ?? 1000,
-      odigrani: ratinzi?.find((r) => r.user_id === c.user_id)?.matches_played ?? 0,
+      rating: ratings?.find((r) => r.user_id === c.user_id)?.rating ?? 1000,
+      matchesPlayed: ratings?.find((r) => r.user_id === c.user_id)?.matches_played ?? 0,
     }))
     .sort((a, b) => (a.profiles?.nickname ?? "").localeCompare(b.profiles?.nickname ?? "", "hr"));
 
   return (
     <div className="space-y-8">
-      {admin && zahtjevi.length > 0 && (
+      {admin && requests.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Zahtjevi za članstvo ({zahtjevi.length})
+            Zahtjevi za članstvo ({requests.length})
           </h2>
           <ul className="space-y-2">
-            {zahtjevi.map((z) => (
+            {requests.map((z) => (
               <li
                 key={z.user_id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-lg
@@ -79,14 +80,14 @@ export default async function StranicaClanova({
                 </div>
                 <div className="flex gap-2">
                   <form action={approveMember}>
-                    <input type="hidden" name="grupaId" value={grupaId} />
-                    <input type="hidden" name="korisnikId" value={z.user_id} />
-                    <button className={`${GUMB_MALI} bg-marka text-white`}>Odobri</button>
+                    <input type="hidden" name="groupId" value={grupaId} />
+                    <input type="hidden" name="userId" value={z.user_id} />
+                    <button className={`${SMALL_BTN} bg-marka text-white`}>Odobri</button>
                   </form>
                   <form action={rejectMember}>
-                    <input type="hidden" name="grupaId" value={grupaId} />
-                    <input type="hidden" name="korisnikId" value={z.user_id} />
-                    <button className={`${GUMB_MALI} border border-slate-300 bg-white`}>
+                    <input type="hidden" name="groupId" value={grupaId} />
+                    <input type="hidden" name="userId" value={z.user_id} />
+                    <button className={`${SMALL_BTN} border border-slate-300 bg-white`}>
                       Odbij
                     </button>
                   </form>
@@ -99,16 +100,16 @@ export default async function StranicaClanova({
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Članovi ({aktivni.length})
+          Članovi ({activeMembers.length})
         </h2>
 
-        {aktivni.length === 0 ? (
+        {activeMembers.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
             Još nema članova.
           </p>
         ) : (
           <ul className="space-y-2">
-            {aktivni.map((c) => (
+            {activeMembers.map((c) => (
               <li
                 key={c.user_id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-lg
@@ -129,29 +130,29 @@ export default async function StranicaClanova({
                     )}
                   </span>
                   <span className="block text-sm text-slate-500">
-                    rating {c.rating} · {c.odigrani}{" "}
-                    {c.odigrani === 1 ? "termin" : "termina"}
+                    rating {c.rating} · {c.matchesPlayed}{" "}
+                    {c.matchesPlayed === 1 ? "termin" : "termina"}
                   </span>
                 </div>
 
                 {admin && c.user_id !== user.id && (
                   <div className="flex gap-2">
                     <form action={changeRole}>
-                      <input type="hidden" name="grupaId" value={grupaId} />
-                      <input type="hidden" name="korisnikId" value={c.user_id} />
+                      <input type="hidden" name="groupId" value={grupaId} />
+                      <input type="hidden" name="userId" value={c.user_id} />
                       <input
                         type="hidden"
-                        name="uloga"
+                        name="role"
                         value={c.role === "admin" ? "member" : "admin"}
                       />
-                      <button className={`${GUMB_MALI} border border-slate-300 bg-white`}>
+                      <button className={`${SMALL_BTN} border border-slate-300 bg-white`}>
                         {c.role === "admin" ? "Skini admina" : "Napravi adminom"}
                       </button>
                     </form>
                     <form action={removeMember}>
-                      <input type="hidden" name="grupaId" value={grupaId} />
-                      <input type="hidden" name="korisnikId" value={c.user_id} />
-                      <button className={`${GUMB_MALI} border border-red-300 bg-white text-red-700`}>
+                      <input type="hidden" name="groupId" value={grupaId} />
+                      <input type="hidden" name="userId" value={c.user_id} />
+                      <button className={`${SMALL_BTN} border border-red-300 bg-white text-red-700`}>
                         Izbaci
                       </button>
                     </form>

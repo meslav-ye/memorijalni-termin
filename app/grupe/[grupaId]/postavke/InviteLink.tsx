@@ -3,36 +3,36 @@
 import { useState } from "react";
 
 /**
- * Link stize gotov sa servera (iz zaglavlja zahtjeva), pa ovdje nema efekta
- * ni odgodjenog prikaza — samo kopiranje i dijeljenje, koji stvarno trebaju
- * preglednik.
+ * The link arrives ready from the server (from the request headers), so there
+ * is no effect or deferred display here — only copy and share, which truly
+ * need the browser.
  */
-export function InviteLink({ link, nazivGrupe }: { link: string; nazivGrupe: string }) {
-  const [status, postaviStatus] = useState<"" | "kopirano" | "greska">("");
+export function InviteLink({ link, groupName }: { link: string; groupName: string }) {
+  const [status, setStatus] = useState<"" | "copied" | "error">("");
 
-  const poruka = `Ekipa, prijave za ${nazivGrupe} idu ovdje: ${link}`;
+  const message = `Ekipa, prijave za ${groupName} idu ovdje: ${link}`;
 
-  async function kopiraj() {
+  async function copy() {
     try {
       await navigator.clipboard.writeText(link);
-      postaviStatus("kopirano");
-      setTimeout(() => postaviStatus(""), 2500);
+      setStatus("copied");
+      setTimeout(() => setStatus(""), 2500);
     } catch {
-      postaviStatus("greska");
+      setStatus("error");
     }
   }
 
-  async function podijeli() {
-    // Web Share API postoji uglavnom na mobitelu; na laptopu padamo na kopiranje.
+  async function share() {
+    // Web Share API exists mainly on mobile; on laptop we fall back to copy.
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ title: nazivGrupe, text: poruka });
+        await navigator.share({ title: groupName, text: message });
       } catch {
-        // Korisnik je odustao od dijeljenja — nije greska, ne prikazujemo nista.
+        // User cancelled sharing — not an error, show nothing.
       }
       return;
     }
-    await kopiraj();
+    await copy();
   }
 
   return (
@@ -44,7 +44,7 @@ export function InviteLink({ link, nazivGrupe }: { link: string; nazivGrupe: str
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={podijeli}
+          onClick={share}
           className="h-12 flex-1 rounded-lg bg-marka text-sm font-semibold text-white
                      transition active:scale-[0.98]"
         >
@@ -52,15 +52,15 @@ export function InviteLink({ link, nazivGrupe }: { link: string; nazivGrupe: str
         </button>
         <button
           type="button"
-          onClick={kopiraj}
+          onClick={copy}
           className="h-12 flex-1 rounded-lg border border-slate-300 bg-white text-sm
                      font-semibold transition active:scale-[0.98]"
         >
-          {status === "kopirano" ? "Kopirano ✓" : "Kopiraj"}
+          {status === "copied" ? "Kopirano ✓" : "Kopiraj"}
         </button>
       </div>
 
-      {status === "greska" && (
+      {status === "error" && (
         <p role="alert" className="text-sm text-red-600">
           Kopiranje nije uspjelo — označi link gore i kopiraj ručno.
         </p>

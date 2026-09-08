@@ -11,60 +11,61 @@ import {
 
 const EMPTY: LoginState = {};
 
-function Poruka({ stanje }: { stanje: LoginState }) {
-  if (stanje.error) {
+function StatusMessage({ state }: { state: LoginState }) {
+  if (state.error) {
     return (
       <p role="alert" className="text-sm font-medium text-red-600">
-        {stanje.error}
+        {state.error}
       </p>
     );
   }
-  if (stanje.message) {
+  if (state.message) {
     return (
       <p role="status" className="text-sm font-medium text-emerald-700">
-        {stanje.message}
+        {state.message}
       </p>
     );
   }
   return null;
 }
 
-const POLJE =
+const FIELD =
   "w-full h-12 rounded-lg border border-slate-300 bg-white px-4 text-base " +
   "placeholder:text-slate-400 focus:border-marka focus:outline-none focus:ring-2 focus:ring-marka/20";
 
-const GUMB_GLAVNI =
+const PRIMARY_BTN =
   "w-full h-14 rounded-lg bg-marka text-base font-semibold text-white " +
   "transition active:scale-[0.98] disabled:opacity-50";
 
-const GUMB_SPOREDNI =
+const SECONDARY_BTN =
   "w-full h-14 rounded-lg border-2 border-marka bg-white text-base font-semibold " +
   "text-slate-900 transition active:scale-[0.98] disabled:opacity-50";
 
-export function LoginForm({ googleDostupan }: { googleDostupan: boolean }) {
-  const [stanjeGoogle, akcijaGoogle, cekaGoogle] = useActionState(signInWithGoogle, EMPTY);
-  const [stanjeLink, akcijaLink, cekaLink] = useActionState(sendMagicLink, EMPTY);
-  const [stanjeLozinka, akcijaLozinka, cekaLozinka] = useActionState(signInWithPassword, EMPTY);
-  const [stanjeRegistracija, akcijaRegistracija, cekaRegistracija] = useActionState(
-    signUpWithPassword,
+export function LoginForm({ googleAvailable }: { googleAvailable: boolean }) {
+  const [googleState, googleAction, googlePending] = useActionState(signInWithGoogle, EMPTY);
+  const [linkState, linkAction, linkPending] = useActionState(sendMagicLink, EMPTY);
+  const [passwordState, passwordAction, passwordPending] = useActionState(
+    signInWithPassword,
     EMPTY,
   );
+  const [signUpState, signUpAction, signUpPending] = useActionState(signUpWithPassword, EMPTY);
 
-  const [lozinkomOtvoreno, postaviLozinkom] = useState(false);
-  const cekaBiloSto = cekaGoogle || cekaLink || cekaLozinka || cekaRegistracija;
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const anyPending = googlePending || linkPending || passwordPending || signUpPending;
 
   return (
     <div className="space-y-6">
-      {/* 1. Google — najmanje trenja na mobitelu, zato je prvi.
-          Prikazuje se SAMO ako je stvarno ukljucen na Supabase projektu:
-          lokalni Docker Supabase ga nema, pa bi gumb tiho vracao na prijavu. */}
-      {googleDostupan ? (
+      {/* 1. Google — least friction on mobile, so it comes first.
+          Shown ONLY if it is actually enabled on the Supabase project:
+          local Docker Supabase does not have it, so the button would silently
+          bounce back to login. */}
+      {googleAvailable ? (
         <>
-          <form action={akcijaGoogle} className="space-y-2">
-            <button type="submit" disabled={cekaBiloSto} className={GUMB_SPOREDNI}>
-              {cekaGoogle ? "Otvaram Google…" : "Prijavi se Googleom"}
+          <form action={googleAction} className="space-y-2">
+            <button type="submit" disabled={anyPending} className={SECONDARY_BTN}>
+              {googlePending ? "Otvaram Google…" : "Prijavi se Googleom"}
             </button>
-            <Poruka stanje={stanjeGoogle} />
+            <StatusMessage state={googleState} />
           </form>
 
           <div className="flex items-center gap-3 text-sm text-slate-400">
@@ -81,7 +82,7 @@ export function LoginForm({ googleDostupan }: { googleDostupan: boolean }) {
       )}
 
       {/* 2. Magic link */}
-      <form action={akcijaLink} className="space-y-2">
+      <form action={linkAction} className="space-y-2">
         <label htmlFor="email-link" className="block text-sm font-medium text-slate-700">
           Email
         </label>
@@ -92,30 +93,30 @@ export function LoginForm({ googleDostupan }: { googleDostupan: boolean }) {
           autoComplete="email"
           inputMode="email"
           placeholder="ime@primjer.hr"
-          className={POLJE}
+          className={FIELD}
           required
         />
-        <button type="submit" disabled={cekaBiloSto} className={GUMB_GLAVNI}>
-          {cekaLink ? "Šaljem…" : "Pošalji mi link"}
+        <button type="submit" disabled={anyPending} className={PRIMARY_BTN}>
+          {linkPending ? "Šaljem…" : "Pošalji mi link"}
         </button>
-        <Poruka stanje={stanjeLink} />
+        <StatusMessage state={linkState} />
       </form>
 
-      {/* 3. Email i lozinka — sklopljeno, jer je najrjedji izbor.
-          Jedna forma, dva gumba: drugi pregazi akciju preko formAction,
-          pa oba dijele ista polja. */}
+      {/* 3. Email and password — collapsed, because it is the rarest choice.
+          One form, two buttons: the second overrides the action via formAction,
+          so both share the same fields. */}
       <div className="border-t border-slate-200 pt-4">
         <button
           type="button"
-          onClick={() => postaviLozinkom((v) => !v)}
-          aria-expanded={lozinkomOtvoreno}
+          onClick={() => setPasswordOpen((v) => !v)}
+          aria-expanded={passwordOpen}
           className="text-sm font-medium text-slate-600 underline underline-offset-4"
         >
-          {lozinkomOtvoreno ? "Sakrij prijavu lozinkom" : "Radije lozinkom?"}
+          {passwordOpen ? "Sakrij prijavu lozinkom" : "Radije lozinkom?"}
         </button>
 
-        {lozinkomOtvoreno && (
-          <form action={akcijaLozinka} className="mt-4 space-y-3">
+        {passwordOpen && (
+          <form action={passwordAction} className="mt-4 space-y-3">
             <div className="space-y-2">
               <label htmlFor="email-lozinka" className="block text-sm font-medium text-slate-700">
                 Email
@@ -126,7 +127,7 @@ export function LoginForm({ googleDostupan }: { googleDostupan: boolean }) {
                 type="email"
                 autoComplete="email"
                 inputMode="email"
-                className={POLJE}
+                className={FIELD}
                 required
               />
             </div>
@@ -141,26 +142,26 @@ export function LoginForm({ googleDostupan }: { googleDostupan: boolean }) {
                 type="password"
                 autoComplete="current-password"
                 minLength={8}
-                className={POLJE}
+                className={FIELD}
                 required
               />
             </div>
 
-            <button type="submit" disabled={cekaBiloSto} className={GUMB_GLAVNI}>
-              {cekaLozinka ? "Prijavljujem…" : "Prijavi se"}
+            <button type="submit" disabled={anyPending} className={PRIMARY_BTN}>
+              {passwordPending ? "Prijavljujem…" : "Prijavi se"}
             </button>
 
             <button
               type="submit"
-              formAction={akcijaRegistracija}
-              disabled={cekaBiloSto}
+              formAction={signUpAction}
+              disabled={anyPending}
               className="w-full h-12 text-sm font-medium text-slate-600 underline underline-offset-4 disabled:opacity-50"
             >
-              {cekaRegistracija ? "Registriram…" : "Nemam račun — registriraj me"}
+              {signUpPending ? "Registriram…" : "Nemam račun — registriraj me"}
             </button>
 
-            <Poruka stanje={stanjeLozinka} />
-            <Poruka stanje={stanjeRegistracija} />
+            <StatusMessage state={passwordState} />
+            <StatusMessage state={signUpState} />
           </form>
         )}
       </div>

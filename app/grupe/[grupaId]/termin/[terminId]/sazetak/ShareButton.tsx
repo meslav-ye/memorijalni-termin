@@ -2,27 +2,27 @@
 
 import { useState } from "react";
 
-export function ShareButton({ tekst }: { tekst: string }) {
-  const [status, postaviStatus] = useState<"" | "kopirano" | "greska">("");
+export function ShareButton({ text }: { text: string }) {
+  const [status, setStatus] = useState<"" | "copied" | "error">("");
 
-  async function podijeli() {
-    // Na mobitelu otvara izbornik dijeljenja (WhatsApp i ostalo);
-    // na laptopu toga nema, pa padamo na kopiranje.
+  async function share() {
+    // On mobile opens the share sheet (WhatsApp etc.);
+    // on laptop that is missing, so we fall back to copy.
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
-        await navigator.share({ text: tekst });
+        await navigator.share({ text });
       } catch {
-        // Korisnik je odustao — nije greska.
+        // User cancelled — not an error.
       }
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(tekst);
-      postaviStatus("kopirano");
-      setTimeout(() => postaviStatus(""), 2500);
+      await navigator.clipboard.writeText(text);
+      setStatus("copied");
+      setTimeout(() => setStatus(""), 2500);
     } catch {
-      postaviStatus("greska");
+      setStatus("error");
     }
   }
 
@@ -30,21 +30,21 @@ export function ShareButton({ tekst }: { tekst: string }) {
     <div className="space-y-2">
       <button
         type="button"
-        onClick={podijeli}
+        onClick={share}
         className="h-12 w-full rounded-lg bg-marka text-sm font-semibold text-white
                    transition active:scale-[0.98]"
       >
-        {status === "kopirano" ? "Kopirano ✓" : "Podijeli sažetak"}
+        {status === "copied" ? "Kopirano ✓" : "Podijeli sažetak"}
       </button>
 
-      {status === "greska" && (
+      {status === "error" && (
         <p role="alert" className="text-sm text-red-600">
           Kopiranje nije uspjelo — označi tekst ispod i kopiraj ručno.
         </p>
       )}
 
       <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-        {tekst}
+        {text}
       </pre>
     </div>
   );

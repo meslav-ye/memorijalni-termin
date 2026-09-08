@@ -37,50 +37,50 @@ export type LiveEvent = {
   deletedAt: string | null;
 };
 
-export type StanjeTermina = MatchTimerState & { status: string };
+export type MatchLiveState = MatchTimerState & { status: string };
 
-/** Pretplata na promjene stanja mreze, za useSyncExternalStore. */
-function pretplatiNaMrezu(promijenilo: () => void) {
-  window.addEventListener("online", promijenilo);
-  window.addEventListener("offline", promijenilo);
+/** Subscribe to online/offline changes for useSyncExternalStore. */
+function subscribeToNetwork(onChange: () => void) {
+  window.addEventListener("online", onChange);
+  window.addEventListener("offline", onChange);
   return () => {
-    window.removeEventListener("online", promijenilo);
-    window.removeEventListener("offline", promijenilo);
+    window.removeEventListener("online", onChange);
+    window.removeEventListener("offline", onChange);
   };
 }
 
 export function LiveScreen({
   grupaId,
   terminId,
-  pocetnaPostava,
+  initialLineup,
   initialEvents,
-  pocetnoStanje,
+  initialState,
 }: {
   grupaId: string;
   terminId: string;
-  pocetnaPostava: LineupPlayer[];
+  initialLineup: LineupPlayer[];
   initialEvents: LiveEvent[];
-  pocetnoStanje: StanjeTermina;
+  initialState: MatchLiveState;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const [postava, postaviPostavu] = useState(pocetnaPostava);
-  const [dogadjaji, setEvents] = useState(initialEvents);
-  const [stanje, postaviStanje] = useState(pocetnoStanje);
+  const [lineup, setLineup] = useState(initialLineup);
+  const [events, setEvents] = useState(initialEvents);
+  const [state, setState] = useState(initialState);
 
-  const [ceka, postaviCeka] = useState<PendingAssist | null>(null);
-  const [duplikat, postaviDuplikat] = useState<{
-    strijelac: LineupPlayer;
-    sekundiPrije: number;
+  const [pendingAssist, setPendingAssist] = useState<PendingAssist | null>(null);
+  const [duplicate, setDuplicate] = useState<{
+    scorer: LineupPlayer;
+    secondsBefore: number;
   } | null>(null);
-  const [greska, postaviGresku] = useState<string | null>(null);
-  const [radim, postaviRadim] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  // --- Dohvat svjezih podataka ---------------------------------------------
+  // --- Fresh data fetch -----------------------------------------------------
 
-  const osvjezi = useCallback(async () => {
-    const [{ data: dog }, { data: post }, { data: term }] = await Promise.all([
+  const refresh = useCallback(async () => {
+    const [{ data: eventRows }, { data: lineupRows }, { data: matchRow }] = await Promise.all([
       supabase
         .from("match_events")
         .select("id, type, team, scorer_id, assist_id, elapsed_seconds, created_at, deleted_at")
@@ -97,9 +97,9 @@ export function LiveScreen({
         .maybeSingle(),
     ]);
 
-    if (dog) {
+    if (eventRows) {
       setEvents(
-        dog.map((e) => ({
+        eventRows.map((e) => ({
           id: e.id,
           type: e.type,
           team: e.team as Team | null,
@@ -112,221 +112,221 @@ export function LiveScreen({
       );
     }
 
-    if (post) {
-      postaviPostavu((prethodna) =>
-        prethodna.map((p) => ({
+    if (lineupRows) {
+      setLineup((prev) =>
+        prev.map((p) => ({
           ...p,
-          team: (post.find((x) => x.user_id === p.userId)?.team ?? p.team) as Team,
-          isGoalkeeper: post.find((x) => x.user_id === p.userId)?.is_goalkeeper ?? false,
+          team: (lineupRows.find((x) => x.user_id === p.userId)?.team ?? p.team) as Team,
+          isGoalkeeper: lineupRows.find((x) => x.user_id === p.userId)?.is_goalkeeper ?? false,
         })),
       );
     }
 
-    if (term) {
-      postaviStanje({
-        status: term.status,
-        startedAt: term.started_at,
-        pausedAt: term.paused_at,
-        totalPausedSeconds: term.total_paused_seconds,
+    if (matchRow) {
+      setState({
+        status: matchRow.status,
+        startedAt: matchRow.started_at,
+        pausedAt: matchRow.paused_at,
+        totalPausedSeconds: matchRow.total_paused_seconds,
       });
     }
   }, [supabase, terminId]);
 
-  // --- Ziva sinkronizacija --------------------------------------------------
+  // --- Live sync ------------------------------------------------------------
 
   useEffect(() => {
-    const kanal = supabase
+    const channel = supabase
       .channel(`termin:${terminId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "match_events", filter: `match_id=eq.${terminId}` },
-        () => void osvjezi(),
+        () => void refresh(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "match_lineup", filter: `match_id=eq.${terminId}` },
-        () => void osvjezi(),
+        () => void refresh(),
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "matches", filter: `id=eq.${terminId}` },
-        () => void osvjezi(),
+        () => void refresh(),
       )
       .subscribe((status) => {
-        // Poziva se i pri prvom spajanju i pri svakom ponovnom spajanju nakon
-        // prekida veze. Tu povlacimo sve sto se dogodilo dok nismo slusali —
-        // zato osvjezavanje ne treba zaseban efekt nad stanjem mreze.
-        if (status === "SUBSCRIBED") void osvjezi();
+        // Fires on first connect and every reconnect after a drop. Pull
+        // everything that happened while we were not listening — so refresh
+        // does not need a separate effect on network state.
+        if (status === "SUBSCRIBED") void refresh();
       });
 
     return () => {
-      void supabase.removeChannel(kanal);
+      void supabase.removeChannel(channel);
     };
-  }, [supabase, terminId, osvjezi]);
+  }, [supabase, terminId, refresh]);
 
-  // --- Stanje mreze ---------------------------------------------------------
+  // --- Network state --------------------------------------------------------
 
-  // Stanje veze je vanjski izvor koji se mijenja mimo Reacta, pa se cita
-  // preko useSyncExternalStore. Rucni useEffect + setState bi ovdje radio
-  // dodatni render pri svakom ucitavanju i nije preporucen obrazac.
-  const naMrezi = useSyncExternalStore(
-    pretplatiNaMrezu,
+  // Connection state is an external source that changes outside React, so it
+  // is read via useSyncExternalStore. A manual useEffect + setState would
+  // cause an extra render on every load and is not the recommended pattern.
+  const online = useSyncExternalStore(
+    subscribeToNetwork,
     () => navigator.onLine,
-    () => true, // na serveru pretpostavljamo da veza postoji
+    () => true, // assume online on the server
   );
 
-  // Osvjezavanje na povratak veze NE ide ovdje — radi ga callback Realtime
-  // pretplate gore, koji se okine na svako (ponovno) spajanje. `naMrezi`
-  // sluzi samo za traku upozorenja.
+  // Refresh on reconnect does NOT live here — the Realtime subscription
+  // callback above fires on every (re)connect. `online` is only for the
+  // warning banner.
 
-  // --- Izvedene vrijednosti -------------------------------------------------
+  // --- Derived values -------------------------------------------------------
 
-  const vazeci = dogadjaji.filter((e) => e.deletedAt === null);
-  const golovi = vazeci.filter((e) => e.type === "goal" || e.type === "own_goal");
+  const activeEvents = events.filter((e) => e.deletedAt === null);
+  const goals = activeEvents.filter((e) => e.type === "goal" || e.type === "own_goal");
 
-  const rezultatA = golovi.filter((e) => e.team === "A").length;
-  const rezultatB = golovi.filter((e) => e.team === "B").length;
+  const scoreA = goals.filter((e) => e.team === "A").length;
+  const scoreB = goals.filter((e) => e.team === "B").length;
 
-  const golovaIgraca = (userId: string) =>
-    vazeci.filter((e) => e.type === "goal" && e.scorerId === userId).length;
+  const playerGoals = (userId: string) =>
+    activeEvents.filter((e) => e.type === "goal" && e.scorerId === userId).length;
 
   const nicknameOf = (userId: string | null) =>
-    postava.find((p) => p.userId === userId)?.nickname ?? "?";
+    lineup.find((p) => p.userId === userId)?.nickname ?? "?";
 
-  const ekipaA = postava.filter((p) => p.team === "A");
-  const ekipaB = postava.filter((p) => p.team === "B");
+  const teamA = lineup.filter((p) => p.team === "A");
+  const teamB = lineup.filter((p) => p.team === "B");
 
-  const uTijeku = stanje.status === "u_tijeku";
-  const zakljucano = !uTijeku || radim;
+  const inProgress = state.status === "u_tijeku";
+  const locked = !inProgress || busy;
 
-  function trenutnoProteklo() {
-    return elapsedSeconds(stanje, new Date());
+  function currentElapsed() {
+    return elapsedSeconds(state, new Date());
   }
 
-  // Stabilna referenca: AssistStrip je koristi kao ovisnost odbrojavanja.
-  const zatvoriTraku = useCallback(() => postaviCeka(null), []);
+  // Stable reference: AssistStrip uses this as a countdown dependency.
+  const closeStrip = useCallback(() => setPendingAssist(null), []);
 
-  // --- Radnje ---------------------------------------------------------------
+  // --- Actions --------------------------------------------------------------
 
-  async function nakonPromjene() {
-    await osvjezi();
+  async function afterChange() {
+    await refresh();
     router.refresh();
   }
 
-  async function gol(igrac: LineupPlayer, potvrdjen = false) {
-    postaviGresku(null);
-    postaviRadim(true);
+  async function recordPlayerGoal(player: LineupPlayer, confirmed = false) {
+    setError(null);
+    setBusy(true);
 
-    const proteklo = trenutnoProteklo();
-    const odgovor = await recordGoal(terminId, igrac.userId, igrac.team, proteklo, potvrdjen);
+    const elapsed = currentElapsed();
+    const result = await recordGoal(terminId, player.userId, player.team, elapsed, confirmed);
 
-    postaviRadim(false);
+    setBusy(false);
 
-    if ("error" in odgovor) {
-      postaviGresku(odgovor.error);
+    if ("error" in result) {
+      setError(result.error);
       return;
     }
 
-    if ("possibleDuplicate" in odgovor) {
-      postaviDuplikat({
-        strijelac: igrac,
-        sekundiPrije: odgovor.possibleDuplicate.secondsBefore,
+    if ("possibleDuplicate" in result) {
+      setDuplicate({
+        scorer: player,
+        secondsBefore: result.possibleDuplicate.secondsBefore,
       });
       return;
     }
 
-    postaviCeka({
-      eventId: odgovor.eventId,
-      scorer: igrac.nickname,
-      elapsed: proteklo,
-      teammates: postava
-        .filter((p) => p.team === igrac.team && p.userId !== igrac.userId)
+    setPendingAssist({
+      eventId: result.eventId,
+      scorer: player.nickname,
+      elapsed,
+      teammates: lineup
+        .filter((p) => p.team === player.team && p.userId !== player.userId)
         .map((p) => ({ userId: p.userId, nickname: p.nickname })),
     });
 
-    await osvjezi();
+    await refresh();
   }
 
-  async function autogol(igrac: LineupPlayer) {
-    postaviGresku(null);
-    postaviRadim(true);
-    const odgovor = await recordOwnGoal(terminId, igrac.userId, igrac.team, trenutnoProteklo());
-    postaviRadim(false);
+  async function recordPlayerOwnGoal(player: LineupPlayer) {
+    setError(null);
+    setBusy(true);
+    const result = await recordOwnGoal(terminId, player.userId, player.team, currentElapsed());
+    setBusy(false);
 
-    if ("error" in odgovor) postaviGresku(odgovor.error);
-    await nakonPromjene();
+    if ("error" in result) setError(result.error);
+    await afterChange();
   }
 
-  async function golman(igrac: LineupPlayer) {
-    postaviRadim(true);
-    await changeGoalkeeper(terminId, igrac.userId, igrac.team, trenutnoProteklo());
-    postaviRadim(false);
-    await nakonPromjene();
+  async function setPlayerGoalkeeper(player: LineupPlayer) {
+    setBusy(true);
+    await changeGoalkeeper(terminId, player.userId, player.team, currentElapsed());
+    setBusy(false);
+    await afterChange();
   }
 
-  async function ponisti(dogadjajId: string) {
-    postaviRadim(true);
-    await undoEvent(terminId, dogadjajId);
-    postaviRadim(false);
-    postaviCeka(null);
-    await nakonPromjene();
+  async function undo(eventId: string) {
+    setBusy(true);
+    await undoEvent(terminId, eventId);
+    setBusy(false);
+    setPendingAssist(null);
+    await afterChange();
   }
 
-  async function odaberiAsistenta(asistentId: string | null) {
-    if (!ceka) return;
-    const id = ceka.eventId;
-    postaviCeka(null);
-    await addAssist(terminId, id, asistentId);
-    await nakonPromjene();
+  async function selectAssistant(assistantId: string | null) {
+    if (!pendingAssist) return;
+    const id = pendingAssist.eventId;
+    setPendingAssist(null);
+    await addAssist(terminId, id, assistantId);
+    await afterChange();
   }
 
-  async function pauzaIliNastavak() {
-    postaviRadim(true);
-    if (stanje.pausedAt) await resumeMatch(terminId);
+  async function togglePause() {
+    setBusy(true);
+    if (state.pausedAt) await resumeMatch(terminId);
     else await pauseMatch(terminId);
-    postaviRadim(false);
-    await nakonPromjene();
+    setBusy(false);
+    await afterChange();
   }
 
-  const [potvrdaZavrsetka, postaviPotvrdu] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
 
-  async function zavrsi() {
-    postaviRadim(true);
-    const odgovor = await finishMatch(grupaId, terminId);
-    postaviRadim(false);
+  async function finish() {
+    setBusy(true);
+    const result = await finishMatch(grupaId, terminId);
+    setBusy(false);
 
-    if ("error" in odgovor) {
-      postaviGresku(odgovor.error);
-      postaviPotvrdu(false);
+    if ("error" in result) {
+      setError(result.error);
+      setConfirmFinish(false);
       return;
     }
     router.push(`/grupe/${grupaId}/termin/${terminId}/sazetak`);
   }
 
-  // --- Prikaz ---------------------------------------------------------------
+  // --- Render ---------------------------------------------------------------
 
   return (
     <div className="pb-56">
-      {!naMrezi && (
+      {!online && (
         <p className="mb-3 rounded-lg bg-amber-500 px-3 py-2 text-center text-sm font-semibold text-white">
           Nema veze — unosi neće proći dok se ne vratiš na mrežu
         </p>
       )}
 
-      {greska && (
+      {error && (
         <p role="alert" className="mb-3 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white">
-          {greska}
+          {error}
         </p>
       )}
 
-      {/* Rezultat i stoperica */}
+      {/* Score and stopwatch */}
       <div className="rounded-xl bg-marka p-4 text-center text-white">
         <div className="flex items-center justify-center gap-4">
           <span className="flex-1 text-right text-sm font-semibold uppercase text-slate-400">
             Ekipa A
           </span>
           <span className="text-4xl font-bold tabular-nums" aria-label="Rezultat">
-            {rezultatA} : {rezultatB}
+            {scoreA} : {scoreB}
           </span>
           <span className="flex-1 text-left text-sm font-semibold uppercase text-slate-400">
             Ekipa B
@@ -334,24 +334,24 @@ export function LiveScreen({
         </div>
 
         <div className="mt-2 flex justify-center">
-          <Stopwatch state={stanje} />
+          <Stopwatch state={state} />
         </div>
 
-        {uTijeku && (
+        {inProgress && (
           <div className="mt-3 flex gap-2">
             <button
               type="button"
-              onClick={pauzaIliNastavak}
-              disabled={radim}
+              onClick={togglePause}
+              disabled={busy}
               className="h-12 flex-1 rounded-lg border border-slate-600 text-sm font-semibold
                          transition active:scale-[0.98] disabled:opacity-50"
             >
-              {stanje.pausedAt ? "Nastavi" : "Pauza"}
+              {state.pausedAt ? "Nastavi" : "Pauza"}
             </button>
             <button
               type="button"
-              onClick={() => postaviPotvrdu(true)}
-              disabled={radim}
+              onClick={() => setConfirmFinish(true)}
+              disabled={busy}
               className="h-12 flex-1 rounded-lg bg-white text-sm font-semibold text-slate-900
                          transition active:scale-[0.98] disabled:opacity-50"
             >
@@ -361,39 +361,39 @@ export function LiveScreen({
         )}
       </div>
 
-      {!uTijeku && (
+      {!inProgress && (
         <p className="mt-3 rounded-lg bg-slate-200 px-3 py-2 text-center text-sm font-semibold text-slate-700">
           Termin je završen. Unos je zaključan.
         </p>
       )}
 
-      {/* Igraci */}
+      {/* Players */}
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="space-y-2">
-          {ekipaA.map((p) => (
+          {teamA.map((p) => (
             <PlayerButton
               key={p.userId}
               nickname={p.nickname}
-              goals={golovaIgraca(p.userId)}
+              goals={playerGoals(p.userId)}
               isGoalkeeper={p.isGoalkeeper}
-              disabled={zakljucano}
-              onGoal={() => void gol(p)}
-              onOwnGoal={() => void autogol(p)}
-              onGoalkeeper={() => void golman(p)}
+              disabled={locked}
+              onGoal={() => void recordPlayerGoal(p)}
+              onOwnGoal={() => void recordPlayerOwnGoal(p)}
+              onGoalkeeper={() => void setPlayerGoalkeeper(p)}
             />
           ))}
         </div>
         <div className="space-y-2">
-          {ekipaB.map((p) => (
+          {teamB.map((p) => (
             <PlayerButton
               key={p.userId}
               nickname={p.nickname}
-              goals={golovaIgraca(p.userId)}
+              goals={playerGoals(p.userId)}
               isGoalkeeper={p.isGoalkeeper}
-              disabled={zakljucano}
-              onGoal={() => void gol(p)}
-              onOwnGoal={() => void autogol(p)}
-              onGoalkeeper={() => void golman(p)}
+              disabled={locked}
+              onGoal={() => void recordPlayerGoal(p)}
+              onOwnGoal={() => void recordPlayerOwnGoal(p)}
+              onGoalkeeper={() => void setPlayerGoalkeeper(p)}
             />
           ))}
         </div>
@@ -403,19 +403,19 @@ export function LiveScreen({
         Dodir = gol · Dugi pritisak = autogol · 🧤 = golman
       </p>
 
-      {/* Kronologija */}
+      {/* Timeline */}
       <section className="mt-6">
         <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Što se dogodilo
         </h3>
 
-        {vazeci.length === 0 ? (
+        {activeEvents.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center text-sm text-slate-500">
             Još nema golova.
           </p>
         ) : (
           <ul className="space-y-1">
-            {vazeci.map((e) => (
+            {activeEvents.map((e) => (
               <li
                 key={e.id}
                 className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -451,11 +451,11 @@ export function LiveScreen({
                   {e.team}
                 </span>
 
-                {uTijeku && (
+                {inProgress && (
                   <button
                     type="button"
-                    onClick={() => void ponisti(e.id)}
-                    disabled={radim}
+                    onClick={() => void undo(e.id)}
+                    disabled={busy}
                     className="h-8 w-8 shrink-0 rounded text-slate-400 transition
                                active:scale-90 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
                     aria-label="Poništi ovaj unos"
@@ -470,33 +470,33 @@ export function LiveScreen({
         )}
       </section>
 
-      {/* Traka za asistenciju */}
-      {ceka && (
+      {/* Assist strip */}
+      {pendingAssist && (
         <AssistStrip
-          key={ceka.eventId}
-          pending={ceka}
-          onSelect={(id) => void odaberiAsistenta(id)}
-          onUndo={() => void ponisti(ceka.eventId)}
-          onExpire={zatvoriTraku}
+          key={pendingAssist.eventId}
+          pending={pendingAssist}
+          onSelect={(id) => void selectAssistant(id)}
+          onUndo={() => void undo(pendingAssist.eventId)}
+          onExpire={closeStrip}
         />
       )}
 
-      {/* Upozorenje na mogući dupli unos */}
-      {duplikat && (
+      {/* Possible duplicate warning */}
+      {duplicate && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/50 p-4">
           <div className="mx-auto w-full max-w-md rounded-xl bg-white p-5">
             <h4 className="text-lg font-bold">Je li ovo drugi gol?</h4>
             <p className="mt-2 text-slate-600">
-              Netko je već upisao gol za <strong>{duplikat.strijelac.nickname}</strong> prije{" "}
-              {duplikat.sekundiPrije} s.
+              Netko je već upisao gol za <strong>{duplicate.scorer.nickname}</strong> prije{" "}
+              {duplicate.secondsBefore} s.
             </p>
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  const igrac = duplikat.strijelac;
-                  postaviDuplikat(null);
-                  void gol(igrac, true);
+                  const player = duplicate.scorer;
+                  setDuplicate(null);
+                  void recordPlayerGoal(player, true);
                 }}
                 className="h-12 flex-1 rounded-lg bg-marka font-semibold text-white
                            transition active:scale-[0.98]"
@@ -505,7 +505,7 @@ export function LiveScreen({
               </button>
               <button
                 type="button"
-                onClick={() => postaviDuplikat(null)}
+                onClick={() => setDuplicate(null)}
                 className="h-12 flex-1 rounded-lg border border-slate-300 font-semibold
                            transition active:scale-[0.98]"
               >
@@ -516,8 +516,8 @@ export function LiveScreen({
         </div>
       )}
 
-      {/* Potvrda završetka */}
-      {potvrdaZavrsetka && (
+      {/* Finish confirmation */}
+      {confirmFinish && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/50 p-4">
           <div className="mx-auto w-full max-w-md rounded-xl bg-white p-5">
             <h4 className="text-lg font-bold">Završiti termin?</h4>
@@ -527,8 +527,8 @@ export function LiveScreen({
             <div className="mt-5 flex gap-2">
               <button
                 type="button"
-                onClick={() => void zavrsi()}
-                disabled={radim}
+                onClick={() => void finish()}
+                disabled={busy}
                 className="h-12 flex-1 rounded-lg bg-marka font-semibold text-white
                            transition active:scale-[0.98] disabled:opacity-50"
               >
@@ -536,7 +536,7 @@ export function LiveScreen({
               </button>
               <button
                 type="button"
-                onClick={() => postaviPotvrdu(false)}
+                onClick={() => setConfirmFinish(false)}
                 className="h-12 flex-1 rounded-lg border border-slate-300 font-semibold
                            transition active:scale-[0.98]"
               >

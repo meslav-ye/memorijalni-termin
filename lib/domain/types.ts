@@ -1,34 +1,34 @@
 /**
- * Tipovi domenskog sloja.
+ * Domain-layer types.
  *
- * Ovaj sloj ne zna nista o Reactu, Nextu ni Supabaseu. Prima obicne objekte i
- * vraca obicne objekte, pa se najtezi dijelovi aplikacije — lista cekanja,
- * balansiranje ekipa, Elo, stoperica, statistika — testiraju u milisekundama,
- * bez baze i bez preglednika.
+ * This layer knows nothing about React, Next, or Supabase. It takes plain
+ * objects and returns plain objects, so the hardest parts of the app —
+ * waitlist, team balancing, Elo, stopwatch, stats — are tested in
+ * milliseconds, without a database or a browser.
  */
 
 export type Team = "A" | "B";
 
-// ---------- Prijave i lista cekanja ----------
+// ---------- Signups and waitlist ----------
 
 export type SignupRow = {
   userId: string;
-  /** ISO 8601. Odredjuje mjesto u redu kad manualOrder nije postavljen. */
+  /** ISO 8601. Determines queue place when manualOrder is not set. */
   signedUpAt: string;
-  /** Admin je rucno preuredio red; null znaci "idi po vremenu prijave". */
+  /** Admin manually reordered the queue; null means "go by signup time". */
   manualOrder: number | null;
-  /** Meko otkazivanje: redak ostaje, ali se ne broji. */
+  /** Soft cancel: the row stays, but is not counted. */
   cancelledAt: string | null;
 };
 
 export type SignupBuckets = {
-  /** userId-evi koji su unutra, redom. */
+  /** userIds who are in, in order. */
   confirmed: string[];
-  /** userId-evi na listi cekanja, redom. */
+  /** userIds on the waitlist, in order. */
   waitlist: string[];
 };
 
-// ---------- Slaganje ekipa ----------
+// ---------- Team balancing ----------
 
 export type PlayerForBalancing = {
   userId: string;
@@ -39,7 +39,7 @@ export type PlayerForBalancing = {
 export type SuggestedTeams = {
   teamA: PlayerForBalancing[];
   teamB: PlayerForBalancing[];
-  /** Poruke na hrvatskom, npr. "Ekipa B nema golmana." */
+  /** Messages in Croatian, e.g. "Ekipa B nema golmana." */
   warnings: string[];
 };
 
@@ -61,13 +61,13 @@ export type GoalEventLite = {
   deletedAt: string | null;
 };
 
-// ---------- Statistika ----------
+// ---------- Stats ----------
 
 export type MatchForStats = {
   matchId: string;
   scoreA: number;
   scoreB: number;
-  /** Za rekorde koji se vezu na termin, a ne na igraca (npr. najveca pobjeda). */
+  /** For records tied to a match, not a player (e.g. biggest win). */
   startsAt?: string;
   lineup: { userId: string; team: Team }[];
   events: {
