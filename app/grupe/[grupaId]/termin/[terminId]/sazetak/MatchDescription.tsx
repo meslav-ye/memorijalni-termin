@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { updateMatchDescription } from "../../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { LinkifiedText } from "@/components/termin/LinkifiedText";
@@ -66,27 +66,128 @@ export function MatchDescription({
     );
   }
 
-  return (
-    <section className="mt-8">
-      {trimmed ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700 whitespace-pre-wrap">
-          <LinkifiedText text={trimmed} />
-        </div>
-      ) : null}
-
-      {admin && (
+  if (!trimmed) {
+    return (
+      <section className="mt-8">
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className={
-            trimmed
-              ? "mt-2 text-sm font-medium text-slate-500 underline underline-offset-4 hover:text-slate-800"
-              : "h-12 w-full rounded-lg border border-dashed border-slate-300 bg-white text-sm font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-800 active:scale-[0.98]"
-          }
+          className="h-12 w-full rounded-lg border border-dashed border-slate-300 bg-white text-sm font-medium text-slate-600 transition hover:border-slate-400 hover:text-slate-800 active:scale-[0.98]"
         >
-          {trimmed ? "Uredi opis" : "Dodaj opis"}
+          Dodaj opis
         </button>
-      )}
+      </section>
+    );
+  }
+
+  return (
+    <section className="mt-8">
+      <div className="relative rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-700 whitespace-pre-wrap">
+        {admin && (
+          <div className="absolute right-2 top-2">
+            <DescriptionMenu
+              onEdit={() => setEditing(true)}
+              onDelete={async () => {
+                if (!confirm("Obrisati opis?")) return;
+                const formData = new FormData();
+                formData.set("groupId", grupaId);
+                formData.set("matchId", terminId);
+                formData.set("opis", "");
+                await updateMatchDescription(formData);
+              }}
+            />
+          </div>
+        )}
+        <div className={admin ? "pr-8" : undefined}>
+          <LinkifiedText text={trimmed} />
+        </div>
+      </div>
     </section>
+  );
+}
+
+function DescriptionMenu({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: () => void;
+  onDelete: () => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-label="Opcije opisa"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+      >
+        <span aria-hidden className="text-lg leading-none">
+          ⋮
+        </span>
+      </button>
+
+      {open && (
+        <div
+          id={menuId}
+          role="menu"
+          className="absolute right-0 z-10 mt-1 min-w-[9rem] overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-md"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+            onClick={() => {
+              setOpen(false);
+              onEdit();
+            }}
+          >
+            Uredi
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            disabled={deleting}
+            className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
+            onClick={async () => {
+              setDeleting(true);
+              try {
+                await onDelete();
+              } finally {
+                setDeleting(false);
+                setOpen(false);
+              }
+            }}
+          >
+            {deleting ? "Brišem…" : "Obriši"}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
