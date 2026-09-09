@@ -1,6 +1,7 @@
 /**
  * Which season chip should look selected.
  * Default view (no ?sezona=) shows the newest season — only that chip is active.
+ * When the group has no seasons yet, all-time ("sve") is the implicit selection.
  */
 export function isSeasonChipActive(opts: {
   /** Season uuid, or `"sve"` for all-time chip */
@@ -11,7 +12,12 @@ export function isSeasonChipActive(opts: {
 }): boolean {
   const { chipId, requestedSeason, latestSeasonId } = opts;
 
-  if (chipId === "sve") return requestedSeason === "sve";
+  if (chipId === "sve") {
+    return (
+      requestedSeason === "sve" ||
+      (requestedSeason == null && latestSeasonId == null)
+    );
+  }
 
   if (requestedSeason === "sve") return false;
 

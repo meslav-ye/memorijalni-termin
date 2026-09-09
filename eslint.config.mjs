@@ -22,9 +22,10 @@ const eslintConfig = defineConfig([
   },
 
   // Override default ignores of eslint-config-next.
+  // Use **/.next/** so worktree absolute paths are ignored (plain .next/** is not).
   globalIgnores([
     // Default ignores of eslint-config-next:
-    ".next/**",
+    "**/.next/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

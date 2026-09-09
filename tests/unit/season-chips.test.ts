@@ -47,4 +47,10 @@ describe("isSeasonChipActive", () => {
       isSeasonChipActive({ chipId: "season-x", requestedSeason: null, latestSeasonId: null }),
     ).toBe(false);
   });
+
+  it("marks sve when group has no seasons (all-time is default)", () => {
+    expect(
+      isSeasonChipActive({ chipId: "sve", requestedSeason: null, latestSeasonId: null }),
+    ).toBe(true);
+  });
 });
