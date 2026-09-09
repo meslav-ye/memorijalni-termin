@@ -1,14 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
-import {
-  IconAssist,
-  IconAttendance,
-  IconGoalsAssists,
-  IconKeeper,
-  IconRating,
-  IconScorer,
-} from "@/components/brand/StatsIcons";
+import { STATS_ART } from "@/components/brand/statsArt";
 import { SeasonBar } from "@/components/group/SeasonBar";
 import { StatsLeaderCard } from "@/components/group/StatsLeaderCard";
 import { YouStrip } from "@/components/group/YouStrip";
@@ -98,14 +91,14 @@ export default async function StatsPage({
 
   const recordCards: {
     title: string;
-    icon: ReactNode;
+    imageSrc: string | null;
   }[] = [
-    { title: "Najviše golova na utakmici", icon: <IconScorer /> },
-    { title: "Najviše G+A", icon: <IconGoalsAssists /> },
-    { title: "Najmanje primljenih na utakmici", icon: <IconKeeper /> },
+    { title: "Najviše golova na utakmici", imageSrc: STATS_ART.scorer },
+    { title: "Najviše G+A", imageSrc: STATS_ART.points },
+    { title: "Najmanje primljenih na utakmici", imageSrc: STATS_ART.keeper },
     // No Vodeći twin — keep text-only heading (no emoji).
-    { title: "Najveća pobjeda", icon: null },
-    { title: "Najviše termina ukupno", icon: <IconAttendance /> },
+    { title: "Najveća pobjeda", imageSrc: null },
+    { title: "Najviše termina ukupno", imageSrc: STATS_ART.attendance },
   ];
 
   return (
@@ -166,7 +159,7 @@ export default async function StatsPage({
         </h3>
         <div className="grid gap-2 sm:grid-cols-2">
           <StatsLeaderCard
-            icon={<IconScorer />}
+            imageSrc={STATS_ART.scorer}
             title="Najbolji strijelac"
             value={topScorer ? String(topScorer.value) : "—"}
             who={topScorer?.nickname ?? ""}
@@ -174,28 +167,28 @@ export default async function StatsPage({
             suffix={topScorer && topScorer.value === 1 ? "gol" : "golova"}
           />
           <StatsLeaderCard
-            icon={<IconAssist />}
+            imageSrc={STATS_ART.assist}
             title="Najviše asistencija"
             value={topAssister ? String(topAssister.value) : "—"}
             who={topAssister?.nickname ?? ""}
             href={topAssister ? playerHref(grupaId, topAssister.userId) : null}
           />
           <StatsLeaderCard
-            icon={<IconGoalsAssists />}
+            imageSrc={STATS_ART.points}
             title="Najviše bodova (G+A)"
             value={topPoints ? String(topPoints.value) : "—"}
             who={topPoints?.nickname ?? ""}
             href={topPoints ? playerHref(grupaId, topPoints.userId) : null}
           />
           <StatsLeaderCard
-            icon={<IconRating />}
+            imageSrc={STATS_ART.rating}
             title="Najveći rating"
             value={topRating ? String(topRating.value) : "—"}
             who={topRating?.nickname ?? ""}
             href={topRating ? playerHref(grupaId, topRating.userId) : null}
           />
           <StatsLeaderCard
-            icon={<IconAttendance />}
+            imageSrc={STATS_ART.attendance}
             title="Najviše odigranih"
             value={topAttendance ? String(topAttendance.value) : "—"}
             who={topAttendance?.nickname ?? ""}
@@ -203,7 +196,7 @@ export default async function StatsPage({
             suffix={topAttendance && topAttendance.value === 1 ? "termin" : "termina"}
           />
           <StatsLeaderCard
-            icon={<IconKeeper />}
+            imageSrc={STATS_ART.keeper}
             title="Najmanje primljenih"
             value={topKeeper ? topKeeper.average.toFixed(1) : "—"}
             who={topKeeper?.nickname ?? ""}
@@ -215,8 +208,15 @@ export default async function StatsPage({
 
       {keepers.length > 0 && (
         <section>
-          <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            <IconKeeper className="h-6 w-6 text-marka" />
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <Image
+              src={STATS_ART.keeper}
+              alt=""
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-md object-contain"
+              aria-hidden
+            />
             Golmani
           </h3>
           <ul className="space-y-2">
@@ -268,7 +268,16 @@ export default async function StatsPage({
                         Ti
                       </span>
                     )}
-                    <IconKeeper className="inline-block h-3.5 w-3.5 text-marka" />
+                    <span title="Igra golmana">
+                      <Image
+                        src={STATS_ART.keeper}
+                        alt=""
+                        width={16}
+                        height={16}
+                        className="inline-block h-4 w-4 rounded-sm object-contain"
+                        aria-hidden
+                      />
+                    </span>
                   </Link>
                   <div className="mt-3 grid grid-cols-4 gap-2">
                     {stats.map((s) => (
@@ -300,12 +309,12 @@ export default async function StatsPage({
           Rekordi
         </h3>
         <div className="grid gap-2 sm:grid-cols-2">
-          {recordCards.map(({ title, icon }) => {
+          {recordCards.map(({ title, imageSrc }) => {
             const found = records.find((r) => r.title === title);
             return (
               <StatsLeaderCard
                 key={title}
-                icon={icon}
+                imageSrc={imageSrc}
                 title={title}
                 value={found?.value ?? "—"}
                 who={found?.who ?? (found ? "—" : "")}

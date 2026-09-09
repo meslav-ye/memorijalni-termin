@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { IconKeeper } from "@/components/brand/StatsIcons";
+import Image from "next/image";
+import { STATS_ART } from "@/components/brand/statsArt";
 import {
   defaultLeaderboardOrder,
   nextSortState,
@@ -238,7 +239,14 @@ export function LeaderboardTable({ grupaId, rows, currentUserId }: Props) {
                     )}
                     {r.isGoalkeeper && (
                       <span className="shrink-0" title="Igra golmana">
-                        <IconKeeper className="inline-block h-3.5 w-3.5 text-marka" />
+                        <Image
+                          src={STATS_ART.keeper}
+                          alt=""
+                          width={16}
+                          height={16}
+                          className="inline-block h-4 w-4 rounded-sm object-contain"
+                          aria-hidden
+                        />
                       </span>
                     )}
                   </span>

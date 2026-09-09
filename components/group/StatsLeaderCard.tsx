@@ -1,8 +1,9 @@
+import Image from "next/image";
 import Link from "next/link";
-import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 
 type Props = {
-  icon: ReactNode;
+  /** Path under /public, e.g. `/brand/stats/stats-scorer.png` */
+  imageSrc?: string | null;
   title: string;
   value: string;
   who: string;
@@ -11,9 +12,15 @@ type Props = {
   suffix?: string;
 };
 
-export function StatsLeaderCard({ icon, title, value, who, href, suffix }: Props) {
+export function StatsLeaderCard({
+  imageSrc,
+  title,
+  value,
+  who,
+  href,
+  suffix,
+}: Props) {
   const empty = who === "";
-  const iconEl = isValidElement(icon) ? (icon as ReactElement<{ className?: string }>) : null;
 
   const whoEl = empty ? (
     <span className="text-slate-400">još nitko</span>
@@ -34,22 +41,29 @@ export function StatsLeaderCard({ icon, title, value, who, href, suffix }: Props
           : "border-marka/15 bg-marka/[0.04]")
       }
     >
-      {/* A: category watermark — large faded icon */}
-      {!empty && iconEl && (
-        <span
-          className="pointer-events-none absolute -bottom-3 -right-3 text-marka opacity-[0.09] [&_svg]:h-20 [&_svg]:w-20"
+      {/* Soft category illustration as watermark */}
+      {!empty && imageSrc && (
+        <Image
+          src={imageSrc}
+          alt=""
+          width={160}
+          height={160}
+          className="pointer-events-none absolute -bottom-4 -right-4 h-28 w-28 object-contain opacity-[0.18]"
           aria-hidden
-        >
-          {cloneElement(iconEl)}
-        </span>
+        />
       )}
 
       <div className="relative">
-        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          {iconEl && (
-            <span className="shrink-0 text-marka [&_svg]:h-6 [&_svg]:w-6">
-              {cloneElement(iconEl)}
-            </span>
+        <p className="flex items-center gap-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {imageSrc && (
+            <Image
+              src={imageSrc}
+              alt=""
+              width={40}
+              height={40}
+              className="h-10 w-10 shrink-0 rounded-lg object-contain"
+              aria-hidden
+            />
           )}
           {title}
         </p>
