@@ -86,11 +86,16 @@ function SortHeader({
 }
 
 export function LeaderboardTable({ grupaId, rows, currentUserId }: Props) {
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  // Default: rating desc (matches server / defaultLeaderboardOrder primary key).
+  const [sortKey, setSortKey] = useState<SortKey | null>("rating");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const ordered = useMemo(() => {
     if (!sortKey) return defaultLeaderboardOrder(rows);
+    // First paint on rating uses the richer default order (goals/assists as ties).
+    if (sortKey === "rating" && sortDir === "desc") {
+      return defaultLeaderboardOrder(rows);
+    }
     return sortLeaderboardRows(rows, sortKey, sortDir);
   }, [rows, sortKey, sortDir]);
 

@@ -31,15 +31,15 @@ export type SortableLeaderboardRow = {
   rating: number;
 };
 
-/** Default board order (same as server). */
+/** Default board order (same as server): rating first. */
 export function defaultLeaderboardOrder<T extends SortableLeaderboardRow>(
   rows: T[],
 ): T[] {
   return [...rows].sort(
     (a, b) =>
+      b.rating - a.rating ||
       b.goals - a.goals ||
       b.assists - a.assists ||
-      b.rating - a.rating ||
       b.matches - a.matches ||
       a.nickname.localeCompare(b.nickname, "hr"),
   );

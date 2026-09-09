@@ -72,12 +72,12 @@ describe("nextSortState", () => {
 });
 
 describe("defaultLeaderboardOrder", () => {
-  it("orders by goals, assists, rating", () => {
+  it("orders by rating, then goals, assists", () => {
     const rows = [
-      row({ userId: "1", nickname: "A", goals: 1, assists: 2, rating: 1000 }),
-      row({ userId: "2", nickname: "B", goals: 2, assists: 0, rating: 990 }),
-      row({ userId: "3", nickname: "C", goals: 1, assists: 3, rating: 1000 }),
+      row({ userId: "1", nickname: "A", goals: 5, assists: 2, rating: 1000 }),
+      row({ userId: "2", nickname: "B", goals: 1, assists: 0, rating: 1050 }),
+      row({ userId: "3", nickname: "C", goals: 3, assists: 3, rating: 1000 }),
     ];
-    expect(defaultLeaderboardOrder(rows).map((r) => r.nickname)).toEqual(["B", "C", "A"]);
+    expect(defaultLeaderboardOrder(rows).map((r) => r.nickname)).toEqual(["B", "A", "C"]);
   });
 });

@@ -251,11 +251,12 @@ async function computeLeaderboard(
 
   // Only players who appeared in a finished game. Members with 0 U stay off
   // the board once games exist (empty state still uses emptyLeaderboard).
+  // Default board: Elo rating first (same as defaultLeaderboardOrder).
   const allRows = [...rows].sort(
     (a, b) =>
+      b.rating - a.rating ||
       b.goals - a.goals ||
       b.assists - a.assists ||
-      b.rating - a.rating ||
       b.matches - a.matches ||
       a.nickname.localeCompare(b.nickname, "hr"),
   );
