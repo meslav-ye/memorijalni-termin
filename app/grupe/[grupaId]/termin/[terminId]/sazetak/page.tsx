@@ -9,6 +9,7 @@ import type { Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
 import { teamHeadingClass, teamNameOnDarkClass, teamPanelClass } from "@/lib/domain/team-colors";
 import { ShareButton } from "./ShareButton";
+import { MatchDescription } from "./MatchDescription";
 import { deleteMatch } from "../../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -27,7 +28,7 @@ export default async function SummaryPage({
 
   const { data: match } = await supabase
     .from("matches")
-    .select("id, status, starts_at, location_text, locations(name)")
+    .select("id, status, starts_at, location_text, description, locations(name)")
     .eq("id", terminId)
     .maybeSingle();
   if (!match) notFound();
@@ -181,6 +182,13 @@ export default async function SummaryPage({
               : `${finished.length} utakmice`}
         </h2>
       </header>
+
+      <MatchDescription
+        grupaId={grupaId}
+        terminId={terminId}
+        description={match.description}
+        admin={admin}
+      />
 
       {gameBlocks.length > 0 && (
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">

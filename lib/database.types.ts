@@ -451,6 +451,7 @@ export type Database = {
           capacity: number
           created_at: string
           created_by: string
+          description: string | null
           group_id: string
           id: string
           location_id: string | null
@@ -466,6 +467,7 @@ export type Database = {
           capacity?: number
           created_at?: string
           created_by: string
+          description?: string | null
           group_id: string
           id?: string
           location_id?: string | null
@@ -481,6 +483,7 @@ export type Database = {
           capacity?: number
           created_at?: string
           created_by?: string
+          description?: string | null
           group_id?: string
           id?: string
           location_id?: string | null

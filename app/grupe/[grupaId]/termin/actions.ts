@@ -498,6 +498,38 @@ export async function cancelMatch(formData: FormData) {
   revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
 }
 
+const DESCRIPTION_MAX = 2000;
+
+/** Admin-only: set free-text description on a finished match (e.g. YouTube link). */
+export async function updateMatchDescription(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+  let description = String(formData.get("opis") ?? "").trim();
+  if (description.length > DESCRIPTION_MAX) {
+    description = description.slice(0, DESCRIPTION_MAX);
+  }
+
+  const ctx = await membership(groupId);
+  if (!ctx?.admin) return;
+
+  const { data: match } = await ctx.supabase
+    .from("matches")
+    .select("id, status")
+    .eq("id", matchId)
+    .eq("group_id", groupId)
+    .maybeSingle();
+
+  if (!match || match.status !== "zavrsen") return;
+
+  await ctx.supabase
+    .from("matches")
+    .update({ description: description || null })
+    .eq("id", matchId)
+    .eq("group_id", groupId);
+
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/sazetak`);
+}
+
 /** Permanently remove a finished or cancelled termin (admin only). */
 export async function deleteMatch(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
