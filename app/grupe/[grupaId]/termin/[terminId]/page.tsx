@@ -364,7 +364,9 @@ export default async function MatchPage({
             <input type="hidden" name="matchId" value={terminId} />
             <SubmitButton
               pendingLabel="Otkazujem…"
-              className="text-sm text-red-700 underline underline-offset-4"
+              className="flex h-12 w-full items-center justify-center rounded-lg border-2
+                         border-red-600 bg-white text-sm font-semibold text-red-700
+                         transition active:scale-[0.98] disabled:opacity-70"
             >
               Otkaži ovaj termin
             </SubmitButton>
