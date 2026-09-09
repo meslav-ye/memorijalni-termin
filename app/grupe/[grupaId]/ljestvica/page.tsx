@@ -88,7 +88,7 @@ export default async function LeaderboardPage({
         </p>
       )}
 
-      {me && (
+      {me && matchesPlayed > 0 && (
         <YouStrip
           grupaId={grupaId}
           userId={me.userId}

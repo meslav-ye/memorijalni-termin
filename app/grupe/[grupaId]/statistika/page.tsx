@@ -130,7 +130,7 @@ export default async function StatsPage({
         </p>
       )}
 
-      {me && (
+      {me && matchesPlayed > 0 && (
         <YouStrip
           grupaId={grupaId}
           userId={me.userId}
