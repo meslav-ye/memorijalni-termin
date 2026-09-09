@@ -25,11 +25,14 @@ export function StatsLeaderCard({
   const whoEl = empty ? (
     <span className="text-slate-400">još nitko</span>
   ) : href ? (
-    <Link href={href} className="font-medium text-marka underline-offset-2 hover:underline">
+    <Link
+      href={href}
+      className="font-semibold text-slate-900 underline-offset-2 hover:text-marka hover:underline"
+    >
       {who}
     </Link>
   ) : (
-    <span className="font-medium text-slate-700">{who}</span>
+    <span className="font-semibold text-slate-900">{who}</span>
   );
 
   return (
@@ -48,12 +51,12 @@ export function StatsLeaderCard({
           alt=""
           width={160}
           height={160}
-          className="pointer-events-none absolute -bottom-4 -right-4 h-28 w-28 object-contain opacity-[0.18]"
+          className="pointer-events-none absolute -bottom-4 -right-4 h-28 w-28 object-contain opacity-[0.1]"
           aria-hidden
         />
       )}
 
-      <div className="relative">
+      <div className="relative z-10">
         <p className="flex items-center gap-2.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
           {imageSrc && (
             <Image
@@ -78,7 +81,7 @@ export function StatsLeaderCard({
             <span className="ml-1 text-sm font-medium text-slate-500">{suffix}</span>
           )}
         </p>
-        <p className="mt-1 text-sm">{whoEl}</p>
+        <p className="mt-1.5 text-base leading-snug">{whoEl}</p>
       </div>
     </div>
   );
