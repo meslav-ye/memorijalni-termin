@@ -216,7 +216,7 @@ export default async function StatsPage({
       {keepers.length > 0 && (
         <section>
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            <IconKeeper className="h-4 w-4 text-marka" />
+            <IconKeeper className="h-6 w-6 text-marka" />
             Golmani
           </h3>
           <ul className="space-y-2">

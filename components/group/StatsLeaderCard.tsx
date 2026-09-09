@@ -31,9 +31,9 @@ export function StatsLeaderCard({ icon, title, value, who, href, suffix }: Props
         (empty ? "border-dashed border-slate-300 bg-white" : "border-slate-200 bg-white")
       }
     >
-      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
         {icon != null && (
-          <span className="text-marka [&_svg]:h-4 [&_svg]:w-4">{icon}</span>
+          <span className="shrink-0 text-marka [&_svg]:h-6 [&_svg]:w-6">{icon}</span>
         )}
         {title}
       </p>
