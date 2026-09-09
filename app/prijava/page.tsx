@@ -1,5 +1,5 @@
-import Image from "next/image";
 import { redirect } from "next/navigation";
+import { BrandLockup } from "@/components/brand/BrandLockup";
 import { createClient } from "@/lib/supabase/server";
 import { getAvailableMethods } from "@/lib/auth-settings";
 import { LoginForm } from "./LoginForm";
@@ -59,21 +59,11 @@ export default async function LoginPage({
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-10">
       <header className="mb-8">
-        {/* The logo carries the app name, so h1 is visually hidden — kept for
-            screen readers and search. `priority` because it is the first thing seen. */}
+        {/* HTML lockup (mark tile + wordmark text) — not a raster plate.
+            h1 stays visually hidden for screen readers and search. */}
         <h1 className="sr-only">Memorijalni termin</h1>
 
-        {/* The new mark has its own dark plate under the text, so it works on
-            both light and dark backgrounds — unlike the previous one, whose
-            text was dark green and disappeared on dark. */}
-        <Image
-          src="/logo.png"
-          alt="Memorijalni termin"
-          width={1200}
-          height={400}
-          priority
-          className="h-auto w-full max-w-[19rem]"
-        />
+        <BrandLockup />
 
         <p className="mt-4 text-slate-600">Prijavi se da vidiš termine svoje grupe.</p>
       </header>
