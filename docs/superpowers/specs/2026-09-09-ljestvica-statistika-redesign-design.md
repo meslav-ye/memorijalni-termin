@@ -20,6 +20,7 @@ Redizajnirati **Ljestvicu** i **Statistiku** tako da se na mobitelu brzo vidi *g
 | Primarni korisnik | **C** — oba taba ravnopravna (igrač i organizator) |
 | Vizualni jezik | **C** — zeleno za identity momente (sezona, Ti, vodeći), slate za guste tablice |
 | Layout pristup | **A** — shared chrome + „Ti” prvi, zatim sadržaj taba |
+| Vizualni sidri (umjesto emoji) | **Monoline nogometni simboli** — lopta / pass / rukavica itd., usklađeni s pitch markom |
 
 Uključuje UX zadatke: **UX-13** (season chip), **UX-22** (legenda), **UX-23** (linkovi Vodeći), **UX-24** (highlight „ti”).
 
@@ -50,7 +51,7 @@ Ispod shared chrome:
 
 1. **Legenda stupaca** — vidljiva na touchu (ne samo `title`):  
    `G golovi · A asistencije · U utakmice · % pobjede · Rtg Elo`
-2. **LeaderboardTable** — zadržati sortiranje i responsive skrivanje stupaca; red trenutnog korisnika jasno označen (pozadina + oznaka); top-3 može zadržati blagi tint; linkovi na igrače; 🧤 ostaje.
+2. **LeaderboardTable** — zadržati sortiranje i responsive skrivanje stupaca; red trenutnog korisnika jasno označen (pozadina + oznaka); top-3 može zadržati blagi tint; linkovi na igrače; golman oznaka = monoline rukavica (ne emoji 🧤).
 3. **Dolaznost** — ispod tablice; isti „ti” highlight; streak chip ostaje zeleni naglasak.
 
 Metrike i sort logika se ne mijenjaju.
@@ -62,10 +63,29 @@ Metrike i sort logika se ne mijenjaju.
 Ispod shared chrome:
 
 1. **Ukupno** — isti četiri totala (utakmice, termini, golovi, asistencije); čišća tipografija, manje „card buke”; zelena samo kao tanki naglasak po potrebi.
-2. **Vodeći** — iste kategorije; **svaki nadimak link** na profil igrača (UX-23); emoji demovirati ili maknuti kao primarnu dekoraciju — hijerarhiju nose tipografija i brand zelena.
-3. **Golmani** — zadržati (link, Na golu / PG / Prosjek / CS + footnote); zategnuti razmake; highlight „ti” ako si na listi.
-4. **Rekordi** — zadržati; prazni placeholderi ostaju iskreni; datumi gdje već postoje.
+2. **Vodeći** — iste kategorije; **svaki nadimak link** na profil igrača (UX-23); svaka kartica ima **monoline ikonu + labelu** (vidi §5.1) — emoji se uklanjaju.
+3. **Golmani** — zadržati (link, Na golu / PG / Prosjek / CS + footnote); naslov bloka s rukavicom/gol-okvirom; zategnuti razmake; highlight „ti” ako si na listi.
+4. **Rekordi** — zadržati; gdje kategorija odgovara Vodećima, dijeliti iste ikone; prazni placeholderi ostaju iskreni; datumi gdje već postoje.
 5. **Footer** — link na Ljestvicu (jasan tekstualni CTA).
+
+### 5.1 Ikonografija (zamjena za emoji)
+
+Cilj: brzo vizualno naći npr. najboljeg strijelca ili golmanski blok — **samo tekst nije dovoljan**.
+
+Stil: monoline SVG, 16–20px, stroke ~1.5–2, `currentColor` → `text-marka` (ili `marka-svijetla` na tamnijoj podlozi). Bez 3D, neon, clipart. Isti crtački jezik kao pitch mark.
+
+| Kategorija | Simbol |
+|---|---|
+| Strijelac | lopta + kratka strelica gore |
+| Asistencije | dvije točke + luk (pass) |
+| G+A | lopta + sitna crtica |
+| Rating | jednostavan rang / stubišni mark |
+| Dolaznost | kalendarski okvir s točkom |
+| Golman | rukavica (outline) ili gol-okvir |
+
+Layout kartice: `[ikona] Labela` iznad vrijednosti / imena. Jedna ikona po kategoriji; dijeljeni set u npr. `components/brand/stats-icons.tsx` (ili `public/brand/icons/`).
+
+Ljestvica: emoji 🧤 za golmana na retku tablice **zamijeniti** istom rukavicom iz ovog seta (konzistentnost).
 
 ---
 
@@ -83,7 +103,8 @@ Ispod shared chrome:
 2. Na oba taba se „ti” nalazi u jednom pogledu (strip + highlight u listama).
 3. Vodeći vode na stranice igrača.
 4. Kratica G/A/U/%/Rtg čitljive su bez hovera.
-5. Nema novih metrika; postojeći loader (`getLeaderboard`) ostaje izvor istine.
+5. Vodeći / Golmani / relevantni Rekordi imaju monoline ikone; emoji više nisu sidro.
+6. Nema novih metrika; postojeći loader (`getLeaderboard`) ostaje izvor istine.
 
 ---
 
@@ -93,6 +114,7 @@ Ispod shared chrome:
 - `app/grupe/[grupaId]/ljestvica/LeaderboardTable.tsx`
 - `app/grupe/[grupaId]/statistika/page.tsx`
 - Nova shared komponenta za season bar (+ Ti strip) npr. `components/group/SeasonBar.tsx` / `YouStrip.tsx`
+- Novi monoline icon set npr. `components/brand/StatsIcons.tsx`
 - `lib/data/leaderboard.ts` — vjerojatno bez promjene ugovora; eventualno proslijediti `userId` za highlight
 
 ---
