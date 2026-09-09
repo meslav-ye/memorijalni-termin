@@ -10,6 +10,7 @@ kako se izvodi piše se tek kad se uzme u rad.
 Veće odgođene stvari žive drugdje i ovdje se samo navode, da se ne traži na dva
 mjesta:
 
+- **UX poboljšanja (zadaci po prioritetu)** — [ux-zadaci.md](ux-zadaci.md)
 - **Dodavanje termina u osobni kalendar** — [spec, 13.1](superpowers/specs/2026-09-05-memorijalni-termin-design.md)
 - **Optimizacija potrošnje, koraci 3–5** — [optimizacija.md](optimizacija.md)
   (živi ekran, materijalizirana statistika, sitnice). Prva dva koraka su napravljena.
