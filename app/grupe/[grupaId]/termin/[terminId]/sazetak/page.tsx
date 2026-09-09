@@ -183,13 +183,6 @@ export default async function SummaryPage({
         </h2>
       </header>
 
-      <MatchDescription
-        grupaId={grupaId}
-        terminId={terminId}
-        description={match.description}
-        admin={admin}
-      />
-
       {gameBlocks.length > 0 && (
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -310,6 +303,13 @@ export default async function SummaryPage({
           <ShareButton text={shareText} />
         </section>
       )}
+
+      <MatchDescription
+        grupaId={grupaId}
+        terminId={terminId}
+        description={match.description}
+        admin={admin}
+      />
 
       {admin && (
         <form action={deleteMatch} className="mt-10 border-t border-slate-200 pt-6">
