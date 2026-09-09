@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { IconKeeper } from "@/components/brand/StatsIcons";
 import {
   defaultLeaderboardOrder,
   nextSortState,
@@ -29,6 +30,7 @@ export type LeaderboardTableRow = {
 type Props = {
   grupaId: string;
   rows: LeaderboardTableRow[];
+  currentUserId?: string | null;
 };
 
 function SortHeader({
@@ -83,7 +85,7 @@ function SortHeader({
   );
 }
 
-export function LeaderboardTable({ grupaId, rows }: Props) {
+export function LeaderboardTable({ grupaId, rows, currentUserId }: Props) {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -100,7 +102,9 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
 
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-  const rowClass = (rank: number) => {
+  const rowClass = (rank: number, isYou: boolean) => {
+    // Prefer you-highlight over top-3 tint when both apply.
+    if (isYou) return "bg-marka/5";
     if (rank === 1) return "bg-amber-50"; // zlato
     if (rank === 2) return "bg-slate-100"; // srebro
     if (rank === 3) return "bg-orange-50"; // bronca
@@ -199,11 +203,13 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
         <tbody>
           {ordered.map((r, index) => {
             const rank = index + 1;
+            const isYou = currentUserId != null && r.userId === currentUserId;
             return (
               <tr
                 key={r.userId}
                 className={
-                  "border-b border-slate-100 last:border-0 " + rowClass(rank)
+                  "border-b border-slate-100 last:border-0 " +
+                  rowClass(rank, isYou)
                 }
               >
                 <td className="max-w-0 px-2 py-2">
@@ -220,9 +226,14 @@ export function LeaderboardTable({ grupaId, rows }: Props) {
                     >
                       {r.nickname}
                     </Link>
+                    {isYou && (
+                      <span className="ml-1 shrink-0 text-[0.65rem] font-bold uppercase text-marka-svijetla">
+                        Ti
+                      </span>
+                    )}
                     {r.isGoalkeeper && (
                       <span className="shrink-0" title="Igra golmana">
-                        🧤
+                        <IconKeeper className="inline-block h-3.5 w-3.5 text-marka" />
                       </span>
                     )}
                   </span>

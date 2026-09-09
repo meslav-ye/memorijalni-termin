@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SeasonBar } from "@/components/group/SeasonBar";
+import { YouStrip } from "@/components/group/YouStrip";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard } from "@/lib/data/leaderboard";
@@ -18,10 +19,9 @@ export default async function LeaderboardPage({
   const requestedSeason = typeof query.sezona === "string" ? query.sezona : null;
   const allTime = requestedSeason === "sve";
 
-  // With no selection, show the newest season — what people care about.
-  const seasonToShow = allTime
-    ? null
-    : (requestedSeason ?? (await latestSeason(grupaId)));
+  // Fetch newest season once — default view and SeasonBar active state share it.
+  const latestSeasonId = await latestSeason(grupaId);
+  const seasonToShow = allTime ? null : (requestedSeason ?? latestSeasonId);
 
   const { rows, seasons, matchesPlayed, sessionsPlayed } = await getLeaderboard(
     grupaId,
@@ -43,6 +43,10 @@ export default async function LeaderboardPage({
 
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 
+  const meIndex = rows.findIndex((r) => r.userId === user.id);
+  const me = meIndex >= 0 ? rows[meIndex] : undefined;
+  const meRank = meIndex + 1;
+
   const tableRows = rows.map((r) => ({
     userId: r.userId,
     nickname: r.nickname,
@@ -61,33 +65,14 @@ export default async function LeaderboardPage({
 
   return (
     <div>
-      {/* Season switcher */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {seasons.map((s) => (
-          <Link
-            key={s.id}
-            href={`/grupe/${grupaId}/ljestvica?sezona=${s.id}`}
-            className={
-              "h-9 rounded-lg border px-3 text-sm font-medium leading-9 transition " +
-              (requestedSeason === s.id || (!requestedSeason && !allTime)
-                ? "border-marka bg-marka text-white"
-                : "border-slate-300 bg-white text-slate-700")
-            }
-          >
-            {s.name}
-          </Link>
-        ))}
-        <Link
-          href={`/grupe/${grupaId}/ljestvica?sezona=sve`}
-          className={
-            "h-9 rounded-lg border px-3 text-sm font-medium leading-9 transition " +
-            (allTime
-              ? "border-marka bg-marka text-white"
-              : "border-slate-300 bg-white text-slate-700")
-          }
-        >
-          Sve vrijeme
-        </Link>
+      <div className="mb-4">
+        <SeasonBar
+          grupaId={grupaId}
+          basePath={`/grupe/${grupaId}/ljestvica`}
+          seasons={seasons}
+          requestedSeason={requestedSeason}
+          latestSeasonId={latestSeasonId}
+        />
       </div>
 
       {matchesPlayed === 0 ? (
@@ -103,7 +88,24 @@ export default async function LeaderboardPage({
         </p>
       )}
 
-      <LeaderboardTable grupaId={grupaId} rows={tableRows} />
+      {me && (
+        <YouStrip
+          grupaId={grupaId}
+          userId={me.userId}
+          nickname={me.nickname}
+          statsLine={`${meRank}. · ${Math.round(me.rating)} Rtg`}
+        />
+      )}
+
+      <p className="mb-2 mt-3 text-xs text-slate-500">
+        G golovi · A asistencije · U utakmice · % pobjede · Rtg Elo
+      </p>
+
+      <LeaderboardTable
+        grupaId={grupaId}
+        rows={tableRows}
+        currentUserId={user.id}
+      />
 
       {/* Attendance */}
       <section className="mt-8">
@@ -113,28 +115,43 @@ export default async function LeaderboardPage({
         <ul className="space-y-1">
           {[...rows]
             .sort((a, b) => b.attendanceRate - a.attendanceRate)
-            .map((r) => (
-              <li
-                key={r.userId}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
-              >
-                <span className="min-w-0 flex-1 truncate font-medium">{r.nickname}</span>
-                <span className="tabular-nums text-slate-500">
-                  {r.sessionsAttended}/{sessionsPlayed}
-                </span>
-                <span className="w-12 text-right font-semibold tabular-nums">
-                  {pct(r.attendanceRate)}
-                </span>
-                {r.currentStreak > 1 && (
-                  <span
-                    className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-800"
-                    title="Termina zaredom"
-                  >
-                    🔥{r.currentStreak}
+            .map((r) => {
+              const isYou = r.userId === user.id;
+              return (
+                <li
+                  key={r.userId}
+                  className={
+                    "flex items-center gap-3 rounded-lg border px-3 py-2 text-sm " +
+                    (isYou
+                      ? "border-marka/30 bg-marka/5"
+                      : "border-slate-200 bg-white")
+                  }
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {r.nickname}
+                    {isYou && (
+                      <span className="ml-1.5 text-[0.65rem] font-bold uppercase text-marka-svijetla">
+                        Ti
+                      </span>
+                    )}
                   </span>
-                )}
-              </li>
-            ))}
+                  <span className="tabular-nums text-slate-500">
+                    {r.sessionsAttended}/{sessionsPlayed}
+                  </span>
+                  <span className="w-12 text-right font-semibold tabular-nums">
+                    {pct(r.attendanceRate)}
+                  </span>
+                  {r.currentStreak > 1 && (
+                    <span
+                      className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-800"
+                      title="Termina zaredom"
+                    >
+                      🔥{r.currentStreak}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
         </ul>
       </section>
     </div>
