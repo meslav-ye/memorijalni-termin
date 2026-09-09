@@ -5,14 +5,15 @@
   --font-mono: var(--font-geist-mono);
 
   /*
-    Boje logotipa. Nisu pogodjene od oka — ocitane su iz same datoteke logotipa
-    kao dvije najzastupljenije nijanse.
+    Brand greens (compact 5v5 pitch mark).
 
-    marka       tamnozelena sa stita i traga; nosi gumbe i plocu s rezultatom
-    marka-svijetla  srednja zelena; naglasci (golman, potvrde)
+    marka          dark pitch green — primary buttons, scoreboard, icon tile
+    marka-svijetla mid green — GK badge, success, soft accents
+    marka-linija   light pitch lines on dark green (logo strokes)
   */
   --color-marka: #0c300c;
   --color-marka-svijetla: #307830;
+  --color-marka-linija: #9fd49f;
 }
 
 /*

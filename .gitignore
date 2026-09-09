@@ -49,9 +49,13 @@ yarn-error.log*
 # --- Alati ---
 # Lokalna konfiguracija za pokretanje dev servera; README dokumentira `pnpm dev`.
 .claude/
+.superpowers/
 
 # --- Urednici ---
 .idea/
 .vscode/*
 !.vscode/extensions.json
 *.swp
+
+# Git worktrees (local isolated checkouts)
+.worktrees/
