@@ -1,0 +1,53 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
+
+type Props = {
+  icon: ReactNode;
+  title: string;
+  value: string;
+  who: string;
+  /** When set, nickname links to player page */
+  href?: string | null;
+  suffix?: string;
+};
+
+export function StatsLeaderCard({ icon, title, value, who, href, suffix }: Props) {
+  const empty = who === "";
+
+  const whoEl = empty ? (
+    <span className="text-slate-400">još nitko</span>
+  ) : href ? (
+    <Link href={href} className="font-medium text-marka underline-offset-2 hover:underline">
+      {who}
+    </Link>
+  ) : (
+    <span className="font-medium text-slate-700">{who}</span>
+  );
+
+  return (
+    <div
+      className={
+        "rounded-lg border p-4 " +
+        (empty ? "border-dashed border-slate-300 bg-white" : "border-slate-200 bg-white")
+      }
+    >
+      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {icon != null && (
+          <span className="text-marka [&_svg]:h-4 [&_svg]:w-4">{icon}</span>
+        )}
+        {title}
+      </p>
+      <p
+        className={
+          "mt-2 text-2xl font-bold tabular-nums " + (empty ? "text-slate-300" : "text-slate-900")
+        }
+      >
+        {value}
+        {suffix && !empty && (
+          <span className="ml-1 text-sm font-medium text-slate-500">{suffix}</span>
+        )}
+      </p>
+      <p className="mt-1 text-sm">{whoEl}</p>
+    </div>
+  );
+}

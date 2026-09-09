@@ -10,6 +10,7 @@ function empty(userId: string): KeeperStats {
 }
 
 export type KeeperGoalsAgainstRow = {
+  userId: string;
   nickname: string;
   goalsAgainst: number;
   matchesAsKeeper: number;
@@ -24,7 +25,7 @@ export type KeeperGoalsAgainstRow = {
  */
 export function bestKeeperByGoalsAgainst(
   rows: KeeperGoalsAgainstRow[],
-): { nickname: string; average: number } | null {
+): { userId: string; nickname: string; average: number } | null {
   const keepers = rows.filter((r) => r.isGoalkeeper && r.matchesAsKeeper > 0);
   if (keepers.length === 0) return null;
 
@@ -35,6 +36,7 @@ export function bestKeeperByGoalsAgainst(
   })[0]!;
 
   return {
+    userId: best.userId,
     nickname: best.nickname,
     average: best.goalsAgainst / best.matchesAsKeeper,
   };

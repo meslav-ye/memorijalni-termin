@@ -1,5 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import {
+  IconAssist,
+  IconAttendance,
+  IconGoalsAssists,
+  IconKeeper,
+  IconRating,
+  IconScorer,
+} from "@/components/brand/StatsIcons";
+import { SeasonBar } from "@/components/group/SeasonBar";
+import { StatsLeaderCard } from "@/components/group/StatsLeaderCard";
+import { YouStrip } from "@/components/group/YouStrip";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard, type LeaderboardRow } from "@/lib/data/leaderboard";
@@ -9,57 +21,17 @@ import { bestKeeperByGoalsAgainst } from "@/lib/domain/keepers";
 function leader(
   rows: LeaderboardRow[],
   key: (r: LeaderboardRow) => number,
-): { nickname: string; value: number } | null {
+): { userId: string; nickname: string; value: number } | null {
   const best = [...rows].sort(
     (a, b) => key(b) - key(a) || a.nickname.localeCompare(b.nickname, "hr"),
   )[0];
 
   if (!best || key(best) <= 0) return null;
-  return { nickname: best.nickname, value: key(best) };
+  return { userId: best.userId, nickname: best.nickname, value: key(best) };
 }
 
-function LeaderCard({
-  icon,
-  title,
-  value,
-  who,
-  suffix,
-}: {
-  icon: string;
-  title: string;
-  value: string;
-  who: string;
-  suffix?: string;
-}) {
-  const empty = who === "";
-
-  return (
-    <div
-      className={
-        "rounded-lg border p-4 " +
-        (empty ? "border-dashed border-slate-300 bg-white" : "border-slate-200 bg-white")
-      }
-    >
-      <p className="text-xs uppercase tracking-wide text-slate-500">
-        {icon} {title}
-      </p>
-
-      <p
-        className={
-          "mt-2 text-2xl font-bold tabular-nums " + (empty ? "text-slate-300" : "text-slate-900")
-        }
-      >
-        {value}
-        {suffix && !empty && (
-          <span className="ml-1 text-sm font-medium text-slate-500">{suffix}</span>
-        )}
-      </p>
-
-      <p className={"mt-1 text-sm font-medium " + (empty ? "text-slate-400" : "text-slate-700")}>
-        {empty ? "još nitko" : who}
-      </p>
-    </div>
-  );
+function playerHref(grupaId: string, userId: string) {
+  return `/grupe/${grupaId}/igrac/${userId}`;
 }
 
 export default async function StatsPage({
@@ -75,7 +47,8 @@ export default async function StatsPage({
   const requestedSeason = typeof query.sezona === "string" ? query.sezona : null;
   const allTime = requestedSeason === "sve";
 
-  const seasonToShow = allTime ? null : (requestedSeason ?? (await latestSeason(grupaId)));
+  const latestSeasonId = await latestSeason(grupaId);
+  const seasonToShow = allTime ? null : (requestedSeason ?? latestSeasonId);
 
   const { rows, seasons, matchesPlayed, sessionsPlayed, records } = await getLeaderboard(
     grupaId,
@@ -121,51 +94,65 @@ export default async function StatsPage({
   const totalGoals = rows.reduce((s, r) => s + r.goals, 0);
   const totalAssists = rows.reduce((s, r) => s + r.assists, 0);
 
+  const me = rows.find((r) => r.userId === user.id);
+
+  const recordCards: {
+    title: string;
+    icon: ReactNode;
+  }[] = [
+    { title: "Najviše golova na utakmici", icon: <IconScorer /> },
+    { title: "Najviše G+A", icon: <IconGoalsAssists /> },
+    { title: "Najmanje primljenih na utakmici", icon: <IconKeeper /> },
+    // No Vodeći twin — keep text-only heading (no emoji).
+    { title: "Najveća pobjeda", icon: null },
+    { title: "Najviše termina ukupno", icon: <IconAttendance /> },
+  ];
+
   return (
     <div className="space-y-8">
-      {/* Season switcher — same as on the leaderboard */}
-      <div className="flex flex-wrap gap-2">
-        {seasons.map((s) => (
-          <Link
-            key={s.id}
-            href={`/grupe/${grupaId}/statistika?sezona=${s.id}`}
-            className={
-              "h-9 rounded-lg border px-3 text-sm font-medium leading-9 transition " +
-              (requestedSeason === s.id || (!requestedSeason && !allTime)
-                ? "border-marka bg-marka text-white"
-                : "border-slate-300 bg-white text-slate-700")
-            }
-          >
-            {s.name}
-          </Link>
-        ))}
-        <Link
-          href={`/grupe/${grupaId}/statistika?sezona=sve`}
-          className={
-            "h-9 rounded-lg border px-3 text-sm font-medium leading-9 transition " +
-            (allTime
-              ? "border-marka bg-marka text-white"
-              : "border-slate-300 bg-white text-slate-700")
-          }
-        >
-          Sve vrijeme
-        </Link>
-      </div>
+      <SeasonBar
+        grupaId={grupaId}
+        basePath={`/grupe/${grupaId}/statistika`}
+        seasons={seasons}
+        requestedSeason={requestedSeason}
+        latestSeasonId={latestSeasonId}
+      />
 
-      {/* Group summary */}
+      {matchesPlayed === 0 ? (
+        <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+          Još nema odigranih utakmica — brojke se pune same čim se odigra prva.
+        </p>
+      ) : (
+        <p className="text-sm text-slate-500">
+          {matchesPlayed} {matchesPlayed === 1 ? "odigrana utakmica" : "odigranih utakmica"}
+          {" · "}
+          {sessionsPlayed} {sessionsPlayed === 1 ? "termin" : "termina"}
+        </p>
+      )}
+
+      {me && (
+        <YouStrip
+          grupaId={grupaId}
+          userId={me.userId}
+          nickname={me.nickname}
+          statsLine={`${me.goals} G · ${me.assists} A · ${me.matches} U`}
+        />
+      )}
+
+      {/* Group summary — quiet totals, thin brand accent */}
       <section>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Ukupno
         </h3>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
           {[
             { label: "Utakmice", v: matchesPlayed },
             { label: "Termini", v: sessionsPlayed },
             { label: "Golova", v: totalGoals },
             { label: "Asistencija", v: totalAssists },
           ].map((k) => (
-            <div key={k.label} className="rounded-lg border border-slate-200 bg-white p-3 text-center">
-              <p className="text-2xl font-bold tabular-nums">{k.v}</p>
+            <div key={k.label} className="border-l-2 border-marka pl-3">
+              <p className="text-2xl font-bold tabular-nums text-slate-900">{k.v}</p>
               <p className="text-xs uppercase tracking-wide text-slate-500">{k.label}</p>
             </div>
           ))}
@@ -178,43 +165,49 @@ export default async function StatsPage({
           Vodeći
         </h3>
         <div className="grid gap-2 sm:grid-cols-2">
-          <LeaderCard
-            icon="⚽"
+          <StatsLeaderCard
+            icon={<IconScorer />}
             title="Najbolji strijelac"
             value={topScorer ? String(topScorer.value) : "—"}
             who={topScorer?.nickname ?? ""}
+            href={topScorer ? playerHref(grupaId, topScorer.userId) : null}
             suffix={topScorer && topScorer.value === 1 ? "gol" : "golova"}
           />
-          <LeaderCard
-            icon="🅰️"
+          <StatsLeaderCard
+            icon={<IconAssist />}
             title="Najviše asistencija"
             value={topAssister ? String(topAssister.value) : "—"}
             who={topAssister?.nickname ?? ""}
+            href={topAssister ? playerHref(grupaId, topAssister.userId) : null}
           />
-          <LeaderCard
-            icon="🎯"
+          <StatsLeaderCard
+            icon={<IconGoalsAssists />}
             title="Najviše bodova (G+A)"
             value={topPoints ? String(topPoints.value) : "—"}
             who={topPoints?.nickname ?? ""}
+            href={topPoints ? playerHref(grupaId, topPoints.userId) : null}
           />
-          <LeaderCard
-            icon="⭐"
+          <StatsLeaderCard
+            icon={<IconRating />}
             title="Najveći rating"
             value={topRating ? String(topRating.value) : "—"}
             who={topRating?.nickname ?? ""}
+            href={topRating ? playerHref(grupaId, topRating.userId) : null}
           />
-          <LeaderCard
-            icon="🔥"
+          <StatsLeaderCard
+            icon={<IconAttendance />}
             title="Najviše odigranih"
             value={topAttendance ? String(topAttendance.value) : "—"}
             who={topAttendance?.nickname ?? ""}
+            href={topAttendance ? playerHref(grupaId, topAttendance.userId) : null}
             suffix={topAttendance && topAttendance.value === 1 ? "termin" : "termina"}
           />
-          <LeaderCard
-            icon="🧤"
+          <StatsLeaderCard
+            icon={<IconKeeper />}
             title="Najmanje primljenih"
             value={topKeeper ? topKeeper.average.toFixed(1) : "—"}
             who={topKeeper?.nickname ?? ""}
+            href={topKeeper ? playerHref(grupaId, topKeeper.userId) : null}
             suffix="po utakmici"
           />
         </div>
@@ -222,7 +215,8 @@ export default async function StatsPage({
 
       {keepers.length > 0 && (
         <section>
-          <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <IconKeeper className="h-4 w-4 text-marka" />
             Golmani
           </h3>
           <ul className="space-y-2">
@@ -231,6 +225,7 @@ export default async function StatsPage({
                 r.matchesAsKeeper > 0
                   ? (r.goalsAgainst / r.matchesAsKeeper).toFixed(1)
                   : "—";
+              const isYou = r.userId === user.id;
               const stats = [
                 {
                   label: "Na golu",
@@ -256,14 +251,24 @@ export default async function StatsPage({
               return (
                 <li
                   key={r.userId}
-                  className="rounded-lg border border-slate-200 bg-white p-3"
+                  className={
+                    "rounded-lg border p-3 " +
+                    (isYou
+                      ? "border-marka/30 bg-marka/5"
+                      : "border-slate-200 bg-white")
+                  }
                 >
                   <Link
                     href={`/grupe/${grupaId}/igrac/${r.userId}?from=statistika`}
-                    className="block text-base font-semibold underline-offset-4 hover:underline"
+                    className="flex items-center gap-1.5 text-base font-semibold underline-offset-4 hover:underline"
                   >
                     {r.nickname}
-                    <span title="Igra golmana"> 🧤</span>
+                    {isYou && (
+                      <span className="text-[0.65rem] font-bold uppercase text-marka-svijetla">
+                        Ti
+                      </span>
+                    )}
+                    <IconKeeper className="inline-block h-3.5 w-3.5 text-marka" />
                   </Link>
                   <div className="mt-3 grid grid-cols-4 gap-2">
                     {stats.map((s) => (
@@ -295,18 +300,12 @@ export default async function StatsPage({
           Rekordi
         </h3>
         <div className="grid gap-2 sm:grid-cols-2">
-          {[
-            "Najviše golova na utakmici",
-            "Najviše G+A",
-            "Najmanje primljenih na utakmici",
-            "Najveća pobjeda",
-            "Najviše termina ukupno",
-          ].map((title) => {
+          {recordCards.map(({ title, icon }) => {
             const found = records.find((r) => r.title === title);
             return (
-              <LeaderCard
+              <StatsLeaderCard
                 key={title}
-                icon="🏆"
+                icon={icon}
                 title={title}
                 value={found?.value ?? "—"}
                 who={found?.who ?? (found ? "—" : "")}
