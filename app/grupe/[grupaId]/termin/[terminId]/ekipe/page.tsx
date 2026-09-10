@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { ensureEditableGame, getCurrentGame } from "@/lib/data/games";
@@ -244,16 +244,15 @@ export default async function TeamsPage({
 
   return (
     <div>
-      <Link
+      <SoftLink
         href={
           match.status === "zavrsen"
             ? `/grupe/${grupaId}/termin/${terminId}/sazetak`
             : `/grupe/${grupaId}/termin/${terminId}`
         }
-        className="text-sm text-slate-500 underline underline-offset-4"
       >
         {match.status === "zavrsen" ? "← Natrag na sažetak" : "← Natrag na termin"}
-      </Link>
+      </SoftLink>
 
       <header className="mt-4 mb-6">
         <h2 className="text-lg font-bold tracking-tight">Ekipe</h2>

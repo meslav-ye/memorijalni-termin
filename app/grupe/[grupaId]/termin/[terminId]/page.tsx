@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
+import { softControlClassName } from "@/components/ui/softControl";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatMatchDateTime } from "@/lib/format";
@@ -186,12 +188,7 @@ export default async function MatchPage({
 
   return (
     <div className="pb-28">
-      <Link
-        href={`/grupe/${grupaId}`}
-        className="text-sm text-slate-500 underline underline-offset-4"
-      >
-        ← Natrag na termine
-      </Link>
+      <SoftLink href={`/grupe/${grupaId}`}>← Natrag na termine</SoftLink>
 
       <header className="mt-4">
         <h2 className="text-xl font-bold tracking-tight">
@@ -403,10 +400,7 @@ export default async function MatchPage({
           <input type="hidden" name="groupId" value={grupaId} />
           <input type="hidden" name="seriesId" value={match.series_id} />
           <input type="hidden" name="matchId" value={terminId} />
-          <SubmitButton
-            pendingLabel="…"
-            className="text-sm text-slate-700 underline underline-offset-4"
-          >
+          <SubmitButton pendingLabel="…" className={softControlClassName}>
             {seriesPaused ? "Uključi stalni termin" : "Ugasi stalni termin"}
           </SubmitButton>
           <p className="mt-1 text-sm text-slate-500">

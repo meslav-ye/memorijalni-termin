@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
 import { NewGroupForm } from "./NewGroupForm";
 
@@ -23,9 +23,7 @@ export default async function NewGroupPage() {
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
-      <Link href="/grupe" className="text-sm text-slate-500 underline underline-offset-4">
-        ← Natrag
-      </Link>
+      <SoftLink href="/grupe">← Natrag</SoftLink>
 
       <header className="mb-8 mt-4">
         <h1 className="text-2xl font-bold tracking-tight">Nova grupa</h1>

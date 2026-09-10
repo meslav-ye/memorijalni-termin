@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { getCurrentGame } from "@/lib/data/games";
@@ -84,16 +84,16 @@ export default async function LivePage({
 
   return (
     <div>
-      <Link
+      <SoftLink
         href={
           match.status === "zavrsen"
             ? `/grupe/${grupaId}/termin/${terminId}/sazetak`
             : `/grupe/${grupaId}/termin/${terminId}`
         }
-        className="mb-4 inline-block text-sm text-slate-500 underline underline-offset-4"
+        className="mb-4"
       >
         {match.status === "zavrsen" ? "← Natrag na sažetak" : "← Natrag na termin"}
-      </Link>
+      </SoftLink>
 
       <LiveScreen
         grupaId={grupaId}

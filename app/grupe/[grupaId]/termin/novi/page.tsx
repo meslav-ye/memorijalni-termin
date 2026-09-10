@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { NewMatchForm } from "./NewMatchForm";
@@ -33,12 +33,7 @@ export default async function NewMatchPage({
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-8">
-      <Link
-        href={`/grupe/${grupaId}`}
-        className="text-sm text-slate-500 underline underline-offset-4"
-      >
-        ← Natrag na termine
-      </Link>
+      <SoftLink href={`/grupe/${grupaId}`}>← Natrag na termine</SoftLink>
 
       <header className="mb-8 mt-4">
         <h1 className="text-2xl font-bold tracking-tight">Novi termin</h1>

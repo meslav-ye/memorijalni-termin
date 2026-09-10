@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useOptionalBusy } from "@/components/BusyProvider";
+import { SoftButton } from "@/components/ui/SoftButton";
+import { softControlClassName } from "@/components/ui/softControl";
 import {
   sendMagicLink,
   signInWithGoogle,
@@ -113,14 +115,13 @@ export function LoginForm({ googleAvailable }: { googleAvailable: boolean }) {
           One form, two buttons: the second overrides the action via formAction,
           so both share the same fields. */}
       <div className="border-t border-slate-200 pt-4">
-        <button
+        <SoftButton
           type="button"
           onClick={() => setPasswordOpen((v) => !v)}
           aria-expanded={passwordOpen}
-          className="text-sm font-medium text-slate-600 underline underline-offset-4"
         >
           {passwordOpen ? "Sakrij prijavu lozinkom" : "Radije lozinkom?"}
-        </button>
+        </SoftButton>
 
         {passwordOpen && (
           <form action={passwordAction} className="mt-4 space-y-3">
@@ -162,7 +163,7 @@ export function LoginForm({ googleAvailable }: { googleAvailable: boolean }) {
               type="submit"
               formAction={signUpAction}
               disabled={anyPending}
-              className="w-full h-12 text-sm font-medium text-slate-600 underline underline-offset-4 disabled:opacity-50"
+              className={`${softControlClassName} h-12 w-full`}
             >
               {signUpPending ? "Registriram…" : "Nemam račun — registriraj me"}
             </button>

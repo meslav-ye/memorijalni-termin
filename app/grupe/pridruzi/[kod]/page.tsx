@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { JoinRequestButton } from "./JoinRequestButton";
@@ -34,12 +34,9 @@ export default async function JoinGroupPage({
           <p className="mt-2 text-slate-600">
             Link je možda istekao ili je admin izdao novi. Zamoli ga za svježi.
           </p>
-          <Link
-            href="/grupe"
-            className="mt-6 inline-block text-sm text-slate-500 underline underline-offset-4"
-          >
+          <SoftLink href="/grupe" className="mt-6">
             Idi na moje grupe
-          </Link>
+          </SoftLink>
         </div>
       </main>
     );

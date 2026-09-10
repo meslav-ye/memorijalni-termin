@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function GroupsPage() {
@@ -39,9 +40,7 @@ export default async function GroupsPage() {
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
       <header className="mb-8 flex items-start justify-between gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Moje grupe</h1>
-        <Link href="/profil" className="text-sm text-slate-500 underline underline-offset-4">
-          Profil
-        </Link>
+        <SoftLink href="/profil">Profil</SoftLink>
       </header>
 
       {activeGroups.length === 0 && pendingGroups.length === 0 && (

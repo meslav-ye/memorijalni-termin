@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatShortDate, formatMatchDateTime } from "@/lib/format";
@@ -165,12 +165,7 @@ export default async function SummaryPage({
 
   return (
     <div>
-      <Link
-        href={`/grupe/${grupaId}`}
-        className="text-sm text-slate-500 underline underline-offset-4"
-      >
-        ← Natrag na termine
-      </Link>
+      <SoftLink href={`/grupe/${grupaId}`}>← Natrag na termine</SoftLink>
 
       <header className="mt-4 text-center">
         <p className="text-sm text-slate-500">{formatMatchDateTime(match.starts_at)}</p>

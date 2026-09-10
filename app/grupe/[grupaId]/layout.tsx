@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { GroupTabs } from "./Tabs";
@@ -34,20 +34,10 @@ export default async function GroupLayout({
     <div className="mx-auto w-full max-w-2xl flex-1 px-5 py-8">
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <Link
-            href="/grupe"
-            className="text-sm text-slate-500 underline underline-offset-4"
-          >
-            ← Moje grupe
-          </Link>
+          <SoftLink href="/grupe">← Moje grupe</SoftLink>
           <h1 className="mt-2 text-2xl font-bold tracking-tight">{group.name}</h1>
         </div>
-        <Link
-          href="/profil"
-          className="shrink-0 text-sm text-slate-500 underline underline-offset-4"
-        >
-          Profil
-        </Link>
+        <SoftLink href="/profil">Profil</SoftLink>
       </header>
 
       <GroupTabs grupaId={grupaId} admin={admin} />

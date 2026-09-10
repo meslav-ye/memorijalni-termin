@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { getAppOrigin } from "@/lib/origin";
+import { softControlClassName } from "@/components/ui/softControl";
 import { InviteLink } from "./InviteLink";
 import { refreshInviteCode, saveSettings } from "./actions";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -46,10 +47,7 @@ export default async function SettingsPage({
 
         <form action={refreshInviteCode} className="mt-4">
           <input type="hidden" name="groupId" value={grupaId} />
-          <SubmitButton
-            pendingLabel="…"
-            className="text-sm text-slate-500 underline underline-offset-4"
-          >
+          <SubmitButton pendingLabel="…" className={softControlClassName}>
             Izdaj novi link
           </SubmitButton>
           <p className="mt-1 text-sm text-slate-500">

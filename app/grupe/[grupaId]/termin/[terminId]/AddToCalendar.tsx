@@ -1,5 +1,7 @@
 "use client";
 
+import { SoftAnchor } from "@/components/ui/SoftAnchor";
+
 type Props = {
   ics: string;
   fileName: string;
@@ -30,15 +32,14 @@ export function AddToCalendar({ ics, fileName, googleUrl }: Props) {
       >
         Dodaj u kalendar (.ics)
       </button>
-      <a
+      <SoftAnchor
         href={googleUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex h-11 w-full items-center justify-center rounded-lg text-sm font-medium
-                   text-slate-600 underline underline-offset-4"
+        className="h-11 w-full"
       >
         Otvori u Google Calendaru
-      </a>
+      </SoftAnchor>
       <p className="text-center text-xs text-slate-500">
         Podsjetnik 2 sata prije početka — šalje ga tvoj kalendar.
       </p>

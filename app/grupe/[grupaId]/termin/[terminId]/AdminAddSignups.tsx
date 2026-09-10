@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useOptionalBusy } from "@/components/BusyProvider";
+import { SoftButton } from "@/components/ui/SoftButton";
 import { adminSignUpForMatch } from "../actions";
 
 type Member = { userId: string; nickname: string };
@@ -57,14 +58,9 @@ export function AdminAddSignups({
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
           Dodaj članove
         </h3>
-        <button
-          type="button"
-          data-no-loading
-          onClick={toggleAll}
-          className="text-sm font-medium text-marka underline underline-offset-4"
-        >
+        <SoftButton type="button" data-no-loading onClick={toggleAll}>
           {allSelected ? "Makni sve" : "Odaberi sve"}
-        </button>
+        </SoftButton>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">

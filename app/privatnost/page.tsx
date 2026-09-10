@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { SoftLink } from "@/components/ui/SoftLink";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -27,9 +27,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function PrivacyPage() {
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-10">
-      <Link href="/" className="text-sm text-slate-500 underline underline-offset-4">
-        ← Natrag
-      </Link>
+      <SoftLink href="/">← Natrag</SoftLink>
 
       <h1 className="mt-4 text-3xl font-bold tracking-tight">Privatnost</h1>
       <p className="mt-2 text-slate-600">

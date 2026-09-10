@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatShortDate } from "@/lib/format";
@@ -123,9 +124,7 @@ export default async function PlayerPage({
 
   return (
     <div>
-      <Link href={backHref} className="text-sm text-slate-500 underline underline-offset-4">
-        {backLabel}
-      </Link>
+      <SoftLink href={backHref}>{backLabel}</SoftLink>
 
       <header className="mt-4">
         <h2 className="text-2xl font-bold tracking-tight">

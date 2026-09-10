@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SoftLink } from "@/components/ui/SoftLink";
+import { softControlClassName } from "@/components/ui/softControl";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileForm } from "./ProfileForm";
 import { signOut } from "./actions";
@@ -26,9 +27,7 @@ export default async function ProfilePage() {
       {/* On first nickname setup there is nowhere to go back — the gate
           would send you here anyway until a nickname exists. */}
       {!firstTime && (
-        <Link href="/" className="text-sm text-slate-500 underline underline-offset-4">
-          ← Natrag
-        </Link>
+        <SoftLink href="/">← Natrag</SoftLink>
       )}
 
       <header className="mb-8 mt-4">
@@ -52,7 +51,7 @@ export default async function ProfilePage() {
           <SubmitButton
             type="submit"
             pendingLabel="Odjavljujem…"
-            className="text-sm font-medium text-slate-500 underline underline-offset-4"
+            className={softControlClassName}
           >
             Odjavi se
           </SubmitButton>
