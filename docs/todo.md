@@ -19,6 +19,10 @@ mjesta:
 
 ## 1. Ideja: povezivanje profila sa Stravom
 
+> **Status:** ručni unos u `match_activity` (km / max / prosj. brzina na sažetku
+> termina) je hobby put i prvi korak — brojke već idu u Statistiku i Ljestvicu.
+> Strava ostaje odgođena; ako ikad dođe, vjerojatno samo vlastiti podaci.
+
 Povezati profil igrača sa Stravom i prikazati **pretrčane kilometre, brzinu i
 puls** po terminu.
 
