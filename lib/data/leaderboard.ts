@@ -8,6 +8,13 @@ import {
   bestGoalsInSingleGame,
   fewestGoalsAgainstInSingleGame,
 } from "@/lib/domain/records";
+import {
+  type ActivityEntry,
+  sumDistanceByUser,
+  bestDistanceInSingleTermin,
+  bestMaxSpeedInSingleTermin,
+  bestAvgSpeedInSingleTermin,
+} from "@/lib/domain/activity";
 import { formatShortDate } from "@/lib/format";
 import { isMember } from "@/lib/data/user";
 import type { MatchForStats, PlayerStats, Team } from "@/lib/domain/types";
@@ -31,6 +38,8 @@ export type LeaderboardRow = PlayerStats & {
 
 export type StatRecord = { title: string; value: string; who: string };
 
+export type DistanceLeaderRow = { userId: string; nickname: string; distanceKm: number };
+
 export type LeaderboardData = {
   rows: LeaderboardRow[];
   seasons: { id: string; name: string }[];
@@ -39,6 +48,8 @@ export type LeaderboardData = {
   /** Finished sessions (termini). */
   sessionsPlayed: number;
   records: StatRecord[];
+  /** Season totals for Trčanje / Najbolji km — sorted desc by km then nickname. */
+  distanceLeaders: DistanceLeaderRow[];
 };
 
 /**
@@ -75,7 +86,7 @@ export async function getLeaderboard(
 function cachedLeaderboard(groupId: string, seasonId: string | null) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", "v10-goal-diminishing", groupId, seasonId ?? "all"],
+    ["leaderboard", "v11-match-activity", groupId, seasonId ?? "all"],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }
@@ -122,11 +133,26 @@ async function computeLeaderboard(
       matchesPlayed: 0,
       sessionsPlayed: 0,
       records: [],
+      distanceLeaders: [],
     };
   }
 
   const matchIds = allMatches.map((t) => t.id);
   const startsByMatch = new Map(allMatches.map((t) => [t.id, t.starts_at]));
+
+  const { data: activityRows } = await supabase
+    .from("match_activity")
+    .select("match_id, user_id, distance_km, max_speed_kmh, avg_speed_kmh")
+    .in("match_id", matchIds);
+
+  const activityEntries: ActivityEntry[] = (activityRows ?? []).map((r) => ({
+    matchId: r.match_id,
+    userId: r.user_id,
+    distanceKm: r.distance_km === null ? null : Number(r.distance_km),
+    maxSpeedKmh: r.max_speed_kmh === null ? null : Number(r.max_speed_kmh),
+    avgSpeedKmh: r.avg_speed_kmh === null ? null : Number(r.avg_speed_kmh),
+    startsAt: startsByMatch.get(r.match_id) ?? null,
+  }));
 
   const { data: finishedGames } = await supabase
     .from("games")
@@ -138,12 +164,30 @@ async function computeLeaderboard(
   const allGames = finishedGames ?? [];
 
   if (allGames.length === 0) {
+    const emptyRows = await emptyLeaderboard(groupId, memberIds);
+    const nickById = new Map(emptyRows.map((r) => [r.userId, r.nickname]));
+    const missingActivityIds = [
+      ...new Set(activityEntries.map((e) => e.userId)),
+    ].filter((id) => !nickById.has(id));
+    if (missingActivityIds.length > 0) {
+      const { data: extra } = await supabase
+        .from("profiles")
+        .select("id, nickname")
+        .in("id", missingActivityIds);
+      for (const p of extra ?? []) {
+        nickById.set(p.id, p.nickname || "(bez nadimka)");
+      }
+    }
+    const nickname = (id: string) => nickById.get(id) ?? "?";
+    const records: StatRecord[] = [];
+    appendActivityRecords(records, activityEntries, nickname);
     return {
-      rows: await emptyLeaderboard(groupId, memberIds),
+      rows: emptyRows,
       seasons: (seasons ?? []).map((s) => ({ id: s.id, name: s.name })),
       matchesPlayed: 0,
       sessionsPlayed: allMatches.length,
-      records: [],
+      records,
+      distanceLeaders: buildDistanceLeaders(activityEntries, nickname),
     };
   }
 
@@ -217,9 +261,12 @@ async function computeLeaderboard(
 
   const attendance = aggregateAttendance(matchIds, lineupBySession, players);
 
-  // Profiles for anyone who appeared in stats but is no longer a member
-  // (edge case) — refill gaps without a second full fetch when possible.
-  const missingIds = players.filter((id) => !(profiles ?? []).some((p) => p.id === id));
+  // Profiles for anyone who appeared in stats or activity but is no longer a
+  // member (edge case) — refill gaps without a second full fetch when possible.
+  const knownProfileIds = new Set((profiles ?? []).map((p) => p.id));
+  const missingIds = [
+    ...new Set([...players, ...activityEntries.map((e) => e.userId)]),
+  ].filter((id) => !knownProfileIds.has(id));
   let allProfiles = profiles ?? [];
   if (missingIds.length > 0) {
     const { data: extra } = await supabase
@@ -228,6 +275,11 @@ async function computeLeaderboard(
       .in("id", missingIds);
     allProfiles = [...allProfiles, ...(extra ?? [])];
   }
+
+  const nickById = new Map(
+    allProfiles.map((p) => [p.id, p.nickname || "(bez nadimka)"]),
+  );
+  const nicknameOf = (id: string) => nickById.get(id) ?? "?";
 
   const rows: LeaderboardRow[] = stats.map((s) => {
     const d = attendance.find((x) => x.userId === s.userId);
@@ -266,7 +318,8 @@ async function computeLeaderboard(
     seasons: (seasons ?? []).map((s) => ({ id: s.id, name: s.name })),
     matchesPlayed: allGames.length,
     sessionsPlayed: allMatches.length,
-    records: computeRecords(forStats, rows),
+    records: computeRecords(forStats, rows, activityEntries, nicknameOf),
+    distanceLeaders: buildDistanceLeaders(activityEntries, nicknameOf),
   };
 }
 
@@ -341,12 +394,69 @@ async function emptyLeaderboard(
     .sort((a, b) => a.nickname.localeCompare(b.nickname, "hr"));
 }
 
+function buildDistanceLeaders(
+  entries: ActivityEntry[],
+  nickname: (userId: string) => string,
+): DistanceLeaderRow[] {
+  return sumDistanceByUser(entries)
+    .map((d) => ({
+      userId: d.userId,
+      nickname: nickname(d.userId),
+      distanceKm: d.distanceKm,
+    }))
+    .sort(
+      (a, b) =>
+        b.distanceKm - a.distanceKm || a.nickname.localeCompare(b.nickname, "hr"),
+    );
+}
+
+function appendActivityRecords(
+  records: StatRecord[],
+  entries: ActivityEntry[],
+  nickname: (id: string) => string,
+) {
+  const whoWithDate = (userId: string, startsAt: string | null) => {
+    const date = startsAt ? formatShortDate(startsAt) : "—";
+    return `${nickname(userId)} · ${date}`;
+  };
+
+  const dist = bestDistanceInSingleTermin(entries);
+  if (dist) {
+    records.push({
+      title: "Najviše kilometara na terminu",
+      value: `${dist.value} km`,
+      who: whoWithDate(dist.userId, dist.startsAt),
+    });
+  }
+
+  const maxS = bestMaxSpeedInSingleTermin(entries);
+  if (maxS) {
+    records.push({
+      title: "Najveća max brzina",
+      value: `${maxS.value} km/h`,
+      who: whoWithDate(maxS.userId, maxS.startsAt),
+    });
+  }
+
+  const avgS = bestAvgSpeedInSingleTermin(entries);
+  if (avgS) {
+    records.push({
+      title: "Najveća prosj. brzina",
+      value: `${avgS.value} km/h`,
+      who: whoWithDate(avgS.userId, avgS.startsAt),
+    });
+  }
+}
+
 function computeRecords(
   matches: MatchForStats[],
   rows: LeaderboardRow[],
+  activityEntries: ActivityEntry[],
+  nicknameOf: (id: string) => string,
 ): StatRecord[] {
   const records: StatRecord[] = [];
-  const nickname = (id: string) => rows.find((r) => r.userId === id)?.nickname ?? "?";
+  const nickname = (id: string) =>
+    rows.find((r) => r.userId === id)?.nickname ?? nicknameOf(id);
   const whoWithDate = (userId: string, startsAt: string | null) => {
     const date = startsAt ? formatShortDate(startsAt) : "—";
     return `${nickname(userId)} · ${date}`;
@@ -422,6 +532,8 @@ function computeRecords(
   // computed as the max by goals; here it used to read `rows[0]` — an unsorted
   // array, so a random player showed up. Two cards with the same title and
   // different numbers made stats look broken.
+
+  appendActivityRecords(records, activityEntries, nickname);
 
   return records;
 }
