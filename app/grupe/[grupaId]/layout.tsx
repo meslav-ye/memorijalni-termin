@@ -37,7 +37,7 @@ export default async function GroupLayout({
           <SoftLink href="/grupe">← Moje grupe</SoftLink>
           <h1 className="mt-2 text-2xl font-bold tracking-tight">{group.name}</h1>
         </div>
-        <SoftLink href="/profil">Profil</SoftLink>
+        <SoftLink href="/profil">Postavke profila</SoftLink>
       </header>
 
       <GroupTabs grupaId={grupaId} admin={admin} />

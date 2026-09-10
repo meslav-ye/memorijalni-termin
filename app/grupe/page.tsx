@@ -40,7 +40,7 @@ export default async function GroupsPage() {
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-10">
       <header className="mb-8 flex items-start justify-between gap-4">
         <h1 className="text-2xl font-bold tracking-tight">Moje grupe</h1>
-        <SoftLink href="/profil">Profil</SoftLink>
+        <SoftLink href="/profil">Postavke profila</SoftLink>
       </header>
 
       {activeGroups.length === 0 && pendingGroups.length === 0 && (

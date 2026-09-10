@@ -24,7 +24,7 @@ function leader(
 }
 
 function playerHref(grupaId: string, userId: string) {
-  return `/grupe/${grupaId}/igrac/${userId}`;
+  return `/grupe/${grupaId}/igrac/${userId}?from=statistika`;
 }
 
 export default async function StatsPage({
@@ -130,6 +130,7 @@ export default async function StatsPage({
           userId={me.userId}
           nickname={me.nickname}
           statsLine={`${me.goals} G · ${me.assists} A · ${me.matches} U`}
+          from="statistika"
         />
       )}
 

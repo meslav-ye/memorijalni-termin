@@ -32,7 +32,7 @@ export default async function ProfilePage() {
 
       <header className="mb-8 mt-4">
         <h1 className="text-2xl font-bold tracking-tight">
-          {firstTime ? "Još samo nadimak" : "Tvoj profil"}
+          {firstTime ? "Još samo nadimak" : "Postavke profila"}
         </h1>
         <p className="mt-2 text-slate-600">
           {firstTime

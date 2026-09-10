@@ -92,6 +92,7 @@ export default async function LeaderboardPage({
           userId={me.userId}
           nickname={me.nickname}
           statsLine={`${meRank}. · ${Math.round(me.rating)} Rtg`}
+          from="ljestvica"
         />
       )}
 

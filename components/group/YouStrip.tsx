@@ -6,12 +6,14 @@ type Props = {
   nickname: string;
   /** e.g. "3. · 1042 Rtg" or "5 G · 2 A · 8 U" */
   statsLine: string;
+  /** Back-link context on the player page (`statistika` | `ljestvica`). */
+  from: "statistika" | "ljestvica";
 };
 
-export function YouStrip({ grupaId, userId, nickname, statsLine }: Props) {
+export function YouStrip({ grupaId, userId, nickname, statsLine, from }: Props) {
   return (
     <Link
-      href={`/grupe/${grupaId}/igrac/${userId}`}
+      href={`/grupe/${grupaId}/igrac/${userId}?from=${from}`}
       className="mt-3 flex items-center gap-3 rounded-lg border border-marka/25 bg-marka/5 px-3 py-2.5 transition active:scale-[0.99]"
     >
       <div className="min-w-0 flex-1">
