@@ -23,10 +23,8 @@ export default async function LeaderboardPage({
   const latestSeasonId = await latestSeason(grupaId);
   const seasonToShow = allTime ? null : (requestedSeason ?? latestSeasonId);
 
-  const { rows, seasons, matchesPlayed, sessionsPlayed } = await getLeaderboard(
-    grupaId,
-    seasonToShow,
-  );
+  const { rows, seasons, matchesPlayed, sessionsPlayed, distanceLeaders } =
+    await getLeaderboard(grupaId, seasonToShow);
 
   // When no matches have been played yet, still show the table — all members
   // at zero. An empty screen would not say who is in the group or what is tracked.
@@ -106,6 +104,47 @@ export default async function LeaderboardPage({
         rows={tableRows}
         currentUserId={user.id}
       />
+
+      {/* Running distance */}
+      <section className="mt-8">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Trčanje
+        </h3>
+        {distanceLeaders.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-2 text-sm text-slate-500">
+            Još nema unesenih kilometara.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {distanceLeaders.map((r) => {
+              const isYou = r.userId === user.id;
+              return (
+                <li
+                  key={r.userId}
+                  className={
+                    "flex items-center gap-3 rounded-lg border px-3 py-2 text-sm " +
+                    (isYou
+                      ? "border-marka/30 bg-marka/5"
+                      : "border-slate-200 bg-white")
+                  }
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {r.nickname}
+                    {isYou && (
+                      <span className="ml-1.5 text-[0.65rem] font-bold uppercase text-marka-svijetla">
+                        Ti
+                      </span>
+                    )}
+                  </span>
+                  <span className="font-semibold tabular-nums">
+                    {r.distanceKm} km
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       {/* Attendance */}
       <section className="mt-8">
