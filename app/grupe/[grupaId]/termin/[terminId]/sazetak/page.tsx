@@ -10,6 +10,7 @@ import { teamDisplayName } from "@/lib/domain/team-name";
 import { teamHeadingClass, teamNameOnDarkClass, teamPanelClass } from "@/lib/domain/team-colors";
 import { ShareButton } from "./ShareButton";
 import { MatchDescription } from "./MatchDescription";
+import { ActivityForm } from "./ActivityForm";
 import { deleteMatch } from "../../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -69,14 +70,47 @@ export default async function SummaryPage({
   ]);
 
   const allUserIds = [...new Set((lineup ?? []).map((p) => p.user_id))];
+  const canEdit = allUserIds.includes(user.id);
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, nickname")
-    .in("id", allUserIds.length ? allUserIds : ["-"]);
+  const [{ data: profiles }, { data: activities }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, nickname")
+      .in("id", allUserIds.length ? allUserIds : ["-"]),
+    supabase
+      .from("match_activity")
+      .select("user_id, distance_km, max_speed_kmh, avg_speed_kmh")
+      .eq("match_id", terminId),
+  ]);
 
   const nicknameOf = (id: string | null) =>
     profiles?.find((p) => p.id === id)?.nickname || "?";
+
+  const activityByUser = new Map(
+    (activities ?? []).map((a) => [
+      a.user_id,
+      {
+        distanceKm: a.distance_km === null ? null : Number(a.distance_km),
+        maxSpeedKmh: a.max_speed_kmh === null ? null : Number(a.max_speed_kmh),
+        avgSpeedKmh: a.avg_speed_kmh === null ? null : Number(a.avg_speed_kmh),
+      },
+    ]),
+  );
+
+  const activityPlayers = allUserIds
+    .map((userId) => {
+      const row = activityByUser.get(userId);
+      return {
+        userId,
+        nickname: nicknameOf(userId),
+        distanceKm: row?.distanceKm ?? null,
+        maxSpeedKmh: row?.maxSpeedKmh ?? null,
+        avgSpeedKmh: row?.avgSpeedKmh ?? null,
+      };
+    })
+    .sort((a, b) => a.nickname.localeCompare(b.nickname, "hr"));
+
+  const myActivity = activityByUser.get(user.id) ?? null;
 
   const location = match.locations?.name ?? match.location_text ?? "";
 
@@ -304,6 +338,14 @@ export default async function SummaryPage({
         terminId={terminId}
         description={match.description}
         admin={admin}
+      />
+
+      <ActivityForm
+        grupaId={grupaId}
+        terminId={terminId}
+        canEdit={canEdit}
+        defaults={myActivity}
+        players={activityPlayers}
       />
 
       {admin && (
