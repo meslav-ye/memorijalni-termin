@@ -579,11 +579,12 @@ export async function saveMatchActivity(
   if (!lineupRow) return { error: "Nisi bio u ekipi na ovom terminu." };
 
   if (isEmptyActivity(parsed)) {
-    await ctx.supabase
+    const { error } = await ctx.supabase
       .from("match_activity")
       .delete()
       .eq("match_id", matchId)
       .eq("user_id", ctx.user.id);
+    if (error) return { error: "Spremanje nije uspjelo." };
   } else {
     const { error } = await ctx.supabase.from("match_activity").upsert({
       match_id: matchId,
