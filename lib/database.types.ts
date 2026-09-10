@@ -34,6 +34,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      games: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          match_id: string
+          paused_at: string | null
+          score_a: number
+          score_b: number
+          seq: number
+          started_at: string | null
+          status: Database["public"]["Enums"]["game_status"]
+          team_a_name: string | null
+          team_b_name: string | null
+          total_paused_seconds: number
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          match_id: string
+          paused_at?: string | null
+          score_a?: number
+          score_b?: number
+          seq?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["game_status"]
+          team_a_name?: string | null
+          team_b_name?: string | null
+          total_paused_seconds?: number
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          match_id?: string
+          paused_at?: string | null
+          score_a?: number
+          score_b?: number
+          seq?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["game_status"]
+          team_a_name?: string | null
+          team_b_name?: string | null
+          total_paused_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "games_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_members: {
         Row: {
           group_id: string
@@ -146,59 +202,44 @@ export type Database = {
           },
         ]
       }
-
-      games: {
+      match_activity: {
         Row: {
-          created_at: string
-          ended_at: string | null
-          id: string
+          avg_speed_kmh: number | null
+          distance_km: number | null
           match_id: string
-          paused_at: string | null
-          score_a: number
-          score_b: number
-          seq: number
-          started_at: string | null
-          status: Database["public"]["Enums"]["game_status"]
-          team_a_name: string | null
-          team_b_name: string | null
-          total_paused_seconds: number
+          max_speed_kmh: number | null
+          updated_at: string
+          user_id: string
         }
         Insert: {
-          created_at?: string
-          ended_at?: string | null
-          id?: string
+          avg_speed_kmh?: number | null
+          distance_km?: number | null
           match_id: string
-          paused_at?: string | null
-          score_a?: number
-          score_b?: number
-          seq?: number
-          started_at?: string | null
-          status?: Database["public"]["Enums"]["game_status"]
-          team_a_name?: string | null
-          team_b_name?: string | null
-          total_paused_seconds?: number
+          max_speed_kmh?: number | null
+          updated_at?: string
+          user_id: string
         }
         Update: {
-          created_at?: string
-          ended_at?: string | null
-          id?: string
+          avg_speed_kmh?: number | null
+          distance_km?: number | null
           match_id?: string
-          paused_at?: string | null
-          score_a?: number
-          score_b?: number
-          seq?: number
-          started_at?: string | null
-          status?: Database["public"]["Enums"]["game_status"]
-          team_a_name?: string | null
-          team_b_name?: string | null
-          total_paused_seconds?: number
+          max_speed_kmh?: number | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "games_match_id_fkey"
+            foreignKeyName: "match_activity_match_id_fkey"
             columns: ["match_id"]
             isOneToOne: false
             referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_activity_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -227,7 +268,7 @@ export type Database = {
           elapsed_seconds?: number
           game_id: string
           id?: string
-          match_id?: string
+          match_id: string
           scorer_id?: string | null
           team?: Database["public"]["Enums"]["team_side"] | null
           type: Database["public"]["Enums"]["event_type"]
@@ -302,7 +343,7 @@ export type Database = {
         Insert: {
           game_id: string
           is_goalkeeper?: boolean
-          match_id?: string
+          match_id: string
           team: Database["public"]["Enums"]["team_side"]
           user_id: string
         }
@@ -330,48 +371,6 @@ export type Database = {
           },
           {
             foreignKeyName: "match_lineup_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      match_signups: {
-        Row: {
-          cancelled_at: string | null
-          id: string
-          manual_order: number | null
-          match_id: string
-          signed_up_at: string
-          user_id: string
-        }
-        Insert: {
-          cancelled_at?: string | null
-          id?: string
-          manual_order?: number | null
-          match_id: string
-          signed_up_at?: string
-          user_id: string
-        }
-        Update: {
-          cancelled_at?: string | null
-          id?: string
-          manual_order?: number | null
-          match_id?: string
-          signed_up_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "match_signups_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "match_signups_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -442,6 +441,48 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_signups: {
+        Row: {
+          cancelled_at: string | null
+          id: string
+          manual_order: number | null
+          match_id: string
+          signed_up_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          id?: string
+          manual_order?: number | null
+          match_id: string
+          signed_up_at?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          id?: string
+          manual_order?: number | null
+          match_id?: string
+          signed_up_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_signups_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_signups_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -621,7 +662,7 @@ export type Database = {
         Insert: {
           game_id: string
           id?: string
-          match_id?: string
+          match_id: string
           rating_after: number
           rating_before: number
           scope?: Database["public"]["Enums"]["rating_scope"]
