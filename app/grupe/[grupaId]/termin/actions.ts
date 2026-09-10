@@ -20,10 +20,20 @@ import {
   usersWithLaterRatingHistory,
   type RatingScope,
 } from "@/lib/domain/revert-ratings";
+import {
+  isEmptyActivity,
+  parseActivityFields,
+  validateActivityFields,
+} from "@/lib/domain/activity";
 import { leaderboardTag } from "@/lib/data/leaderboard";
 import { ensureDraftGame, ensureEditableGame } from "@/lib/data/games";
 
 export type MatchFormState = {
+  error?: string;
+  message?: string;
+};
+
+export type ActivityFormState = {
   error?: string;
   message?: string;
 };
@@ -528,6 +538,69 @@ export async function updateMatchDescription(formData: FormData) {
     .eq("group_id", groupId);
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/sazetak`);
+}
+
+export async function saveMatchActivity(
+  _prev: ActivityFormState,
+  formData: FormData,
+): Promise<ActivityFormState> {
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+  const ctx = await membership(groupId);
+  if (!ctx) return { error: "Nisi prijavljen." };
+
+  const parsed = parseActivityFields({
+    distance: String(formData.get("distance") ?? ""),
+    maxSpeed: String(formData.get("maxSpeed") ?? ""),
+    avgSpeed: String(formData.get("avgSpeed") ?? ""),
+  });
+  if ("error" in parsed) return { error: parsed.error };
+
+  const invalid = validateActivityFields(parsed);
+  if (invalid) return { error: invalid };
+
+  const { data: match } = await ctx.supabase
+    .from("matches")
+    .select("id, status, group_id")
+    .eq("id", matchId)
+    .eq("group_id", groupId)
+    .maybeSingle();
+  if (!match || match.status !== "zavrsen") {
+    return { error: "Termin nije završen." };
+  }
+
+  const { data: lineupRow } = await ctx.supabase
+    .from("match_lineup")
+    .select("user_id")
+    .eq("match_id", matchId)
+    .eq("user_id", ctx.user.id)
+    .limit(1)
+    .maybeSingle();
+  if (!lineupRow) return { error: "Nisi bio u ekipi na ovom terminu." };
+
+  if (isEmptyActivity(parsed)) {
+    await ctx.supabase
+      .from("match_activity")
+      .delete()
+      .eq("match_id", matchId)
+      .eq("user_id", ctx.user.id);
+  } else {
+    const { error } = await ctx.supabase.from("match_activity").upsert({
+      match_id: matchId,
+      user_id: ctx.user.id,
+      distance_km: parsed.distanceKm,
+      max_speed_kmh: parsed.maxSpeedKmh,
+      avg_speed_kmh: parsed.avgSpeedKmh,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) return { error: "Spremanje nije uspjelo." };
+  }
+
+  updateTag(leaderboardTag(groupId));
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/sazetak`);
+  revalidatePath(`/grupe/${groupId}/statistika`);
+  revalidatePath(`/grupe/${groupId}/ljestvica`);
+  return { message: "Spremljeno." };
 }
 
 /** Permanently remove a finished or cancelled termin (admin only). */
