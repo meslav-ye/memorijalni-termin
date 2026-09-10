@@ -69,6 +69,7 @@ export function LiveScreen({
   initialState,
   teamAName: initialTeamAName,
   teamBName: initialTeamBName,
+  isAdmin = false,
 }: {
   grupaId: string;
   terminId: string;
@@ -78,6 +79,8 @@ export function LiveScreen({
   initialState: LiveState;
   teamAName: string;
   teamBName: string;
+  /** Admins may edit assists after the termin is finished (RLS: 24h). */
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -252,6 +255,7 @@ export function LiveScreen({
     (state.gameStatus === "zavrsena" ||
       (state.gameStatus === "u_tijeku" && state.startedAt == null));
   const terminDone = state.matchStatus === "zavrsen";
+  const canEditAssist = gameLive || (terminDone && isAdmin);
   const locked = !gameLive || busy;
 
   function currentElapsed() {
@@ -311,12 +315,15 @@ export function LiveScreen({
     if (!pendingAssist) return;
     const id = pendingAssist.eventId;
     setPendingAssist(null);
-    await addAssist(terminId, id, assistantId);
+    setBusy(true);
+    const result = await addAssist(terminId, id, assistantId);
+    setBusy(false);
+    if ("error" in result) setError(result.error);
     await afterChange();
   }
 
   function openAssistFromTimeline(event: LiveEvent) {
-    if (!gameLive || event.type !== "goal" || !event.scorerId) return;
+    if (!canEditAssist || event.type !== "goal" || !event.scorerId) return;
     const scorer = lineup.find((p) => p.userId === event.scorerId);
     if (!scorer) return;
     setPendingAssist({
@@ -559,7 +566,7 @@ export function LiveScreen({
                 <span className="w-12 shrink-0 tabular-nums text-slate-400">
                   {formatClock(e.elapsedSeconds)}
                 </span>
-                {e.type === "goal" && gameLive ? (
+                {e.type === "goal" && canEditAssist ? (
                   <button
                     type="button"
                     onClick={() => openAssistFromTimeline(e)}

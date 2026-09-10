@@ -224,15 +224,82 @@ export async function addAssist(
   eventId: string,
   assistId: string | null,
 ): Promise<ActionResult> {
-  const open = await requireOpenGame(matchId);
-  if ("error" in open) return { error: "Nemaš pravo." };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Nemaš pravo." };
 
-  const { error } = await open.supabase
+  const { data: event } = await supabase
+    .from("match_events")
+    .select("id, match_id, game_id, type, team, scorer_id, deleted_at")
+    .eq("id", eventId)
+    .eq("match_id", matchId)
+    .maybeSingle();
+
+  if (!event || event.deleted_at !== null || event.type !== "goal") {
+    return { error: "Gol nije pronađen." };
+  }
+
+  const { data: match } = await supabase
+    .from("matches")
+    .select("status, group_id")
+    .eq("id", matchId)
+    .maybeSingle();
+  if (!match) return { error: "Termin nije pronađen." };
+
+  if (match.status === "u_tijeku") {
+    const open = await requireOpenGame(matchId);
+    if (!("game" in open)) return { error: open.error };
+  } else if (match.status === "zavrsen") {
+    const { data: membership } = await supabase
+      .from("group_members")
+      .select("role, status")
+      .eq("group_id", match.group_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (membership?.status !== "active" || membership.role !== "admin") {
+      return { error: "Asistenciju nakon završetka mijenja samo admin." };
+    }
+  } else {
+    return { error: "Termin nije aktivan." };
+  }
+
+  if (assistId !== null) {
+    if (assistId === event.scorer_id) {
+      return { error: "Asistent ne može biti strijelac." };
+    }
+    if (!event.team) return { error: "Gol nema ekipu." };
+    const { data: mate } = await supabase
+      .from("match_lineup")
+      .select("user_id")
+      .eq("game_id", event.game_id)
+      .eq("user_id", assistId)
+      .eq("team", event.team)
+      .maybeSingle();
+    if (!mate) return { error: "Asistent mora biti suigrač iz ekipe." };
+  }
+
+  const { error } = await supabase
     .from("match_events")
     .update({ assist_id: assistId })
     .eq("id", eventId);
 
-  return error ? { error: "Asistencija nije spremljena." } : { ok: true };
+  if (error) {
+    return {
+      error:
+        match.status === "zavrsen"
+          ? "Asistencija nije spremljena (admin može mijenjati do 24h nakon utakmice)."
+          : "Asistencija nije spremljena.",
+    };
+  }
+
+  updateTag(leaderboardTag(match.group_id));
+  revalidatePath(`/grupe/${match.group_id}/termin/${matchId}/sazetak`);
+  revalidatePath(`/grupe/${match.group_id}/termin/${matchId}/uzivo`);
+  revalidatePath(`/grupe/${match.group_id}/statistika`);
+  revalidatePath(`/grupe/${match.group_id}/ljestvica`);
+  return { ok: true };
 }
 
 export async function recordOwnGoal(

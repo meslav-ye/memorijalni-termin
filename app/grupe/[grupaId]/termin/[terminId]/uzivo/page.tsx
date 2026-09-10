@@ -19,6 +19,7 @@ export default async function LivePage({
 
   const membership = await getMembership(grupaId);
   if (membership?.status !== "active") notFound();
+  const isAdmin = membership.role === "admin";
 
   const { data: match } = await supabase
     .from("matches")
@@ -112,6 +113,7 @@ export default async function LivePage({
         }}
         teamAName={teamDisplayName("A", game.team_a_name)}
         teamBName={teamDisplayName("B", game.team_b_name)}
+        isAdmin={isAdmin}
       />
     </div>
   );

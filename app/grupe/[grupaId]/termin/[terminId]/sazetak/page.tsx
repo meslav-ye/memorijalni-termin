@@ -11,6 +11,7 @@ import { teamHeadingClass, teamNameOnDarkClass, teamPanelClass } from "@/lib/dom
 import { ShareButton } from "./ShareButton";
 import { MatchDescription } from "./MatchDescription";
 import { ActivityForm } from "./ActivityForm";
+import { GoalChronology } from "./GoalChronology";
 import { deleteMatch } from "../../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -57,7 +58,7 @@ export default async function SummaryPage({
       .in("game_id", gameIds.length ? gameIds : ["-"]),
     supabase
       .from("match_events")
-      .select("game_id, type, team, scorer_id, assist_id, elapsed_seconds, deleted_at")
+      .select("id, game_id, type, team, scorer_id, assist_id, elapsed_seconds, deleted_at")
       .in("game_id", gameIds.length ? gameIds : ["-"])
       .is("deleted_at", null)
       .in("type", ["goal", "own_goal", "keeper_change"])
@@ -85,6 +86,10 @@ export default async function SummaryPage({
 
   const nicknameOf = (id: string | null) =>
     profiles?.find((p) => p.id === id)?.nickname || "?";
+
+  const nicknameMap = Object.fromEntries(
+    (profiles ?? []).map((p) => [p.id, p.nickname || "?"]),
+  );
 
   const activityByUser = new Map(
     (activities ?? []).map((a) => [
@@ -289,39 +294,26 @@ export default async function SummaryPage({
             </div>
 
             {b.goals.length > 0 && (
-              <div className="mt-6">
-                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  Kronologija
-                </h3>
-                <ul className="space-y-1">
-                  {b.goals.map((e, i) => (
-                    <li
-                      key={`${b.game.id}-${i}`}
-                      className={
-                        "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm " +
-                        teamPanelClass(e.team)
-                      }
-                    >
-                      <span className="w-12 shrink-0 tabular-nums text-slate-400">
-                        {formatClock(e.elapsed_seconds)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        {e.type === "goal" ? "⚽ " : "🥅 "}
-                        <span className="font-medium">{nicknameOf(e.scorer_id)}</span>
-                        {e.assist_id && (
-                          <span className="text-slate-500"> ({nicknameOf(e.assist_id)})</span>
-                        )}
-                        {e.type === "own_goal" && (
-                          <span className="text-slate-500"> — autogol</span>
-                        )}
-                      </span>
-                      <span className="shrink-0 text-xs font-semibold text-slate-400">
-                        {e.team}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <GoalChronology
+                terminId={terminId}
+                canEditAssists={admin}
+                nicknames={nicknameMap}
+                lineup={(lineup ?? [])
+                  .filter((p) => p.game_id === b.game.id)
+                  .map((p) => ({
+                    userId: p.user_id,
+                    nickname: nicknameOf(p.user_id),
+                    team: p.team as Team,
+                  }))}
+                goals={b.goals.map((e) => ({
+                  id: e.id,
+                  type: e.type as "goal" | "own_goal",
+                  team: e.team as Team | null,
+                  scorerId: e.scorer_id,
+                  assistId: e.assist_id,
+                  elapsedSeconds: e.elapsed_seconds,
+                }))}
+              />
             )}
           </section>
         ))
