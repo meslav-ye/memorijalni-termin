@@ -1,8 +1,8 @@
 # Ručni unos trkačkih podataka — design
 
 **Datum:** 2026-09-10  
-**Status:** odobreno za plan implementacije  
-**Doseg:** unos distance / max / avg brzine po završenom terminu; prikaz u Statistici (Vodeći) i Ljestvici (lista prije Dolaznosti); brand slikice
+**Status:** odobreno za plan implementacije (revidirano: Vodeći vs Rekordi)  
+**Doseg:** unos distance / max / avg brzine po završenom terminu; Vodeći (ukupni km); Rekordi (max/avg s jednog termina); Ljestvica (samo zbroj km); brand slikice
 
 ---
 
@@ -10,7 +10,7 @@
 
 Omogućiti igraču da **sam** unese trkačke brojke s termina (bez Strave), i da grupa vidi usporedbu u statistikama.
 
-Success: igrač koji je igrao završeni termin unese km / max / avg; na Statistici se pojave tri nova vodeća; na Ljestvici nova lista „Trčanje” ispred Dolaznosti.
+Success: igrač koji je igrao završeni termin unese km / max / avg; na Statistici **Vodeći** pokazuje ukupne km; **Rekordi** pokazuje najbolji max i avg s jednog termina; na Ljestvici lista „Trčanje” zbraja samo distancu.
 
 ---
 
@@ -27,8 +27,9 @@ Success: igrač koji je igrao završeni termin unese km / max / avg; na Statisti
 | Polja | **Opcionalna** — može samo distanca, ili samo brzine |
 | Elo / ekipe | **Ne ulaze** u rating ni `suggestTeams` |
 | UI unosa | Blok na **sažetku** + read-only popis unosa ekipe |
-| Statistika | Tri nove **Vodeći** kartice |
-| Ljestvica | Jedna lista **Trčanje** **prije** Dolaznosti |
+| **Vodeći** | Samo **ukupna distanca** (zbroj) — avg/max se ne zbrajaju |
+| **Rekordi** | **Max brzina** i **prosj. brzina** s **jednog termina** (+ datum kao ostali rekordi) |
+| **Ljestvica** | Lista **Trčanje** prije Dolaznosti — **samo zbroj km**, bez avg/max u redu |
 | Privatnost | Ručni brojevi, ne GPS stream; puls **nije** u scopeu |
 
 ---
@@ -72,71 +73,95 @@ Admin **ne** može unijeti tuđe brojke (odluka A).
 
 ---
 
-## 5. Agregacije (sezona / sve vrijeme)
+## 5. Agregacije i rekordi (sezona / sve vrijeme)
 
 Isti `SeasonBar` filter kao ostatak Statističke / Ljestvice. Uključeni su samo završeni termini u rasponu; samo redovi iz `match_activity`.
 
-| Metrika | Formula |
-|---|---|
-| Distanca | `sum(distance_km)` (null se ignorira) |
-| Max brzina | `max(max_speed_kmh)` |
-| Prosj. brzina | aritmetička sredina `avg_speed_kmh` gdje nije null |
+### 5.1 Ukupno (za Vodeće i Ljestvicu)
 
-Igrač bez ijedne relevantne vrijednosti **ne ulazi** u rang te metrike / listu Trčanje.
+| Metrika | Formula | Gdje |
+|---|---|---|
+| Distanca po igraču | `sum(distance_km)` (null se ignorira) | Vodeći + lista Trčanje |
+
+Igrač bez ijednog `distance_km` **ne ulazi** u Vodeće ni listu Trčanje.
+
+### 5.2 Po terminu (za Rekorde)
+
+Rekordi su **uvijek** vezani uz jedan termin (isti pattern kao „Najviše golova na utakmici” — `who` s datumom).
+
+| Title | Formula | Art |
+|---|---|---|
+| Najveća max brzina | najveći `max_speed_kmh` među svim unosima u rasponu; čuva `user_id` + `starts_at` tog termina | `stats-max-speed.png` |
+| Najveća prosj. brzina | najveći `avg_speed_kmh` među unosima u rasponu; isto | `stats-avg-speed.png` |
+
+Remi: stariji termin / abeceda nadimka — uskladiti s postojećim `computeRecords` tie-breakom ako postoji; inače prvi nađeni max.
+
+**Nije rekord:** sezonski „najbolji avg” kao zbroj/prosjek prosjeka. **Nije Vodeći:** max/avg.
 
 ---
 
 ## 6. Statistika — Vodeći
 
-U postojeću sekciju **Vodeći** dodati tri `StatsLeaderCard`:
+U **Vodeći** dodati **jednu** `StatsLeaderCard`:
 
 | Title | Value | Art |
 |---|---|---|
 | Najviše kilometara | sum km | `/brand/stats/stats-distance.png` |
-| Najveća max brzina | max km/h | `/brand/stats/stats-max-speed.png` |
-| Najveća prosj. brzina | avg km/h | `/brand/stats/stats-avg-speed.png` |
 
-Link na profil igrača kao ostale kartice. Prazno → `—` / bez who.
+Link na profil igrača. Prazno → `—`.
 
-Proširiti `STATS_ART` u `components/brand/statsArt.ts` s `distance`, `maxSpeed`, `avgSpeed`.
+Proširiti `STATS_ART` s `distance`, `maxSpeed`, `avgSpeed` (speed art ide na Rekorde).
 
 ---
 
-## 7. Ljestvica — lista Trčanje
+## 7. Statistika — Rekordi
+
+U postojeći `recordCards` / `computeRecords` pipeline dodati dva naslova (prazni placeholderi ostaju vidljivi kao ostali rekordi):
+
+- **Najveća max brzina** — value npr. `31.2 km/h`, who npr. `Ivan · 12. 3.`
+- **Najveća prosj. brzina** — value npr. `9.4 km/h`, who s datumom
+
+Ikone: `STATS_ART.maxSpeed` / `STATS_ART.avgSpeed`.
+
+---
+
+## 8. Ljestvica — lista Trčanje
 
 Ispod glavne tablice, **prije** sekcije Dolaznost:
 
 - Naslov: **Trčanje**
 - Sort: ukupni km desc, pa nickname
-- Red: nickname (+ Ti highlight) · `X.X km · max Y.Y · avg Z.Z` (nedostajuće = `—`)
-- Samo igrači s barem jednim non-null poljem u rasponu
-- Ako nitko nema unos: kratka poruka tipa „Još nema unesenih trkačkih podataka.”
+- Red: nickname (+ Ti highlight) · **`X.X km`** (samo distanca — **bez** max/avg)
+- Samo igrači s barem jednim `distance_km` u rasponu
+- Ako nitko: „Još nema unesenih kilometara.”
 
 ---
 
-## 8. Brand slikice
+## 9. Brand slikice
 
-Tri PNG u `public/brand/stats/`, isti vizualni jezik kao postojeći badgeovi (soft 3D, forest/sage green, cream bg, lopta kao motiv):
+Tri PNG u `public/brand/stats/`:
 
-- `stats-distance.png` — staza + pin + lopta  
-- `stats-max-speed.png` — gauge, igla desno (visoko)  
-- `stats-avg-speed.png` — gauge, igla gore (sredina)
+- `stats-distance.png` — Vodeći (ukupni km)  
+- `stats-max-speed.png` — Rekord max  
+- `stats-avg-speed.png` — Rekord avg  
 
 ---
 
-## 9. Van scopea
+## 10. Van scopea
 
 - Strava / Garmin OAuth  
 - Puls / GPS ruta  
 - Utjecaj na Elo ili slaganje ekipa  
 - Admin unos za druge  
 - Unos po pojedinoj utakmici (game)  
-- Posebne tablice rangiranja na Statistici (samo Vodeći kartice; detaljna lista je na Ljestvici)
+- Vodeći kartice za max/avg  
+- Max/avg stupci ili brojke na listi Trčanje  
+- Sezonski „prosjek prosjeka” kao zasebna rang lista  
 
 ---
 
-## 10. Testiranje (smjer)
+## 11. Testiranje (smjer)
 
-- Domain: agregacije sum/max/mean; avg ≤ max validacija; prazan submit briše  
+- Domain: sum distance; single-termin max/avg records s datumom; avg ≤ max validacija; prazan submit briše  
 - RLS / action: tuđi upsert odbijen; unos prije `zavrsen` odbijen; non-lineup odbijen  
-- UI smoke: sažetak forma, Vodeći kartice, lista Trčanje prije Dolaznosti
+- UI smoke: sažetak forma; jedan Vodeći (km); dva Rekorda (max/avg); lista Trčanje samo km prije Dolaznosti
