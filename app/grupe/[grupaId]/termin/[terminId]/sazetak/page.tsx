@@ -14,6 +14,7 @@ import { ActivityForm } from "./ActivityForm";
 import { GoalChronology } from "./GoalChronology";
 import { deleteMatch } from "../../actions";
 import { SubmitButton } from "@/components/SubmitButton";
+import { withinAssistEditWindow } from "@/lib/domain/assist-edit";
 
 export default async function SummaryPage({
   params,
@@ -296,7 +297,7 @@ export default async function SummaryPage({
             {b.goals.length > 0 && (
               <GoalChronology
                 terminId={terminId}
-                canEditAssists={admin}
+                canEditAssists={admin && withinAssistEditWindow(b.game.ended_at)}
                 nicknames={nicknameMap}
                 lineup={(lineup ?? [])
                   .filter((p) => p.game_id === b.game.id)

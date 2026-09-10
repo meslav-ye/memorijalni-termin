@@ -8,6 +8,7 @@ import { teamNameOnDarkClass, teamPanelClass } from "@/lib/domain/team-colors";
 import { formatClock, elapsedSeconds } from "@/lib/domain/timer";
 import type { MatchTimerState, Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
+import { withinAssistEditWindow } from "@/lib/domain/assist-edit";
 import { useOptionalBusy } from "@/components/BusyProvider";
 import { Stopwatch } from "@/components/termin/Stopwatch";
 import { PlayerButton } from "@/components/termin/PlayerButton";
@@ -255,7 +256,8 @@ export function LiveScreen({
     (state.gameStatus === "zavrsena" ||
       (state.gameStatus === "u_tijeku" && state.startedAt == null));
   const terminDone = state.matchStatus === "zavrsen";
-  const canEditAssist = gameLive || (terminDone && isAdmin);
+  const canEditAssist =
+    gameLive || (terminDone && isAdmin && withinAssistEditWindow(state.endedAt));
   const locked = !gameLive || busy;
 
   function currentElapsed() {
