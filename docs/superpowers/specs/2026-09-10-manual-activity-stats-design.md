@@ -2,7 +2,7 @@
 
 **Datum:** 2026-09-10  
 **Status:** odobreno za plan implementacije (revidirano: Vodeći vs Rekordi)  
-**Doseg:** unos distance / max / avg brzine po završenom terminu; Vodeći (ukupni km); Rekordi (max/avg s jednog termina); Ljestvica (samo zbroj km); brand slikice
+**Doseg:** unos distance / max / avg brzine po završenom terminu; Vodeći (ukupni km); Rekordi (km/max/avg s jednog termina); Ljestvica (samo zbroj km); brand slikice
 
 ---
 
@@ -10,7 +10,7 @@
 
 Omogućiti igraču da **sam** unese trkačke brojke s termina (bez Strave), i da grupa vidi usporedbu u statistikama.
 
-Success: igrač koji je igrao završeni termin unese km / max / avg; na Statistici **Vodeći** pokazuje ukupne km; **Rekordi** pokazuje najbolji max i avg s jednog termina; na Ljestvici lista „Trčanje” zbraja samo distancu.
+Success: igrač koji je igrao završeni termin unese km / max / avg; na Statistici **Vodeći** pokazuje ukupne km; **Rekordi** pokazuje najbolji km, max i avg s jednog termina; na Ljestvici lista „Trčanje” zbraja samo distancu.
 
 ---
 
@@ -28,7 +28,7 @@ Success: igrač koji je igrao završeni termin unese km / max / avg; na Statisti
 | Elo / ekipe | **Ne ulaze** u rating ni `suggestTeams` |
 | UI unosa | Blok na **sažetku** + read-only popis unosa ekipe |
 | **Vodeći** | Samo **ukupna distanca** (zbroj) — avg/max se ne zbrajaju |
-| **Rekordi** | **Max brzina** i **prosj. brzina** s **jednog termina** (+ datum kao ostali rekordi) |
+| **Rekordi** | **Distanca**, **max brzina** i **prosj. brzina** s **jednog termina** (+ datum kao ostali rekordi) |
 | **Ljestvica** | Lista **Trčanje** prije Dolaznosti — **samo zbroj km**, bez avg/max u redu |
 | Privatnost | Ručni brojevi, ne GPS stream; puls **nije** u scopeu |
 
@@ -91,12 +91,15 @@ Rekordi su **uvijek** vezani uz jedan termin (isti pattern kao „Najviše golov
 
 | Title | Formula | Art |
 |---|---|---|
-| Najveća max brzina | najveći `max_speed_kmh` među svim unosima u rasponu; čuva `user_id` + `starts_at` tog termina | `stats-max-speed.png` |
+| Najviše kilometara na terminu | najveći `distance_km` na jednom terminu; čuva `user_id` + `starts_at` | `stats-distance.png` |
+| Najveća max brzina | najveći `max_speed_kmh` među unosima u rasponu; isto | `stats-max-speed.png` |
 | Najveća prosj. brzina | najveći `avg_speed_kmh` među unosima u rasponu; isto | `stats-avg-speed.png` |
+
+Napomena: ista slikica `stats-distance.png` služi i Vodećem (ukupno) i Rekordu (jedan termin) — kao golovi danas.
 
 Remi: stariji termin / abeceda nadimka — uskladiti s postojećim `computeRecords` tie-breakom ako postoji; inače prvi nađeni max.
 
-**Nije rekord:** sezonski „najbolji avg” kao zbroj/prosjek prosjeka. **Nije Vodeći:** max/avg.
+**Nije Vodeći:** max/avg (samo ukupni km). **Nije sezonski rang** za max/avg — samo single-termin Rekordi.
 
 ---
 
@@ -116,12 +119,13 @@ Proširiti `STATS_ART` s `distance`, `maxSpeed`, `avgSpeed` (speed art ide na Re
 
 ## 7. Statistika — Rekordi
 
-U postojeći `recordCards` / `computeRecords` pipeline dodati dva naslova (prazni placeholderi ostaju vidljivi kao ostali rekordi):
+U postojeći `recordCards` / `computeRecords` pipeline dodati tri naslova (prazni placeholderi ostaju vidljivi kao ostali rekordi):
 
+- **Najviše kilometara na terminu** — value npr. `8.4 km`, who npr. `Mislav · 12. 3.`
 - **Najveća max brzina** — value npr. `31.2 km/h`, who npr. `Ivan · 12. 3.`
 - **Najveća prosj. brzina** — value npr. `9.4 km/h`, who s datumom
 
-Ikone: `STATS_ART.maxSpeed` / `STATS_ART.avgSpeed`.
+Ikone: `STATS_ART.distance` / `maxSpeed` / `avgSpeed`.
 
 ---
 
@@ -141,7 +145,7 @@ Ispod glavne tablice, **prije** sekcije Dolaznost:
 
 Tri PNG u `public/brand/stats/`:
 
-- `stats-distance.png` — Vodeći (ukupni km)  
+- `stats-distance.png` — Vodeći (ukupni km) + Rekord (km na terminu)  
 - `stats-max-speed.png` — Rekord max  
 - `stats-avg-speed.png` — Rekord avg  
 
@@ -164,4 +168,4 @@ Tri PNG u `public/brand/stats/`:
 
 - Domain: sum distance; single-termin max/avg records s datumom; avg ≤ max validacija; prazan submit briše  
 - RLS / action: tuđi upsert odbijen; unos prije `zavrsen` odbijen; non-lineup odbijen  
-- UI smoke: sažetak forma; jedan Vodeći (km); dva Rekorda (max/avg); lista Trčanje samo km prije Dolaznosti
+- UI smoke: sažetak forma; jedan Vodeći (ukupni km); tri Rekorda (km/max/avg na terminu); lista Trčanje samo km prije Dolaznosti
