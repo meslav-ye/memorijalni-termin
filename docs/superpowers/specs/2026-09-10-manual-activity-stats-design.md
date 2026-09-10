@@ -2,7 +2,7 @@
 
 **Datum:** 2026-09-10  
 **Status:** odobreno za plan implementacije (revidirano: Vodeći vs Rekordi)  
-**Doseg:** unos distance / max / avg brzine po završenom terminu; Vodeći (ukupni km); Rekordi (km/max/avg s jednog termina); Ljestvica (samo zbroj km); brand slikice
+**Doseg:** unos distance / max / avg brzine po završenom terminu; sekcija **Najbolji (ukupno)** (ex Vodeći) + ukupni km; Rekordi (km/max/avg s jednog termina); Ljestvica (samo zbroj km); brand slikice
 
 ---
 
@@ -10,7 +10,7 @@
 
 Omogućiti igraču da **sam** unese trkačke brojke s termina (bez Strave), i da grupa vidi usporedbu u statistikama.
 
-Success: igrač koji je igrao završeni termin unese km / max / avg; na Statistici **Vodeći** pokazuje ukupne km; **Rekordi** pokazuje najbolji km, max i avg s jednog termina; na Ljestvici lista „Trčanje” zbraja samo distancu.
+Success: igrač koji je igrao završeni termin unese km / max / avg; na Statistici sekcija **Najbolji (ukupno)** pokazuje ukupne km (uz postojeće ukupne kategorije); **Rekordi** pokazuje najbolji km, max i avg s jednog termina; na Ljestvici lista „Trčanje” zbraja samo distancu.
 
 ---
 
@@ -27,7 +27,8 @@ Success: igrač koji je igrao završeni termin unese km / max / avg; na Statisti
 | Polja | **Opcionalna** — može samo distanca, ili samo brzine |
 | Elo / ekipe | **Ne ulaze** u rating ni `suggestTeams` |
 | UI unosa | Blok na **sažetku** + read-only popis unosa ekipe |
-| **Vodeći** | Samo **ukupna distanca** (zbroj) — avg/max se ne zbrajaju |
+| **Sekcija umjesto „Vodeći”** | Preimenovati u **„Najbolji (ukupno)”** (cijeli postojeći blok + nova km kartica) |
+| **Najbolji (ukupno)** | Samo **ukupna distanca** kao nova kartica — avg/max se ne zbrajaju |
 | **Rekordi** | **Distanca**, **max brzina** i **prosj. brzina** s **jednog termina** (+ datum kao ostali rekordi) |
 | **Ljestvica** | Lista **Trčanje** prije Dolaznosti — **samo zbroj km**, bez avg/max u redu |
 | Privatnost | Ručni brojevi, ne GPS stream; puls **nije** u scopeu |
@@ -81,9 +82,9 @@ Isti `SeasonBar` filter kao ostatak Statističke / Ljestvice. Uključeni su samo
 
 | Metrika | Formula | Gdje |
 |---|---|---|
-| Distanca po igraču | `sum(distance_km)` (null se ignorira) | Vodeći + lista Trčanje |
+| Distanca po igraču | `sum(distance_km)` (null se ignorira) | Najbolji (ukupno) + lista Trčanje |
 
-Igrač bez ijednog `distance_km` **ne ulazi** u Vodeće ni listu Trčanje.
+Igrač bez ijednog `distance_km` **ne ulazi** u Najbolji (ukupno) za km ni listu Trčanje.
 
 ### 5.2 Po terminu (za Rekorde)
 
@@ -99,21 +100,27 @@ Napomena: ista slikica `stats-distance.png` služi i Vodećem (ukupno) i Rekordu
 
 Remi: stariji termin / abeceda nadimka — uskladiti s postojećim `computeRecords` tie-breakom ako postoji; inače prvi nađeni max.
 
-**Nije Vodeći:** max/avg (samo ukupni km). **Nije sezonski rang** za max/avg — samo single-termin Rekordi.
+**Nije u Najbolji (ukupno):** max/avg (samo ukupni km). **Nije sezonski rang** za max/avg — samo single-termin Rekordi.
 
 ---
 
-## 6. Statistika — Vodeći
+## 6. Statistika — Najbolji (ukupno)
 
-U **Vodeći** dodati **jednu** `StatsLeaderCard`:
+Preimenovati postojeći naslov sekcije **„Vodeći” → „Najbolji (ukupno)”** (sve postojeće kartice ostaju: strijelac, asistencije, …).
+
+Dodati **jednu** novu `StatsLeaderCard`:
 
 | Title | Value | Art |
 |---|---|---|
 | Najviše kilometara | sum km | `/brand/stats/stats-distance.png` |
 
+(Naslov kartice može ostati „Najviše kilometara” jer sekcija već kaže da je ukupno; rekord je eksplicitno „… na terminu”.)
+
 Link na profil igrača. Prazno → `—`.
 
 Proširiti `STATS_ART` s `distance`, `maxSpeed`, `avgSpeed` (speed art ide na Rekorde).
+
+Ako negdje u copyju (legenda, UX docs) stoji „Vodeći” za ovaj blok — uskladiti na **Najbolji (ukupno)**.
 
 ---
 
@@ -145,7 +152,7 @@ Ispod glavne tablice, **prije** sekcije Dolaznost:
 
 Tri PNG u `public/brand/stats/`:
 
-- `stats-distance.png` — Vodeći (ukupni km) + Rekord (km na terminu)  
+- `stats-distance.png` — Najbolji ukupno (km) + Rekord (km na terminu)  
 - `stats-max-speed.png` — Rekord max  
 - `stats-avg-speed.png` — Rekord avg  
 
@@ -159,6 +166,7 @@ Tri PNG u `public/brand/stats/`:
 - Admin unos za druge  
 - Unos po pojedinoj utakmici (game)  
 - Vodeći kartice za max/avg  
+- Zadržavanje starog naslova sekcije „Vodeći”  
 - Max/avg stupci ili brojke na listi Trčanje  
 - Sezonski „prosjek prosjeka” kao zasebna rang lista  
 
@@ -168,4 +176,4 @@ Tri PNG u `public/brand/stats/`:
 
 - Domain: sum distance; single-termin max/avg records s datumom; avg ≤ max validacija; prazan submit briše  
 - RLS / action: tuđi upsert odbijen; unos prije `zavrsen` odbijen; non-lineup odbijen  
-- UI smoke: sažetak forma; jedan Vodeći (ukupni km); tri Rekorda (km/max/avg na terminu); lista Trčanje samo km prije Dolaznosti
+- UI smoke: sažetak forma; sekcija **Najbolji (ukupno)** + kartica ukupnih km; tri Rekorda (km/max/avg na terminu); lista Trčanje samo km prije Dolaznosti
