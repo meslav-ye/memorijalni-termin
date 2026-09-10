@@ -6,4 +6,7 @@ export const STATS_ART = {
   rating: "/brand/stats/stats-rating.png",
   attendance: "/brand/stats/stats-attendance.png",
   keeper: "/brand/stats/stats-keeper.png",
+  distance: "/brand/stats/stats-distance.png",
+  maxSpeed: "/brand/stats/stats-max-speed.png",
+  avgSpeed: "/brand/stats/stats-avg-speed.png",
 } as const;

@@ -43,10 +43,8 @@ export default async function StatsPage({
   const latestSeasonId = await latestSeason(grupaId);
   const seasonToShow = allTime ? null : (requestedSeason ?? latestSeasonId);
 
-  const { rows, seasons, matchesPlayed, sessionsPlayed, records } = await getLeaderboard(
-    grupaId,
-    seasonToShow,
-  );
+  const { rows, seasons, matchesPlayed, sessionsPlayed, records, distanceLeaders } =
+    await getLeaderboard(grupaId, seasonToShow);
 
   if (rows.length === 0) {
     return (
@@ -99,6 +97,9 @@ export default async function StatsPage({
     // No Vodeći twin — keep text-only heading (no emoji).
     { title: "Najveća pobjeda", imageSrc: null },
     { title: "Najviše termina ukupno", imageSrc: STATS_ART.attendance },
+    { title: "Najviše kilometara na terminu", imageSrc: STATS_ART.distance },
+    { title: "Najveća max brzina", imageSrc: STATS_ART.maxSpeed },
+    { title: "Najveća prosj. brzina", imageSrc: STATS_ART.avgSpeed },
   ];
 
   return (
@@ -155,7 +156,7 @@ export default async function StatsPage({
       {/* Leaders by category */}
       <section>
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Vodeći
+          Najbolji (ukupno)
         </h3>
         <div className="grid gap-2 sm:grid-cols-2">
           <StatsLeaderCard
@@ -202,6 +203,20 @@ export default async function StatsPage({
             who={topKeeper?.nickname ?? ""}
             href={topKeeper ? playerHref(grupaId, topKeeper.userId) : null}
             suffix="po utakmici"
+          />
+          <StatsLeaderCard
+            imageSrc={STATS_ART.distance}
+            title="Najviše kilometara"
+            value={
+              distanceLeaders[0] ? String(distanceLeaders[0].distanceKm) : "—"
+            }
+            who={distanceLeaders[0]?.nickname ?? ""}
+            href={
+              distanceLeaders[0]
+                ? playerHref(grupaId, distanceLeaders[0].userId)
+                : null
+            }
+            suffix="km"
           />
         </div>
       </section>
