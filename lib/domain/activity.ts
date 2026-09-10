@@ -52,3 +52,54 @@ export function validateActivityFields(f: ActivityFields): string | null {
 export function isEmptyActivity(f: ActivityFields): boolean {
   return f.distanceKm === null && f.maxSpeedKmh === null && f.avgSpeedKmh === null;
 }
+
+export type ActivityEntry = {
+  matchId: string;
+  userId: string;
+  distanceKm: number | null;
+  maxSpeedKmh: number | null;
+  avgSpeedKmh: number | null;
+  startsAt: string | null;
+};
+
+export type ActivityRecord = {
+  value: number;
+  userId: string;
+  startsAt: string | null;
+};
+
+export function sumDistanceByUser(
+  entries: ActivityEntry[],
+): { userId: string; distanceKm: number }[] {
+  const map = new Map<string, number>();
+  for (const e of entries) {
+    if (e.distanceKm === null) continue;
+    map.set(e.userId, (map.get(e.userId) ?? 0) + e.distanceKm);
+  }
+  return [...map.entries()].map(([userId, distanceKm]) => ({
+    userId,
+    distanceKm: Math.round(distanceKm * 100) / 100,
+  }));
+}
+
+function bestBy(
+  entries: ActivityEntry[],
+  pick: (e: ActivityEntry) => number | null,
+): ActivityRecord | null {
+  let best: ActivityRecord | null = null;
+  for (const e of entries) {
+    const v = pick(e);
+    if (v === null) continue;
+    if (!best || v > best.value) {
+      best = { value: v, userId: e.userId, startsAt: e.startsAt };
+    }
+  }
+  return best;
+}
+
+export const bestDistanceInSingleTermin = (entries: ActivityEntry[]) =>
+  bestBy(entries, (e) => e.distanceKm);
+export const bestMaxSpeedInSingleTermin = (entries: ActivityEntry[]) =>
+  bestBy(entries, (e) => e.maxSpeedKmh);
+export const bestAvgSpeedInSingleTermin = (entries: ActivityEntry[]) =>
+  bestBy(entries, (e) => e.avgSpeedKmh);
