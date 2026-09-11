@@ -10,7 +10,7 @@ export const GOAL_POINTS_AFTER_FULL = 1;
 export const GOAL_FULL_COUNT = 4;
 export const ASSIST_POINTS = 1;
 export const OWN_GOAL_POINTS = -1;
-/** All teammates: −1 per this many goals the side conceded, capped. */
+/** Outfield only: −1 per this many goals the side conceded, capped. */
 export const TEAM_CONCEDED_STEP = 4;
 export const TEAM_CONCEDED_PENALTY_CAP = 3;
 
@@ -59,8 +59,8 @@ export function keeperConcededPoints(conceded: number): number {
 }
 
 /**
- * Shared defensive stake: every player on a side loses points as goals against climb.
- * −⌊conceded / 4⌋, capped at −3 — enough that “only attack” leaks hurt the whole team.
+ * Shared defensive stake for outfield players only — keepers already have
+ * personal conceded bands. −⌊conceded / 4⌋, capped at −3.
  */
 export function teamConcededPoints(conceded: number): number {
   if (conceded < TEAM_CONCEDED_STEP) return 0;
@@ -183,6 +183,7 @@ export function computeContributions({
   const teamPenaltyB = teamConcededPoints(concededB);
   if (teamPenaltyA !== 0 || teamPenaltyB !== 0) {
     for (const p of lineup) {
+      if (stoodInGoal.has(p.userId)) continue; // personal keeper bands only
       const row = byId.get(p.userId);
       if (!row) continue;
       row.raw += p.team === "A" ? teamPenaltyA : teamPenaltyB;

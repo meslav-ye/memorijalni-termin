@@ -128,9 +128,9 @@ describe("computeContributions", () => {
     });
     expect(byId.get("a1")?.conceded).toBe(2);
     expect(byId.get("a2")?.conceded).toBe(2);
-    // keeper band +2 each, team conceded 4 → −1 each
-    expect(byId.get("a1")?.raw).toBe(2 - 1);
-    expect(byId.get("a2")?.raw).toBe(2 - 1);
+    // both stood in goal → keeper band only (no team penalty)
+    expect(byId.get("a1")?.raw).toBe(2);
+    expect(byId.get("a2")?.raw).toBe(2);
   });
 
   it("awards +2 per goal for the first four, then +1", () => {
@@ -177,8 +177,8 @@ describe("computeContributions", () => {
     expect(byId.get("a1")?.conceded).toBe(1);
   });
 
-  it("applies stepped team conceded penalty to every teammate", () => {
-    // 4 conceded → −1 each; 8 → −2; outfield has no other components
+  it("applies stepped team conceded penalty to outfield only", () => {
+    // 4 conceded → −1 outfield; 8 → −2; keepers skip team penalty
     const four = Array.from({ length: 4 }, (_, i) => goal("B", "b1", i + 1));
     const at4 = computeContributions({
       lineup: lineup([
@@ -189,7 +189,7 @@ describe("computeContributions", () => {
       events: four,
     });
     expect(at4.get("a2")?.raw).toBe(-1);
-    expect(at4.get("a1")?.raw).toBe(1 - 1); // keeper band +1 (3–4) + team −1
+    expect(at4.get("a1")?.raw).toBe(1); // keeper band +1 (3–4) only
 
     const eight = Array.from({ length: 8 }, (_, i) => goal("B", "b1", i + 1));
     const at8 = computeContributions({
@@ -201,7 +201,7 @@ describe("computeContributions", () => {
       events: eight,
     });
     expect(at8.get("a2")?.raw).toBe(-2);
-    expect(at8.get("a1")?.raw).toBe(-1 - 2); // keeper −1 (7–9) + team −2
+    expect(at8.get("a1")?.raw).toBe(-1); // keeper −1 (7–9) only
   });
 
   it("caps team conceded penalty at −3", () => {
@@ -215,8 +215,7 @@ describe("computeContributions", () => {
       events,
     });
     expect(byId.get("a2")?.raw).toBe(-3);
-    // keeper −3 (13+) + team −3
-    expect(byId.get("a1")?.raw).toBe(-3 - 3);
+    expect(byId.get("a1")?.raw).toBe(-3); // keeper band only
   });
 
   it("gives no team penalty below 4 conceded", () => {

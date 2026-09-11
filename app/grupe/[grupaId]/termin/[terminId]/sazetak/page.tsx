@@ -219,33 +219,76 @@ export default async function SummaryPage({
       </header>
 
       {gameBlocks.length > 0 && (
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Kako se računa rating
-          </h3>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li>
-              Prvo <strong>timski Elo</strong> — svi u ekipi dobiju isti pomak za
-              pobjedu, poraz ili neriješeno (ne ovisi o razlici golova).
-            </li>
-            <li>
-              Zatim <strong>osobni doprinos</strong>: prva 4 gola +2, dalje +1;
-              asistencija +1, autogol −1;
-              golman po broju primljenih dok je na golu; cijela ekipa −⌊primljenih/4⌋
-              (najviše −3).
-            </li>
-            <li>
-              Zbroj doprinosa je ograničen na <strong>±12</strong>. Ukupno:{" "}
+        <details className="group mt-6 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 open:pb-4">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold uppercase tracking-wide text-slate-500 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex items-center gap-2">
+              Kako se računa rating
+              <span
+                aria-hidden
+                className="text-slate-400 transition group-open:rotate-180"
+              >
+                ▾
+              </span>
+            </span>
+          </summary>
+          <div className="space-y-3 border-t border-slate-100 px-4 pt-3">
+            <p>
+              Broj uz ime igrača je ukupna promjena ratinga u toj utakmici:
               <span className="font-medium text-slate-800">
+                {" "}
                 prije + Elo + doprinos
               </span>
               .
-            </li>
-          </ul>
-          <p className="mt-2 text-slate-500">
-            Broj uz ime igrača je ukupna promjena ratinga u toj utakmici.
-          </p>
-        </section>
+            </p>
+            <div>
+              <p className="font-medium text-slate-800">1. Timski Elo</p>
+              <p className="mt-1">
+                Svi u ekipi dobiju isti pomak za pobjedu, poraz ili neriješeno.
+                Ovisi o snazi protivnika (prosječni rating ekipe), ne o razlici
+                golova — 5:0 i 5:4 daju isti Elo pomak.
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-slate-800">2. Osobni doprinos</p>
+              <p className="mt-1">
+                Na Elo se dodaje osobni rezultat iz te utakmice:
+              </p>
+              <ul className="mt-1.5 list-disc space-y-1 pl-5">
+                <li>
+                  <strong>Gol</strong> — prva 4 gola u utakmici po{" "}
+                  <strong>+2</strong>, svaki dalje po <strong>+1</strong> (npr.
+                  4 gola = +8).
+                </li>
+                <li>
+                  <strong>Asistencija</strong> — <strong>+1</strong> po
+                  asistenciji.
+                </li>
+                <li>
+                  <strong>Autogol</strong> — <strong>−1</strong> onome tko ga
+                  upiše.
+                </li>
+                <li>
+                  <strong>Golman</strong> — bodovi po broju primljenih dok je na
+                  golu (uključujući zamjene): 0–2 → +2, 3–4 → +1, 5–6 → 0, 7–9 →
+                  −1, 10–12 → −2, 13+ → −3. Ne ulazi u timsku kaznu ispod.
+                </li>
+                <li>
+                  <strong>Ostali u ekipi</strong> — −⌊primljenih / 4⌋, najviše
+                  −3 (4–7 → −1, 8–11 → −2, 12+ → −3), da se „samo napad“ i
+                  propusna obrana osjeti i kod igrača iz polja.
+                </li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-medium text-slate-800">3. Gornja granica</p>
+              <p className="mt-1">
+                Zbroj osobnog doprinosa je ograničen na{" "}
+                <strong>±12</strong> po utakmici, da jedan veliki učinak ne
+                razvuče ljestvicu.
+              </p>
+            </div>
+          </div>
+        </details>
       )}
 
       {gameBlocks.length === 0 ? (
