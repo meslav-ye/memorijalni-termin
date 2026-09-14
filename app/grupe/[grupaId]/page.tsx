@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatMatchDateTime } from "@/lib/format";
 import { getMatches, type MatchWithSignups } from "@/lib/data/matches";
@@ -69,31 +70,29 @@ function MatchCard({ t, grupaId }: { t: MatchWithSignups; grupaId: string }) {
   );
 }
 
-export default async function GroupMatchesPage({
-  params,
-}: PageProps<"/grupe/[grupaId]">) {
-  const { grupaId } = await params;
+function MatchListSkeleton() {
+  return (
+    <div className="animate-pulse space-y-4" aria-busy="true">
+      <div className="h-4 w-28 rounded bg-slate-200" />
+      <div className="h-24 rounded-lg border border-slate-200 bg-white" />
+      <div className="h-24 rounded-lg border border-slate-200 bg-white" />
+    </div>
+  );
+}
 
-  const user = await getUser();
-  if (!user) redirect("/prijava");
-
-  const membership = await getMembership(grupaId);
-
-  const admin = membership?.role === "admin";
-  const { upcoming, past } = await getMatches(grupaId, user.id);
+async function MatchLists({
+  grupaId,
+  userId,
+  admin,
+}: {
+  grupaId: string;
+  userId: string;
+  admin: boolean;
+}) {
+  const { upcoming, past } = await getMatches(grupaId, userId);
 
   return (
-    <div className="space-y-8">
-      {admin && (
-        <Link
-          href={`/grupe/${grupaId}/termin/novi`}
-          className="flex h-12 w-full items-center justify-center rounded-lg bg-marka
-                     text-sm font-semibold text-white transition active:scale-[0.98]"
-        >
-          Novi termin
-        </Link>
-      )}
-
+    <>
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
           Nadolazeći
@@ -125,6 +124,37 @@ export default async function GroupMatchesPage({
           </ul>
         </section>
       )}
+    </>
+  );
+}
+
+export default async function GroupMatchesPage({
+  params,
+}: PageProps<"/grupe/[grupaId]">) {
+  const { grupaId } = await params;
+
+  const user = await getUser();
+  if (!user) redirect("/prijava");
+
+  const membership = await getMembership(grupaId);
+
+  const admin = membership?.role === "admin";
+
+  return (
+    <div className="space-y-8">
+      {admin && (
+        <Link
+          href={`/grupe/${grupaId}/termin/novi`}
+          className="flex h-12 w-full items-center justify-center rounded-lg bg-marka
+                     text-sm font-semibold text-white transition active:scale-[0.98]"
+        >
+          Novi termin
+        </Link>
+      )}
+
+      <Suspense fallback={<MatchListSkeleton />}>
+        <MatchLists grupaId={grupaId} userId={user.id} admin={admin} />
+      </Suspense>
     </div>
   );
 }
