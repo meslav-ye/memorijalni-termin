@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { fillStatus, type FillStatus } from "@/lib/domain/fill";
@@ -36,7 +37,11 @@ const MATCH_LIST_SELECT =
  * only for those rows.
  */
 export async function getMatches(groupId: string, userId: string): Promise<SplitMatches> {
-  await ensureUpcomingSeriesOccurrences(groupId);
+  after(() => {
+    void ensureUpcomingSeriesOccurrences(groupId).catch((err) => {
+      console.error("ensureUpcomingSeriesOccurrences", err);
+    });
+  });
 
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
