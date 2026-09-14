@@ -398,6 +398,7 @@ export default async function MatchPage({
 
       {match.status !== "otkazan" && (
         <BusyLink
+          prefetch
           href={`/grupe/${grupaId}/termin/${terminId}/ekipe`}
           className="mt-8 flex h-12 w-full items-center justify-center rounded-lg
                      border border-slate-300 bg-white text-sm font-semibold
