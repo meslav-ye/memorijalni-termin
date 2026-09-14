@@ -11,18 +11,19 @@ create table match_fillers (
 create index match_fillers_match_idx on match_fillers (match_id);
 
 -- Lineup: podržava i registrirane i popunjače.
+-- PK mora pasti prije nego user_id postane nullable.
 alter table match_lineup add column id uuid default gen_random_uuid();
 update match_lineup set id = gen_random_uuid() where id is null;
 alter table match_lineup alter column id set not null;
+
+alter table match_lineup drop constraint match_lineup_pkey;
+alter table match_lineup add primary key (id);
 
 alter table match_lineup add column filler_id uuid references match_fillers on delete cascade;
 alter table match_lineup add column display_name text;
 alter table match_lineup add column is_guest boolean not null default false;
 
 alter table match_lineup alter column user_id drop not null;
-
-alter table match_lineup drop constraint match_lineup_pkey;
-alter table match_lineup add primary key (id);
 
 create unique index match_lineup_game_user_key
   on match_lineup (game_id, user_id)
