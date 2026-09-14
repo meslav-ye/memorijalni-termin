@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inUuids } from "@/lib/supabase/in-filter";
 import { aggregateStats, aggregateAttendance } from "@/lib/domain/stats";
 import { aggregateKeeperStats } from "@/lib/domain/keepers";
 import {
@@ -244,7 +245,7 @@ async function computeLeaderboard(
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, nickname, is_goalkeeper")
-    .in("id", memberIds.length ? memberIds : ["-"]);
+    .in("id", inUuids(memberIds));
 
   const profileKeeperIds = new Set(
     (profiles ?? []).filter((p) => p.is_goalkeeper).map((p) => p.id),

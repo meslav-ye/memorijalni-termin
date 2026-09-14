@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
+import { inUuids } from "@/lib/supabase/in-filter";
 import { getMembership, getUser } from "@/lib/data/user";
 import { ensureEditableGame, getCurrentGame } from "@/lib/data/games";
 import { formatMatchDateTime } from "@/lib/format";
@@ -243,13 +244,13 @@ export default async function TeamsPage({
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, nickname, is_goalkeeper")
-    .in("id", allIds.length ? allIds : ["-"]);
+    .in("id", inUuids(allIds));
 
   const { data: ratings } = await supabase
     .from("player_ratings")
     .select("user_id, rating")
     .eq("group_id", grupaId)
-    .in("user_id", allIds.length ? allIds : ["-"]);
+    .in("user_id", inUuids(allIds));
 
   type LineupRow = {
     id: string;

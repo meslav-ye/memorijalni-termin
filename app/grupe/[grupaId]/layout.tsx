@@ -17,17 +17,16 @@ export default async function GroupLayout({
 
   const supabase = await createClient();
 
+  // Group + membership in parallel (membership uses cached getUser).
+  const [{ data: group }, membership] = await Promise.all([
+    supabase.from("groups").select("id, name").eq("id", grupaId).maybeSingle(),
+    getMembership(grupaId),
+  ]);
+
   // RLS already limits visibility to groups you are an active member of,
   // so an empty result means "not a member" the same as "does not exist".
-  const { data: group } = await supabase
-    .from("groups")
-    .select("id, name")
-    .eq("id", grupaId)
-    .maybeSingle();
-
   if (!group) notFound();
 
-  const membership = await getMembership(grupaId);
   const admin = membership?.role === "admin" && membership.status === "active";
 
   return (

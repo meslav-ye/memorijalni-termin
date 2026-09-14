@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { SoftLink } from "@/components/ui/SoftLink";
 import { softControlClassName } from "@/components/ui/softControl";
 import { createClient } from "@/lib/supabase/server";
+import { inUuids } from "@/lib/supabase/in-filter";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatMatchDateTime } from "@/lib/format";
 import { matchHeadcount, signupCapacity } from "@/lib/domain/fillers";
@@ -50,22 +51,25 @@ export default async function MatchPage({
   const { grupaId, terminId } = await params;
 
   const user = await getUser();
-  const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const membership = await getMembership(grupaId);
+  const supabase = await createClient();
+
+  const [membership, matchResult] = await Promise.all([
+    getMembership(grupaId),
+    supabase
+      .from("matches")
+      .select(
+        "id, starts_at, capacity, min_players, status, notes, location_text, series_id, locations(name, address, maps_url)",
+      )
+      .eq("id", terminId)
+      .maybeSingle(),
+  ]);
 
   if (membership?.status !== "active") notFound();
   const admin = membership.role === "admin";
 
-  const { data: match } = await supabase
-    .from("matches")
-    .select(
-      "id, starts_at, capacity, min_players, status, notes, location_text, series_id, locations(name, address, maps_url)",
-    )
-    .eq("id", terminId)
-    .maybeSingle();
-
+  const match = matchResult.data;
   if (!match) notFound();
 
   // Finished sessions open on the summary — signup lists are no longer useful.
@@ -73,33 +77,39 @@ export default async function MatchPage({
     redirect(`/grupe/${grupaId}/termin/${terminId}/sazetak`);
   }
 
-  const { data: group } = await supabase
-    .from("groups")
-    .select("name")
-    .eq("id", grupaId)
-    .maybeSingle();
+  const [{ data: group }, seriesResult, { data: signups }, { data: fillers }, lineupResult] =
+    await Promise.all([
+      supabase.from("groups").select("name").eq("id", grupaId).maybeSingle(),
+      match.series_id
+        ? supabase
+            .from("match_series")
+            .select("paused_at")
+            .eq("id", match.series_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null as { paused_at: string | null } | null }),
+      supabase
+        .from("match_signups")
+        .select("user_id, signed_up_at, manual_order, cancelled_at")
+        .eq("match_id", terminId),
+      supabase
+        .from("match_fillers")
+        .select("id, display_name")
+        .eq("match_id", terminId)
+        .order("added_at"),
+      supabase
+        .from("match_lineup")
+        .select("user_id")
+        .eq("match_id", terminId)
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-  let seriesPaused: boolean | null = null;
-  if (match.series_id) {
-    const { data: series } = await supabase
-      .from("match_series")
-      .select("paused_at")
-      .eq("id", match.series_id)
-      .maybeSingle();
-    seriesPaused = series ? series.paused_at !== null : null;
-  }
-
-  const [{ data: signups }, { data: fillers }] = await Promise.all([
-    supabase
-      .from("match_signups")
-      .select("user_id, signed_up_at, manual_order, cancelled_at")
-      .eq("match_id", terminId),
-    supabase
-      .from("match_fillers")
-      .select("id, display_name")
-      .eq("match_id", terminId)
-      .order("added_at"),
-  ]);
+  const seriesPaused = match.series_id
+    ? seriesResult.data
+      ? seriesResult.data.paused_at !== null
+      : null
+    : null;
 
   const fillerCount = fillers?.length ?? 0;
 
@@ -120,7 +130,7 @@ export default async function MatchPage({
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, nickname, is_goalkeeper")
-    .in("id", activeSignupIds.length ? activeSignupIds : ["-"]);
+    .in("id", inUuids(activeSignupIds));
 
   const nicknameOf = (id: string) =>
     profiles?.find((p) => p.id === id)?.nickname || "(bez nadimka)";
@@ -189,15 +199,7 @@ export default async function MatchPage({
     : "";
 
   // Live match is started and run by someone in the lineup, not necessarily admin.
-  const { data: myLineup } = await supabase
-    .from("match_lineup")
-    .select("user_id")
-    .eq("match_id", terminId)
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
-
-  const iAmInLineup = Boolean(myLineup);
+  const iAmInLineup = Boolean(lineupResult.data);
   const mayStart = canStart(match.starts_at, new Date());
 
   return (

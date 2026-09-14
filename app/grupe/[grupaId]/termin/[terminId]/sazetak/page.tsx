@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
+import { inUuids } from "@/lib/supabase/in-filter";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatShortDate, formatMatchDateTime } from "@/lib/format";
 import { formatClock } from "@/lib/domain/timer";
@@ -56,20 +57,20 @@ export default async function SummaryPage({
     supabase
       .from("match_lineup")
       .select("game_id, id, user_id, filler_id, team, is_goalkeeper, display_name, is_guest")
-      .in("game_id", gameIds.length ? gameIds : ["-"]),
+      .in("game_id", inUuids(gameIds)),
     supabase
       .from("match_events")
       .select(
         "id, game_id, type, team, scorer_id, scorer_filler_id, assist_id, assist_filler_id, elapsed_seconds, deleted_at",
       )
-      .in("game_id", gameIds.length ? gameIds : ["-"])
+      .in("game_id", inUuids(gameIds))
       .is("deleted_at", null)
       .in("type", ["goal", "own_goal", "keeper_change"])
       .order("elapsed_seconds"),
     supabase
       .from("rating_history")
       .select("game_id, user_id, rating_before, rating_after")
-      .in("game_id", gameIds.length ? gameIds : ["-"])
+      .in("game_id", inUuids(gameIds))
       .eq("scope", "group"),
   ]);
 
@@ -84,7 +85,7 @@ export default async function SummaryPage({
     supabase
       .from("profiles")
       .select("id, nickname")
-      .in("id", allUserIds.length ? allUserIds : ["-"]),
+      .in("id", inUuids(allUserIds)),
     supabase
       .from("match_activity")
       .select("user_id, distance_km, max_speed_kmh, avg_speed_kmh")

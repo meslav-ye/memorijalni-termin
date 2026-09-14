@@ -1,30 +1,25 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SoftLink } from "@/components/ui/SoftLink";
+import { getUser } from "@/lib/data/user";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function GroupsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getUser();
   if (!user) redirect("/prijava");
 
-  const { data: memberships } = await supabase
-    .from("group_members")
-    .select("status, groups(id, name)")
-    .eq("user_id", user.id);
+  const supabase = await createClient();
+
+  const [{ data: memberships }, { data: myProfile }] = await Promise.all([
+    supabase
+      .from("group_members")
+      .select("status, groups(id, name)")
+      .eq("user_id", user.id),
+    supabase.from("profiles").select("can_create_groups").eq("id", user.id).maybeSingle(),
+  ]);
 
   const activeGroups = (memberships ?? []).filter((c) => c.status === "active" && c.groups);
   const pendingGroups = (memberships ?? []).filter((c) => c.status === "pending" && c.groups);
-
-  // Creating a group needs explicit permission; joining another does not.
-  const { data: myProfile } = await supabase
-    .from("profiles")
-    .select("can_create_groups")
-    .eq("id", user.id)
-    .maybeSingle();
 
   const canCreate = myProfile?.can_create_groups ?? false;
 

@@ -12,6 +12,8 @@ import {
  * Uses the service role so any member opening Termini can materialise the
  * row (signups need the FK). Unique (series_id, starts_at) + ignore
  * duplicates makes concurrent opens safe.
+ *
+ * Latest match per series is loaded in one query (not N+1).
  */
 export async function ensureUpcomingSeriesOccurrences(groupId: string): Promise<void> {
   const admin = createAdminClient();
@@ -27,44 +29,72 @@ export async function ensureUpcomingSeriesOccurrences(groupId: string): Promise<
 
   if (!seriesList?.length) return;
 
-  for (const series of seriesList) {
-    const { data: latest } = await admin
-      .from("matches")
-      .select("starts_at")
-      .eq("series_id", series.id)
-      .order("starts_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const seriesIds = seriesList.map((s) => s.id);
+  const { data: seriesMatches } = await admin
+    .from("matches")
+    .select("series_id, starts_at")
+    .in("series_id", seriesIds)
+    .order("starts_at", { ascending: false });
 
+  const latestBySeries = new Map<string, string>();
+  for (const row of seriesMatches ?? []) {
+    if (!row.series_id || latestBySeries.has(row.series_id)) continue;
+    latestBySeries.set(row.series_id, row.starts_at);
+  }
+
+  const toInsert: {
+    series: (typeof seriesList)[number];
+    nextStartsAt: string;
+  }[] = [];
+
+  for (const series of seriesList) {
+    const latest = latestBySeries.get(series.id);
     if (!latest) continue;
 
     const nextStartsAt = nextWeeklyStartsAt(
       series.weekday,
       series.time_local,
-      new Date(latest.starts_at),
+      new Date(latest),
     );
 
     if (!isWithinVisibilityWindow(nextStartsAt, now)) continue;
-
-    const seasonId = await ensureSeason(groupId, matchYear(nextStartsAt));
-    if (!seasonId) continue;
-
-    const { error } = await admin.from("matches").insert({
-      group_id: groupId,
-      season_id: seasonId,
-      series_id: series.id,
-      location_id: series.location_id,
-      location_text: series.location_id ? null : series.location_text,
-      starts_at: nextStartsAt,
-      capacity: series.capacity,
-      min_players: series.min_players,
-      notes: series.notes,
-      created_by: series.created_by,
-    });
-
-    // Unique (series_id, starts_at) — concurrent opens are fine.
-    if (error && error.code !== "23505") {
-      console.error("ensureUpcomingSeriesOccurrences", error.message);
-    }
+    toInsert.push({ series, nextStartsAt });
   }
+
+  if (toInsert.length === 0) return;
+
+  // One season lookup/create per distinct year, then parallel inserts.
+  const years = [...new Set(toInsert.map((t) => matchYear(t.nextStartsAt)))];
+  const seasonByYear = new Map<number, string>();
+  await Promise.all(
+    years.map(async (year) => {
+      const id = await ensureSeason(groupId, year);
+      if (id) seasonByYear.set(year, id);
+    }),
+  );
+
+  await Promise.all(
+    toInsert.map(async ({ series, nextStartsAt }) => {
+      const seasonId = seasonByYear.get(matchYear(nextStartsAt));
+      if (!seasonId) return;
+
+      const { error } = await admin.from("matches").insert({
+        group_id: groupId,
+        season_id: seasonId,
+        series_id: series.id,
+        location_id: series.location_id,
+        location_text: series.location_id ? null : series.location_text,
+        starts_at: nextStartsAt,
+        capacity: series.capacity,
+        min_players: series.min_players,
+        notes: series.notes,
+        created_by: series.created_by,
+      });
+
+      // Unique (series_id, starts_at) — concurrent opens are fine.
+      if (error && error.code !== "23505") {
+        console.error("ensureUpcomingSeriesOccurrences", error.message);
+      }
+    }),
+  );
 }

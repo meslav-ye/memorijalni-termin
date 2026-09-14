@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
+import { inUuids } from "@/lib/supabase/in-filter";
 import { getMembership, getUser } from "@/lib/data/user";
 import { getCurrentGame } from "@/lib/data/games";
 import type { Team } from "@/lib/domain/types";
@@ -46,7 +47,7 @@ export default async function LivePage({
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, nickname, full_name, is_goalkeeper")
-    .in("id", ids.length ? ids : ["-"]);
+    .in("id", inUuids(ids));
 
   const labels = disambiguateNicknames(
     registeredRows.map((p) => {
