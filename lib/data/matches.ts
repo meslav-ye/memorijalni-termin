@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { fillStatus, type FillStatus } from "@/lib/domain/fill";
 import { matchHeadcount, signupCapacity } from "@/lib/domain/fillers";
+import { mergePastMatchRows, PAST_MATCH_LIMIT } from "@/lib/domain/past-matches";
 import { ensureUpcomingSeriesOccurrences } from "@/lib/data/series";
 
 export type MatchWithSignups = {
@@ -24,7 +25,8 @@ export type SplitMatches = {
   past: MatchWithSignups[];
 };
 
-const PAST_LIMIT = 20;
+const MATCH_LIST_SELECT =
+  "id, starts_at, capacity, min_players, status, notes, location_text, series_id, locations(name)";
 
 /**
  * Fetches group matches and computes fill status for each.
@@ -39,29 +41,35 @@ export async function getMatches(groupId: string, userId: string): Promise<Split
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
 
-  const [{ data: upcomingRows }, { data: pastRows }] = await Promise.all([
-    supabase
-      .from("matches")
-      .select(
-        "id, starts_at, capacity, min_players, status, notes, location_text, series_id, locations(name)",
-      )
-      .eq("group_id", groupId)
-      .gte("starts_at", nowIso)
-      .neq("status", "otkazan")
-      .order("starts_at", { ascending: true })
-      .limit(10),
-    supabase
-      .from("matches")
-      .select(
-        "id, starts_at, capacity, min_players, status, notes, location_text, series_id, locations(name)",
-      )
-      .eq("group_id", groupId)
-      .or(`starts_at.lt.${nowIso},status.eq.otkazan`)
-      .order("starts_at", { ascending: false })
-      .limit(PAST_LIMIT),
-  ]);
+  const [{ data: upcomingRows }, { data: startedRows }, { data: cancelledUpcomingRows }] =
+    await Promise.all([
+      supabase
+        .from("matches")
+        .select(MATCH_LIST_SELECT)
+        .eq("group_id", groupId)
+        .gte("starts_at", nowIso)
+        .neq("status", "otkazan")
+        .order("starts_at", { ascending: true })
+        .limit(10),
+      supabase
+        .from("matches")
+        .select(MATCH_LIST_SELECT)
+        .eq("group_id", groupId)
+        .lt("starts_at", nowIso)
+        .order("starts_at", { ascending: false })
+        .limit(PAST_MATCH_LIMIT),
+      supabase
+        .from("matches")
+        .select(MATCH_LIST_SELECT)
+        .eq("group_id", groupId)
+        .eq("status", "otkazan")
+        .gte("starts_at", nowIso)
+        .order("starts_at", { ascending: false })
+        .limit(PAST_MATCH_LIMIT),
+    ]);
 
-  const allMatches = [...(upcomingRows ?? []), ...(pastRows ?? [])];
+  const pastRows = mergePastMatchRows(startedRows ?? [], cancelledUpcomingRows ?? []);
+  const allMatches = [...(upcomingRows ?? []), ...pastRows];
   if (allMatches.length === 0) return { upcoming: [], past: [] };
 
   const matchIds = allMatches.map((t) => t.id);
@@ -113,6 +121,6 @@ export async function getMatches(groupId: string, userId: string): Promise<Split
 
   return {
     upcoming: (upcomingRows ?? []).map(enrich),
-    past: (pastRows ?? []).map(enrich),
+    past: pastRows.map(enrich),
   };
 }
