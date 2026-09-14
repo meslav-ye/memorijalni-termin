@@ -1,6 +1,6 @@
 # Brže otvaranje aplikacije
 
-**Status:** approved (pending implementation plan)  
+**Status:** approved  
 **Date:** 2026-09-14  
 **Scope:** cold open (A) + in-app navigacija (B); Free tier (Vercel Hobby + Supabase Free)
 
@@ -53,10 +53,10 @@ Session cookieji se i dalje postavljaju kad `getUser()` stvarno trči. RSC `getU
 | Prioritet | Uvjet | Destinacija |
 |-----------|--------|-------------|
 | 1 | Nema usera (nema session / getUser null) | `/prijava` |
-| 2 | Cookie `mt_home` = `/grupe/{uuid}` **i** profil ima nickname (jedan jeftin `profiles` select, bez memberships) | rewrite na taj path |
+| 2 | Cookie `mt_home` = `/grupe/{uuid}` **i** profil ima nickname **i** aktivno članstvo u toj grupi (profile + jedan membership select) | rewrite na taj path |
 | 3 | Inače query kao danas (profile + memberships) | `/profil`, `/grupe/{id}`, ili `/grupe` |
 
-Bez nicknamea uvijek `/profil` — cookie ne smije to preskočiti.
+Bez nicknamea uvijek `/profil` — cookie ne smije to preskočiti. Stale cookie (ispao iz grupe) pada na korak 3.
 
 **Rewrite, ne redirect**, kad je destinacija grupa ili lista grupa (ulogirani pathovi): browser dobije HTML u **istom** requestu; URL u adresnoj traci može ostati `/` dok korisnik ne klikne dalje — za PWA home screen to je OK. Canonical linkovi unutar app (`SoftLink`, tabovi) i dalje vode na `/grupe/...`.
 
@@ -64,9 +64,10 @@ Za **neulogirane** i **`/profil`** i dalje **redirect** (jasniji URL, manje edge
 
 **Cookie `mt_home`:**
 
-- Postavi (httpOnly, `SameSite=Lax`, `Path=/`, max-age ~30 dana) kad layout grupe uspješno rendera za aktivnog člana (`app/grupe/[grupaId]/layout.tsx`), vrijednost `/grupe/{grupaId}`.
-- Obriši / ne koristi ako membership više nije active (layout `notFound` / redirect — cookie se može clearati u tom pathu).
-- Ne koristi cookie za skip Auth; samo za skip profile/memberships na `/`.
+- Postavi u **`proxy.ts`** (ne u RSC layout — `cookies().set` u Server Componentima često ne uspije): httpOnly, `SameSite=Lax`, `Path=/`, max-age ~30 dana, vrijednost `/grupe/{grupaId}`.
+- Kad: (a) `/` resolve završi na grupi, ili (b) request path je `/grupe/{uuid}` (ili podruta) i postoji session/user.
+- Na cookie fast-pathu na `/` **provjeri** active membership za taj `grupaId`; ako ne — ignoriši cookie, full resolve, po želji obriši cookie.
+- Ne koristi cookie za skip Auth.
 
 `app/page.tsx` ostaje fallback ako proxy matcher propusti `/`.
 
@@ -128,7 +129,7 @@ Cilj: hover / viewport prefetch RSC za Termini ↔ Ljestvica ↔ Statistika ↔ 
 
 - `proxy.ts`
 - `lib/auth/jwt-fresh.ts` (ili slično) — pure `isAccessTokenFresh`
-- `app/grupe/[grupaId]/layout.tsx` — set `mt_home`
+- `proxy.ts` — set/clear `mt_home` (not layout RSC)
 - `lib/data/matches.ts` — defer ensure
 - `app/grupe/[grupaId]/page.tsx` — Suspense
 - `app/grupe/[grupaId]/Tabs.tsx` — prefetch
