@@ -70,7 +70,7 @@ export default async function PlayerPage({
       ? await Promise.all([
           supabase
             .from("match_lineup")
-            .select("game_id, user_id, team, is_goalkeeper")
+            .select("game_id, user_id, team, is_goalkeeper, is_guest")
             .in("game_id", gameIds),
           supabase
             .from("match_events")
@@ -82,12 +82,14 @@ export default async function PlayerPage({
 
   const breakdownByGame = new Map<string, string>();
   for (const h of last10) {
-    const gameLineup = (lineups ?? []).filter((p) => p.game_id === h.game_id);
+    const gameLineup = (lineups ?? []).filter(
+      (p) => p.game_id === h.game_id && p.user_id && !p.is_guest,
+    );
     if (gameLineup.length === 0) continue;
     const gameEvents = (events ?? []).filter((e) => e.game_id === h.game_id);
     const contrib = computeContributions({
       lineup: gameLineup.map((p) => ({
-        userId: p.user_id,
+        userId: p.user_id!,
         team: p.team as Team,
         isGoalkeeper: p.is_goalkeeper,
       })),

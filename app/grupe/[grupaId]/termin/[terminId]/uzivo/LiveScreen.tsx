@@ -26,12 +26,14 @@ import {
 } from "./actions";
 
 export type LineupPlayer = {
+  lineupId: string;
   userId: string;
   nickname: string;
   team: Team;
   isGoalkeeper: boolean;
   /** Profile "Igram golmana" — used for display; glove is not editable live. */
   profileIsGoalkeeper: boolean;
+  isGuest: boolean;
 };
 
 export type LiveEvent = {
@@ -149,7 +151,7 @@ export function LiveScreen({
         .order("created_at", { ascending: false }),
       supabase
         .from("match_lineup")
-        .select("user_id, team, is_goalkeeper")
+        .select("id, user_id, team, is_goalkeeper, display_name, is_guest")
         .eq("game_id", game.id),
     ]);
 
@@ -170,11 +172,11 @@ export function LiveScreen({
 
     if (lineupRows) {
       setLineup((prev) => {
-        const byId = new Map(lineupRows.map((x) => [x.user_id, x]));
+        const byLineupId = new Map(lineupRows.map((x) => [x.id, x]));
         const next = prev
-          .filter((p) => byId.has(p.userId))
+          .filter((p) => byLineupId.has(p.lineupId))
           .map((p) => {
-            const row = byId.get(p.userId)!;
+            const row = byLineupId.get(p.lineupId)!;
             return {
               ...p,
               team: row.team as Team,
@@ -182,15 +184,29 @@ export function LiveScreen({
             };
           });
         for (const row of lineupRows) {
-          if (!next.some((p) => p.userId === row.user_id)) {
-            const known = prev.find((p) => p.userId === row.user_id);
-            next.push({
-              userId: row.user_id,
-              nickname: known?.nickname ?? "?",
-              team: row.team as Team,
-              isGoalkeeper: row.is_goalkeeper,
-              profileIsGoalkeeper: known?.profileIsGoalkeeper ?? false,
-            });
+          if (!next.some((p) => p.lineupId === row.id)) {
+            const known = prev.find((p) => p.lineupId === row.id);
+            if (row.is_guest) {
+              next.push({
+                lineupId: row.id,
+                userId: "",
+                nickname: row.display_name ?? "Gost",
+                team: row.team as Team,
+                isGoalkeeper: row.is_goalkeeper,
+                profileIsGoalkeeper: false,
+                isGuest: true,
+              });
+            } else if (row.user_id) {
+              next.push({
+                lineupId: row.id,
+                userId: row.user_id,
+                nickname: known?.nickname ?? "?",
+                team: row.team as Team,
+                isGoalkeeper: row.is_goalkeeper,
+                profileIsGoalkeeper: known?.profileIsGoalkeeper ?? false,
+                isGuest: false,
+              });
+            }
           }
         }
         return next;
@@ -510,36 +526,72 @@ export function LiveScreen({
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="space-y-2">
-          {teamA.map((p) => (
-            <PlayerButton
-              key={p.userId}
-              nickname={p.nickname}
-              goals={playerGoals(p.userId)}
-              team={p.team}
-              isGoalkeeper={p.isGoalkeeper}
-              canBeGoalkeeper={false}
-              disabled={locked}
-              onGoal={() => void recordPlayerGoal(p)}
-              onOwnGoal={() => void recordPlayerOwnGoal(p)}
-              onGoalkeeper={() => {}}
-            />
-          ))}
+          {teamA.map((p) =>
+            p.isGuest ? (
+              <div
+                key={p.lineupId}
+                className={
+                  "rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm " +
+                  teamPanelClass(p.team)
+                }
+              >
+                <span className="font-medium">{p.nickname}</span>
+                <span className="ml-1 text-xs uppercase text-slate-400">· gost</span>
+                {p.isGoalkeeper && (
+                  <span className="ml-1 text-xs font-semibold uppercase text-emerald-800">
+                    · golman
+                  </span>
+                )}
+              </div>
+            ) : (
+              <PlayerButton
+                key={p.lineupId}
+                nickname={p.nickname}
+                goals={playerGoals(p.userId)}
+                team={p.team}
+                isGoalkeeper={p.isGoalkeeper}
+                canBeGoalkeeper={false}
+                disabled={locked}
+                onGoal={() => void recordPlayerGoal(p)}
+                onOwnGoal={() => void recordPlayerOwnGoal(p)}
+                onGoalkeeper={() => {}}
+              />
+            ),
+          )}
         </div>
         <div className="space-y-2">
-          {teamB.map((p) => (
-            <PlayerButton
-              key={p.userId}
-              nickname={p.nickname}
-              goals={playerGoals(p.userId)}
-              team={p.team}
-              isGoalkeeper={p.isGoalkeeper}
-              canBeGoalkeeper={false}
-              disabled={locked}
-              onGoal={() => void recordPlayerGoal(p)}
-              onOwnGoal={() => void recordPlayerOwnGoal(p)}
-              onGoalkeeper={() => {}}
-            />
-          ))}
+          {teamB.map((p) =>
+            p.isGuest ? (
+              <div
+                key={p.lineupId}
+                className={
+                  "rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm " +
+                  teamPanelClass(p.team)
+                }
+              >
+                <span className="font-medium">{p.nickname}</span>
+                <span className="ml-1 text-xs uppercase text-slate-400">· gost</span>
+                {p.isGoalkeeper && (
+                  <span className="ml-1 text-xs font-semibold uppercase text-emerald-800">
+                    · golman
+                  </span>
+                )}
+              </div>
+            ) : (
+              <PlayerButton
+                key={p.lineupId}
+                nickname={p.nickname}
+                goals={playerGoals(p.userId)}
+                team={p.team}
+                isGoalkeeper={p.isGoalkeeper}
+                canBeGoalkeeper={false}
+                disabled={locked}
+                onGoal={() => void recordPlayerGoal(p)}
+                onOwnGoal={() => void recordPlayerOwnGoal(p)}
+                onGoalkeeper={() => {}}
+              />
+            ),
+          )}
         </div>
       </div>
 

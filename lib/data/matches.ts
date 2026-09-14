@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { fillStatus, type FillStatus } from "@/lib/domain/fill";
+import { matchHeadcount, signupCapacity } from "@/lib/domain/fillers";
 import { ensureUpcomingSeriesOccurrences } from "@/lib/data/series";
 
 export type MatchWithSignups = {
@@ -64,12 +65,21 @@ export async function getMatches(groupId: string, userId: string): Promise<Split
   if (allMatches.length === 0) return { upcoming: [], past: [] };
 
   const matchIds = allMatches.map((t) => t.id);
-  const { data: signups } = await supabase
-    .from("match_signups")
-    .select("match_id, user_id, signed_up_at, manual_order, cancelled_at")
-    .in("match_id", matchIds);
+  const [{ data: signups }, { data: fillers }] = await Promise.all([
+    supabase
+      .from("match_signups")
+      .select("match_id, user_id, signed_up_at, manual_order, cancelled_at")
+      .in("match_id", matchIds),
+    supabase.from("match_fillers").select("match_id").in("match_id", matchIds),
+  ]);
+
+  const fillerCountByMatch = new Map<string, number>();
+  for (const row of fillers ?? []) {
+    fillerCountByMatch.set(row.match_id, (fillerCountByMatch.get(row.match_id) ?? 0) + 1);
+  }
 
   const enrich = (t: (typeof allMatches)[number]): MatchWithSignups => {
+    const fillerCount = fillerCountByMatch.get(t.id) ?? 0;
     const forMatch = (signups ?? [])
       .filter((p) => p.match_id === t.id)
       .map((p) => ({
@@ -79,7 +89,11 @@ export async function getMatches(groupId: string, userId: string): Promise<Split
         cancelledAt: p.cancelled_at,
       }));
 
-    const { confirmed, waitlist } = splitSignups(forMatch, t.capacity);
+    const { confirmed, waitlist } = splitSignups(
+      forMatch,
+      signupCapacity(t.capacity, fillerCount),
+    );
+    const headcount = matchHeadcount(confirmed.length, fillerCount);
 
     return {
       id: t.id,
@@ -89,8 +103,8 @@ export async function getMatches(groupId: string, userId: string): Promise<Split
       status: t.status,
       notes: t.notes,
       location: t.locations?.name ?? t.location_text ?? "Lokacija nije upisana",
-      signedUpCount: confirmed.length,
-      fill: fillStatus(confirmed.length, t.min_players, t.capacity),
+      signedUpCount: headcount,
+      fill: fillStatus(headcount, t.min_players, t.capacity),
       iAmIn: confirmed.includes(userId),
       iAmWaiting: waitlist.includes(userId),
       seriesId: t.series_id,

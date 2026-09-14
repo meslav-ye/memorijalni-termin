@@ -80,7 +80,7 @@ export async function replayAllRatings(): Promise<{ games: number }> {
     const [{ data: lineup }, { data: events }] = await Promise.all([
       admin
         .from("match_lineup")
-        .select("user_id, team, is_goalkeeper")
+        .select("user_id, team, is_goalkeeper, is_guest")
         .eq("game_id", game.id),
       admin
         .from("match_events")
@@ -89,15 +89,16 @@ export async function replayAllRatings(): Promise<{ games: number }> {
         .in("type", ["goal", "own_goal", "keeper_change"]),
     ]);
 
-    if (!lineup?.length) continue;
+    const registered = (lineup ?? []).filter((p) => p.user_id && !p.is_guest);
+    if (registered.length === 0) continue;
 
     const teamPlayers = (side: Team) =>
-      lineup
+      registered
         .filter((p) => p.team === side)
         .map((p) => ({
-          userId: p.user_id,
-          groupRating: groupRating.get(key(groupId, p.user_id)) ?? INITIAL_RATING,
-          globalRating: globalRating.get(p.user_id) ?? INITIAL_RATING,
+          userId: p.user_id!,
+          groupRating: groupRating.get(key(groupId, p.user_id!)) ?? INITIAL_RATING,
+          globalRating: globalRating.get(p.user_id!) ?? INITIAL_RATING,
         }));
 
     const { group, global } = computeDualElo({
@@ -108,8 +109,8 @@ export async function replayAllRatings(): Promise<{ games: number }> {
     });
 
     const contrib = computeContributions({
-      lineup: lineup.map((p) => ({
-        userId: p.user_id,
+      lineup: registered.map((p) => ({
+        userId: p.user_id!,
         team: p.team as Team,
         isGoalkeeper: p.is_goalkeeper,
       })),

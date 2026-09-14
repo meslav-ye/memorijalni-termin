@@ -332,29 +332,77 @@ export type Database = {
           },
         ]
       }
-      match_lineup: {
+      match_fillers: {
         Row: {
-          game_id: string
-          is_goalkeeper: boolean
+          added_at: string
+          display_name: string
+          id: string
           match_id: string
-          team: Database["public"]["Enums"]["team_side"]
-          user_id: string
         }
         Insert: {
-          game_id: string
-          is_goalkeeper?: boolean
+          added_at?: string
+          display_name: string
+          id?: string
           match_id: string
-          team: Database["public"]["Enums"]["team_side"]
-          user_id: string
         }
         Update: {
-          game_id?: string
-          is_goalkeeper?: boolean
+          added_at?: string
+          display_name?: string
+          id?: string
           match_id?: string
-          team?: Database["public"]["Enums"]["team_side"]
-          user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "match_fillers_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      match_lineup: {
+        Row: {
+          display_name: string | null
+          filler_id: string | null
+          game_id: string
+          id: string
+          is_goalkeeper: boolean
+          is_guest: boolean
+          match_id: string
+          team: Database["public"]["Enums"]["team_side"]
+          user_id: string | null
+        }
+        Insert: {
+          display_name?: string | null
+          filler_id?: string | null
+          game_id: string
+          id?: string
+          is_goalkeeper?: boolean
+          is_guest?: boolean
+          match_id: string
+          team: Database["public"]["Enums"]["team_side"]
+          user_id?: string | null
+        }
+        Update: {
+          display_name?: string | null
+          filler_id?: string | null
+          game_id?: string
+          id?: string
+          is_goalkeeper?: boolean
+          is_guest?: boolean
+          match_id?: string
+          team?: Database["public"]["Enums"]["team_side"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_lineup_filler_id_fkey"
+            columns: ["filler_id"]
+            isOneToOne: false
+            referencedRelation: "match_fillers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "match_lineup_game_id_fkey"
             columns: ["game_id"]

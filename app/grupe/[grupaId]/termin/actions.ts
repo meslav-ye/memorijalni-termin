@@ -7,6 +7,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { matchYear, ensureSeason } from "@/lib/seasons";
 import { zagrebUIso, zagrebNowParts } from "@/lib/format";
 import { zagrebWeekdayFromYmd } from "@/lib/domain/recurring";
+import {
+  defaultGuestTeam,
+  matchHeadcount,
+  normalizeFillerName,
+  signupCapacity,
+} from "@/lib/domain/fillers";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { suggestTeams } from "@/lib/domain/teams";
 import { normalizeTeamName } from "@/lib/domain/team-name";
@@ -298,6 +304,109 @@ export async function adminWithdrawFromMatch(formData: FormData) {
   revalidatePath(`/grupe/${groupId}`);
 }
 
+/** Admin adds an unregistered filler (popunjač) — counts toward capacity, no stats. */
+export async function addMatchFiller(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+  const displayName = normalizeFillerName(String(formData.get("displayName") ?? ""));
+
+  if (!displayName) return;
+
+  const ctx = await membership(groupId);
+  if (!ctx?.admin) return;
+
+  const { data: match } = await ctx.supabase
+    .from("matches")
+    .select("capacity, status")
+    .eq("id", matchId)
+    .maybeSingle();
+
+  if (!match || match.status !== "najavljen") return;
+
+  const [{ count: fillerCount }, { data: signups }] = await Promise.all([
+    ctx.supabase
+      .from("match_fillers")
+      .select("id", { count: "exact", head: true })
+      .eq("match_id", matchId),
+    ctx.supabase
+      .from("match_signups")
+      .select("user_id, signed_up_at, manual_order, cancelled_at")
+      .eq("match_id", matchId),
+  ]);
+
+  const { confirmed } = splitSignups(
+    (signups ?? []).map((p) => ({
+      userId: p.user_id,
+      signedUpAt: p.signed_up_at,
+      manualOrder: p.manual_order,
+      cancelledAt: p.cancelled_at,
+    })),
+    signupCapacity(match.capacity, fillerCount ?? 0),
+  );
+
+  if (matchHeadcount(confirmed.length, fillerCount ?? 0) >= match.capacity) return;
+
+  const { data: filler, error: fillerErr } = await ctx.supabase
+    .from("match_fillers")
+    .insert({ match_id: matchId, display_name: displayName })
+    .select("id")
+    .single();
+
+  if (fillerErr || !filler) return;
+
+  const game = await ensureEditableGame(matchId, ctx.supabase);
+  if (!game) return;
+
+  const { data: currentLineup } = await ctx.supabase
+    .from("match_lineup")
+    .select("team")
+    .eq("game_id", game.id);
+
+  const countA = (currentLineup ?? []).filter((r) => r.team === "A").length;
+  const countB = (currentLineup ?? []).filter((r) => r.team === "B").length;
+  const team = defaultGuestTeam(countA, countB);
+
+  await ctx.supabase.from("match_lineup").insert({
+    game_id: game.id,
+    match_id: matchId,
+    filler_id: filler.id,
+    display_name: displayName,
+    is_guest: true,
+    team,
+    is_goalkeeper: false,
+  });
+
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
+  revalidatePath(`/grupe/${groupId}`);
+}
+
+/** Admin removes a filler before the match starts. */
+export async function removeMatchFiller(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+  const matchId = String(formData.get("matchId") ?? "");
+  const fillerId = String(formData.get("fillerId") ?? "").trim();
+
+  if (!fillerId) return;
+
+  const ctx = await membership(groupId);
+  if (!ctx?.admin) return;
+
+  const { data: match } = await ctx.supabase
+    .from("matches")
+    .select("status")
+    .eq("id", matchId)
+    .maybeSingle();
+
+  if (match?.status !== "najavljen") return;
+
+  await ctx.supabase.from("match_fillers").delete().eq("id", fillerId).eq("match_id", matchId);
+
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
+  revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
+  revalidatePath(`/grupe/${groupId}`);
+}
+
 /**
  * Build a team suggestion and save it as the lineup.
  *
@@ -322,10 +431,16 @@ export async function proposeTeams(formData: FormData) {
   // After the match has started, the lineup is no longer reshuffled.
   if (!match || match.status === "zavrsen" || match.status === "otkazan") return;
 
-  const { data: signups } = await supabase
-    .from("match_signups")
-    .select("user_id, signed_up_at, manual_order, cancelled_at")
-    .eq("match_id", matchId);
+  const [{ count: fillerCount }, { data: signups }] = await Promise.all([
+    supabase
+      .from("match_fillers")
+      .select("id", { count: "exact", head: true })
+      .eq("match_id", matchId),
+    supabase
+      .from("match_signups")
+      .select("user_id, signed_up_at, manual_order, cancelled_at")
+      .eq("match_id", matchId),
+  ]);
 
   const { confirmed } = splitSignups(
     (signups ?? []).map((p) => ({
@@ -334,10 +449,10 @@ export async function proposeTeams(formData: FormData) {
       manualOrder: p.manual_order,
       cancelledAt: p.cancelled_at,
     })),
-    match.capacity,
+    signupCapacity(match.capacity, fillerCount ?? 0),
   );
 
-  if (confirmed.length === 0) return;
+  if (confirmed.length === 0 && (fillerCount ?? 0) === 0) return;
 
   const { data: profiles } = await supabase
     .from("profiles")
@@ -367,6 +482,12 @@ export async function proposeTeams(formData: FormData) {
   const game = await ensureEditableGame(matchId, supabase);
   if (!game) return;
 
+  const { data: guestLineup } = await supabase
+    .from("match_lineup")
+    .select("filler_id, team, is_goalkeeper, display_name")
+    .eq("game_id", game.id)
+    .eq("is_guest", true);
+
   const flaggedA = assignLineupGoalkeeperFlags(teamA);
   const flaggedB = assignLineupGoalkeeperFlags(teamB);
 
@@ -376,6 +497,7 @@ export async function proposeTeams(formData: FormData) {
       game_id: game.id,
       match_id: matchId,
       user_id: p.userId,
+      is_guest: false,
       team: "A" as const,
       is_goalkeeper: p.lineupIsGoalkeeper,
     })),
@@ -383,8 +505,18 @@ export async function proposeTeams(formData: FormData) {
       game_id: game.id,
       match_id: matchId,
       user_id: p.userId,
+      is_guest: false,
       team: "B" as const,
       is_goalkeeper: p.lineupIsGoalkeeper,
+    })),
+    ...(guestLineup ?? []).map((g) => ({
+      game_id: game.id,
+      match_id: matchId,
+      filler_id: g.filler_id,
+      display_name: g.display_name,
+      is_guest: true,
+      team: g.team,
+      is_goalkeeper: g.is_goalkeeper,
     })),
   ]);
 
@@ -394,10 +526,12 @@ export async function proposeTeams(formData: FormData) {
 export async function movePlayer(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
   const matchId = String(formData.get("matchId") ?? "");
-  const userId = String(formData.get("userId") ?? "");
+  const lineupId = String(formData.get("lineupId") ?? "").trim();
+  const userId = String(formData.get("userId") ?? "").trim();
   const team = String(formData.get("ekipa") ?? "");
 
   if (team !== "A" && team !== "B") return;
+  if (!lineupId && !userId) return;
 
   const ctx = await membership(groupId);
   if (!ctx) return;
@@ -406,11 +540,13 @@ export async function movePlayer(formData: FormData) {
   if (!game) return;
 
   // A player who switches teams is no longer that team's goalkeeper.
-  await ctx.supabase
+  let query = ctx.supabase
     .from("match_lineup")
     .update({ team, is_goalkeeper: false })
-    .eq("game_id", game.id)
-    .eq("user_id", userId);
+    .eq("game_id", game.id);
+
+  query = lineupId ? query.eq("id", lineupId) : query.eq("user_id", userId);
+  await query;
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
 }
@@ -418,10 +554,12 @@ export async function movePlayer(formData: FormData) {
 export async function setGoalkeeper(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "");
   const matchId = String(formData.get("matchId") ?? "");
-  const userId = String(formData.get("userId") ?? "");
+  const lineupId = String(formData.get("lineupId") ?? "").trim();
+  const userId = String(formData.get("userId") ?? "").trim();
   const team = String(formData.get("ekipa") ?? "");
 
   if (team !== "A" && team !== "B") return;
+  if (!lineupId && !userId) return;
 
   const ctx = await membership(groupId);
   if (!ctx) return;
@@ -431,24 +569,29 @@ export async function setGoalkeeper(formData: FormData) {
 
   if (!canChangeLineupGoalkeeper(game.started_at)) return;
 
-  const { data: profile } = await ctx.supabase
-    .from("profiles")
-    .select("is_goalkeeper")
-    .eq("id", userId)
-    .maybeSingle();
-
-  // Outfield players must not wear the glove — same rule as live changeGoalkeeper.
-  if (!canAssignLineupGoalkeeper(profile?.is_goalkeeper ?? false)) return;
-
-  const { data: current } = await ctx.supabase
+  let rowQuery = ctx.supabase
     .from("match_lineup")
-    .select("is_goalkeeper")
-    .eq("game_id", game.id)
-    .eq("user_id", userId)
-    .maybeSingle();
+    .select("is_goalkeeper, is_guest, user_id")
+    .eq("game_id", game.id);
+
+  rowQuery = lineupId ? rowQuery.eq("id", lineupId) : rowQuery.eq("user_id", userId);
+  const { data: current } = await rowQuery.maybeSingle();
+
+  if (!current) return;
+
+  if (!current.is_guest && current.user_id) {
+    const { data: profile } = await ctx.supabase
+      .from("profiles")
+      .select("is_goalkeeper")
+      .eq("id", current.user_id)
+      .maybeSingle();
+
+    // Outfield players must not wear the glove — same rule as live changeGoalkeeper.
+    if (!canAssignLineupGoalkeeper(profile?.is_goalkeeper ?? false)) return;
+  }
 
   // Clicking the same goalkeeper again clears the mark.
-  const becoming = !current?.is_goalkeeper;
+  const becoming = !current.is_goalkeeper;
 
   // At most one marked goalkeeper per team.
   await ctx.supabase
@@ -458,11 +601,15 @@ export async function setGoalkeeper(formData: FormData) {
     .eq("team", team);
 
   if (becoming) {
-    await ctx.supabase
+    let updateQuery = ctx.supabase
       .from("match_lineup")
       .update({ is_goalkeeper: true })
-      .eq("game_id", game.id)
-      .eq("user_id", userId);
+      .eq("game_id", game.id);
+
+    updateQuery = lineupId
+      ? updateQuery.eq("id", lineupId)
+      : updateQuery.eq("user_id", userId);
+    await updateQuery;
   }
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);

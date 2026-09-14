@@ -4,20 +4,24 @@ import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { ensureEditableGame, getCurrentGame } from "@/lib/data/games";
 import { formatMatchDateTime } from "@/lib/format";
+import { signupCapacity } from "@/lib/domain/fillers";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { membersNotSignedUp } from "@/lib/domain/admin-signup";
 import { MAX_TEAM_NAME_LENGTH, teamDisplayName } from "@/lib/domain/team-name";
 import { teamHeadingClass, teamPanelClass } from "@/lib/domain/team-colors";
 import { proposeTeams, movePlayer, setGoalkeeper, setTeamNames } from "../../actions";
+import { AdminAddFillers } from "../AdminAddFillers";
 import { AdminAddSignups } from "../AdminAddSignups";
 import { SubmitButton } from "@/components/SubmitButton";
 
 type LineupPlayerRow = {
-  userId: string;
+  lineupId: string;
+  userId: string | null;
   nickname: string;
   rating: number;
   isGoalkeeper: boolean;
   profileIsGoalkeeper: boolean;
+  isGuest: boolean;
 };
 
 function TeamColumn({
@@ -37,8 +41,9 @@ function TeamColumn({
   arrow: "→" | "←";
   goalkeeperEditable: boolean;
 }) {
-  const sum = players.reduce((s, p) => s + p.rating, 0);
-  const average = players.length ? Math.round(sum / players.length) : 0;
+  const rated = players.filter((p) => !p.isGuest);
+  const sum = rated.reduce((s, p) => s + p.rating, 0);
+  const average = rated.length ? Math.round(sum / rated.length) : 0;
   const hasGoalkeeper = players.some((p) => p.isGoalkeeper);
 
   return (
@@ -59,16 +64,23 @@ function TeamColumn({
       <ul className="space-y-1">
         {players.map((p) => (
           <li
-            key={p.userId}
+            key={p.lineupId}
             className={
               "flex items-center gap-1 rounded-lg border p-1 pl-2 " +
               (p.isGoalkeeper
                 ? "border-emerald-400 bg-emerald-50 ring-1 ring-emerald-400/40"
-                : teamPanelClass(team))
+                : p.isGuest
+                  ? "border-slate-300 bg-slate-50"
+                  : teamPanelClass(team))
             }
           >
             <span className="min-w-0 flex-1 truncate text-sm font-medium">
               {p.nickname}
+              {p.isGuest && (
+                <span className="ml-1.5 text-xs font-normal uppercase tracking-wide text-slate-400">
+                  · gost
+                </span>
+              )}
               {p.isGoalkeeper && (
                 <span className="ml-1.5 text-xs font-semibold uppercase tracking-wide text-emerald-800">
                   · Golman
@@ -76,11 +88,12 @@ function TeamColumn({
               )}
             </span>
 
-            {p.profileIsGoalkeeper && goalkeeperEditable && (
+            {(p.isGuest || p.profileIsGoalkeeper) && goalkeeperEditable && (
               <form action={setGoalkeeper}>
                 <input type="hidden" name="groupId" value={grupaId} />
                 <input type="hidden" name="matchId" value={terminId} />
-                <input type="hidden" name="userId" value={p.userId} />
+                <input type="hidden" name="lineupId" value={p.lineupId} />
+                {p.userId && <input type="hidden" name="userId" value={p.userId} />}
                 <input type="hidden" name="ekipa" value={team} />
                 <SubmitButton
                   pendingLabel="…"
@@ -117,7 +130,8 @@ function TeamColumn({
             <form action={movePlayer}>
               <input type="hidden" name="groupId" value={grupaId} />
               <input type="hidden" name="matchId" value={terminId} />
-              <input type="hidden" name="userId" value={p.userId} />
+              <input type="hidden" name="lineupId" value={p.lineupId} />
+              {p.userId && <input type="hidden" name="userId" value={p.userId} />}
               <input type="hidden" name="ekipa" value={team === "A" ? "B" : "A"} />
               <SubmitButton
                 pendingLabel="…"
@@ -164,16 +178,31 @@ export default async function TeamsPage({
   const { data: lineup } = game
     ? await supabase
         .from("match_lineup")
-        .select("user_id, team, is_goalkeeper")
+        .select("id, user_id, team, is_goalkeeper, display_name, is_guest")
         .eq("game_id", game.id)
-    : { data: [] as { user_id: string; team: "A" | "B"; is_goalkeeper: boolean }[] };
+    : {
+        data: [] as {
+          id: string;
+          user_id: string | null;
+          team: "A" | "B";
+          is_goalkeeper: boolean;
+          display_name: string | null;
+          is_guest: boolean;
+        }[],
+      };
 
   const teamAName = game?.team_a_name ?? null;
   const teamBName = game?.team_b_name ?? null;
-  const { data: signups } = await supabase
-    .from("match_signups")
-    .select("user_id, signed_up_at, manual_order, cancelled_at")
-    .eq("match_id", terminId);
+  const [{ data: signups }, { count: fillerCount }] = await Promise.all([
+    supabase
+      .from("match_signups")
+      .select("user_id, signed_up_at, manual_order, cancelled_at")
+      .eq("match_id", terminId),
+    supabase
+      .from("match_fillers")
+      .select("id", { count: "exact", head: true })
+      .eq("match_id", terminId),
+  ]);
 
   const { confirmed, waitlist } = splitSignups(
     (signups ?? []).map((p) => ({
@@ -182,7 +211,7 @@ export default async function TeamsPage({
       manualOrder: p.manual_order,
       cancelledAt: p.cancelled_at,
     })),
-    match.capacity,
+    signupCapacity(match.capacity, fillerCount ?? 0),
   );
 
   const activeSignupIds = [...confirmed, ...waitlist];
@@ -204,7 +233,12 @@ export default async function TeamsPage({
     );
   }
 
-  const allIds = [...new Set([...(lineup ?? []).map((p) => p.user_id), ...confirmed])];
+  const allIds = [
+    ...new Set([
+      ...(lineup ?? []).map((p) => p.user_id).filter((id): id is string => Boolean(id)),
+      ...confirmed,
+    ]),
+  ];
 
   const { data: profiles } = await supabase
     .from("profiles")
@@ -217,20 +251,41 @@ export default async function TeamsPage({
     .eq("group_id", grupaId)
     .in("user_id", allIds.length ? allIds : ["-"]);
 
-  const makePlayer = (userId: string, isGoalkeeper: boolean): LineupPlayerRow => ({
-    userId,
-    nickname: profiles?.find((p) => p.id === userId)?.nickname || "(bez nadimka)",
-    rating: ratings?.find((r) => r.user_id === userId)?.rating ?? 1000,
-    isGoalkeeper,
-    profileIsGoalkeeper: profiles?.find((p) => p.id === userId)?.is_goalkeeper ?? false,
-  });
+  type LineupRow = {
+    id: string;
+    user_id: string | null;
+    team: "A" | "B";
+    is_goalkeeper: boolean;
+    display_name: string | null;
+    is_guest: boolean;
+  };
 
-  const teamA = (lineup ?? [])
-    .filter((p) => p.team === "A")
-    .map((p) => makePlayer(p.user_id, p.is_goalkeeper));
-  const teamB = (lineup ?? [])
-    .filter((p) => p.team === "B")
-    .map((p) => makePlayer(p.user_id, p.is_goalkeeper));
+  const makePlayer = (row: LineupRow): LineupPlayerRow => {
+    if (row.is_guest) {
+      return {
+        lineupId: row.id,
+        userId: null,
+        nickname: row.display_name ?? "Gost",
+        rating: 0,
+        isGoalkeeper: row.is_goalkeeper,
+        profileIsGoalkeeper: false,
+        isGuest: true,
+      };
+    }
+    const userId = row.user_id!;
+    return {
+      lineupId: row.id,
+      userId,
+      nickname: profiles?.find((p) => p.id === userId)?.nickname || "(bez nadimka)",
+      rating: ratings?.find((r) => r.user_id === userId)?.rating ?? 1000,
+      isGoalkeeper: row.is_goalkeeper,
+      profileIsGoalkeeper: profiles?.find((p) => p.id === userId)?.is_goalkeeper ?? false,
+      isGuest: false,
+    };
+  };
+
+  const teamA = (lineup ?? []).filter((p) => p.team === "A").map(makePlayer);
+  const teamB = (lineup ?? []).filter((p) => p.team === "B").map(makePlayer);
 
   const hasLineup = teamA.length + teamB.length > 0;
   const sumA = teamA.reduce((s, p) => s + p.rating, 0);
@@ -239,7 +294,7 @@ export default async function TeamsPage({
 
   // Signed up but not assigned — e.g. someone joined after teams were already set.
   const unassigned = confirmed.filter(
-    (id) => !(lineup ?? []).some((p) => p.user_id === id),
+    (id) => !(lineup ?? []).some((p) => p.user_id === id && !p.is_guest),
   );
 
   return (
@@ -265,6 +320,16 @@ export default async function TeamsPage({
             groupId={grupaId}
             matchId={terminId}
             members={addableMembers}
+          />
+        </div>
+      )}
+
+      {admin && match.status === "najavljen" && (
+        <div className="mb-8">
+          <AdminAddFillers
+            groupId={grupaId}
+            matchId={terminId}
+            canAdd={confirmed.length + (fillerCount ?? 0) < match.capacity}
           />
         </div>
       )}

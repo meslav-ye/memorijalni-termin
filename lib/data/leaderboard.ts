@@ -196,7 +196,7 @@ async function computeLeaderboard(
   const [{ data: lineups }, { data: events }, { data: ratings }] = await Promise.all([
     supabase
       .from("match_lineup")
-      .select("game_id, match_id, user_id, team, is_goalkeeper")
+      .select("game_id, match_id, user_id, team, is_goalkeeper, is_guest")
       .in("game_id", gameIds),
     supabase
       .from("match_events")
@@ -213,9 +213,9 @@ async function computeLeaderboard(
     scoreB: g.score_b,
     startsAt: startsByMatch.get(g.match_id) ?? g.started_at ?? undefined,
     lineup: (lineups ?? [])
-      .filter((p) => p.game_id === g.id)
+      .filter((p) => p.game_id === g.id && p.user_id && !p.is_guest)
       .map((p) => ({
-        userId: p.user_id,
+        userId: p.user_id!,
         team: p.team as Team,
         isGoalkeeper: p.is_goalkeeper,
       })),
@@ -255,6 +255,7 @@ async function computeLeaderboard(
     lineupBySession.set(t.id, new Set());
   }
   for (const p of lineups ?? []) {
+    if (!p.user_id || p.is_guest) continue;
     const set = lineupBySession.get(p.match_id);
     if (set) set.add(p.user_id);
   }

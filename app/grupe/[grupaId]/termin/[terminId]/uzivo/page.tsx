@@ -37,10 +37,11 @@ export default async function LivePage({
 
   const { data: lineupRows } = await supabase
     .from("match_lineup")
-    .select("user_id, team, is_goalkeeper")
+    .select("id, user_id, team, is_goalkeeper, display_name, is_guest")
     .eq("game_id", game.id);
 
-  const ids = (lineupRows ?? []).map((p) => p.user_id);
+  const registeredRows = (lineupRows ?? []).filter((p) => p.user_id && !p.is_guest);
+  const ids = registeredRows.map((p) => p.user_id!);
 
   const { data: profiles } = await supabase
     .from("profiles")
@@ -48,23 +49,39 @@ export default async function LivePage({
     .in("id", ids.length ? ids : ["-"]);
 
   const labels = disambiguateNicknames(
-    (lineupRows ?? []).map((p) => {
+    registeredRows.map((p) => {
       const profile = profiles?.find((x) => x.id === p.user_id);
       return {
-        userId: p.user_id,
+        userId: p.user_id!,
         nickname: profile?.nickname || "?",
         fullName: profile?.full_name ?? null,
       };
     }),
   );
 
-  const lineup: LineupPlayer[] = (lineupRows ?? []).map((p) => ({
-    userId: p.user_id,
-    nickname: labels.get(p.user_id) ?? "?",
-    team: p.team as Team,
-    isGoalkeeper: p.is_goalkeeper,
-    profileIsGoalkeeper: profiles?.find((x) => x.id === p.user_id)?.is_goalkeeper ?? false,
-  }));
+  const lineup: LineupPlayer[] = (lineupRows ?? []).map((p) => {
+    if (p.is_guest) {
+      return {
+        lineupId: p.id,
+        userId: "",
+        nickname: p.display_name ?? "Gost",
+        team: p.team as Team,
+        isGoalkeeper: p.is_goalkeeper,
+        profileIsGoalkeeper: false,
+        isGuest: true,
+      };
+    }
+    const userId = p.user_id!;
+    return {
+      lineupId: p.id,
+      userId,
+      nickname: labels.get(userId) ?? "?",
+      team: p.team as Team,
+      isGoalkeeper: p.is_goalkeeper,
+      profileIsGoalkeeper: profiles?.find((x) => x.id === userId)?.is_goalkeeper ?? false,
+      isGuest: false,
+    };
+  });
 
   const { data: eventRows } = await supabase
     .from("match_events")

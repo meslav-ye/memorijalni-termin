@@ -365,10 +365,13 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
 
   const { data: lineup } = await admin
     .from("match_lineup")
-    .select("user_id, team, is_goalkeeper")
+    .select("user_id, team, is_goalkeeper, is_guest")
     .eq("game_id", gameId);
 
   if (!game || !lineup?.length) return;
+
+  const registered = lineup.filter((p) => p.user_id && !p.is_guest);
+  if (registered.length === 0) return;
 
   const { data: events } = await admin
     .from("match_events")
@@ -376,7 +379,7 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
     .eq("game_id", gameId)
     .in("type", ["goal", "own_goal", "keeper_change"]);
 
-  const userIds = lineup.map((p) => p.user_id);
+  const userIds = registered.map((p) => p.user_id!);
 
   const { data: ratings } = !hasGroup
     ? await admin
@@ -391,10 +394,10 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
     : { data: [] as { id: string; global_rating: number }[] };
 
   const teamPlayers = (side: Team) =>
-    lineup
+    registered
       .filter((p) => p.team === side)
       .map((p) => ({
-        userId: p.user_id,
+        userId: p.user_id!,
         groupRating:
           ratings?.find((r) => r.user_id === p.user_id)?.rating ?? INITIAL_RATING,
         globalRating:
@@ -409,8 +412,8 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
   });
 
   const contrib = computeContributions({
-    lineup: lineup.map((p) => ({
-      userId: p.user_id,
+    lineup: registered.map((p) => ({
+      userId: p.user_id!,
       team: p.team as Team,
       isGoalkeeper: p.is_goalkeeper,
     })),

@@ -136,7 +136,9 @@ export async function copyLineup(
 
   const { data: rows } = await supabase
     .from("match_lineup")
-    .select("user_id, team, is_goalkeeper, match_id")
+    .select(
+      "user_id, team, is_goalkeeper, match_id, filler_id, display_name, is_guest",
+    )
     .eq("game_id", fromGameId);
 
   if (!rows?.length) return;
@@ -148,6 +150,9 @@ export async function copyLineup(
       user_id: r.user_id,
       team: r.team,
       is_goalkeeper: r.is_goalkeeper,
+      filler_id: r.filler_id,
+      display_name: r.display_name,
+      is_guest: r.is_guest,
     })),
   );
 }

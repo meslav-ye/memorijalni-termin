@@ -5,6 +5,7 @@ import { softControlClassName } from "@/components/ui/softControl";
 import { createClient } from "@/lib/supabase/server";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatMatchDateTime } from "@/lib/format";
+import { matchHeadcount, signupCapacity } from "@/lib/domain/fillers";
 import { splitSignups } from "@/lib/domain/waitlist";
 import { fillStatus, type FillTone } from "@/lib/domain/fill";
 import {
@@ -15,6 +16,7 @@ import {
 import { membersNotSignedUp } from "@/lib/domain/admin-signup";
 import {
   adminWithdrawFromMatch,
+  removeMatchFiller,
   withdrawFromMatch,
   cancelMatch,
   deleteMatch,
@@ -22,6 +24,7 @@ import {
   resumeSeries,
   signUpForMatch,
 } from "../actions";
+import { AdminAddFillers } from "./AdminAddFillers";
 import { AdminAddSignups } from "./AdminAddSignups";
 import { StartButton } from "./StartButton";
 import { AddToCalendar } from "./AddToCalendar";
@@ -86,10 +89,19 @@ export default async function MatchPage({
     seriesPaused = series ? series.paused_at !== null : null;
   }
 
-  const { data: signups } = await supabase
-    .from("match_signups")
-    .select("user_id, signed_up_at, manual_order, cancelled_at")
-    .eq("match_id", terminId);
+  const [{ data: signups }, { data: fillers }] = await Promise.all([
+    supabase
+      .from("match_signups")
+      .select("user_id, signed_up_at, manual_order, cancelled_at")
+      .eq("match_id", terminId),
+    supabase
+      .from("match_fillers")
+      .select("id, display_name")
+      .eq("match_id", terminId)
+      .order("added_at"),
+  ]);
+
+  const fillerCount = fillers?.length ?? 0;
 
   const { confirmed, waitlist } = splitSignups(
     (signups ?? []).map((p) => ({
@@ -98,8 +110,10 @@ export default async function MatchPage({
       manualOrder: p.manual_order,
       cancelledAt: p.cancelled_at,
     })),
-    match.capacity,
+    signupCapacity(match.capacity, fillerCount),
   );
+
+  const headcount = matchHeadcount(confirmed.length, fillerCount);
 
   const activeSignupIds = [...confirmed, ...waitlist];
 
@@ -130,7 +144,7 @@ export default async function MatchPage({
     );
   }
 
-  const fill = fillStatus(confirmed.length, match.min_players, match.capacity);
+  const fill = fillStatus(headcount, match.min_players, match.capacity);
   const iAmIn = confirmed.includes(user.id);
   const iAmWaiting = waitlist.includes(user.id);
   const signedUp = iAmIn || iAmWaiting;
@@ -240,9 +254,9 @@ export default async function MatchPage({
 
       <section className="mt-8">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Dolaze ({confirmed.length}/{match.capacity})
+          Dolaze ({headcount}/{match.capacity})
         </h3>
-        {confirmed.length === 0 ? (
+        {confirmed.length === 0 && fillerCount === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500">
             Nitko se još nije prijavio.
           </p>
@@ -269,6 +283,35 @@ export default async function MatchPage({
                       className="text-sm text-red-700 underline underline-offset-4"
                     >
                       Odjavi
+                    </SubmitButton>
+                  </form>
+                )}
+              </li>
+            ))}
+            {(fillers ?? []).map((f, i) => (
+              <li
+                key={f.id}
+                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3"
+              >
+                <span className="w-5 text-right text-sm tabular-nums text-slate-400">
+                  {confirmed.length + i + 1}
+                </span>
+                <span className="min-w-0 flex-1 font-medium text-slate-700">
+                  {f.display_name}
+                  <span className="ml-2 text-xs font-normal uppercase tracking-wide text-slate-400">
+                    popunjač
+                  </span>
+                </span>
+                {admin && openForSignups && (
+                  <form action={removeMatchFiller}>
+                    <input type="hidden" name="groupId" value={grupaId} />
+                    <input type="hidden" name="matchId" value={terminId} />
+                    <input type="hidden" name="fillerId" value={f.id} />
+                    <SubmitButton
+                      pendingLabel="…"
+                      className="text-sm text-red-700 underline underline-offset-4"
+                    >
+                      Makni
                     </SubmitButton>
                   </form>
                 )}
@@ -321,6 +364,14 @@ export default async function MatchPage({
           groupId={grupaId}
           matchId={terminId}
           members={addableMembers}
+        />
+      )}
+
+      {admin && openForSignups && (
+        <AdminAddFillers
+          groupId={grupaId}
+          matchId={terminId}
+          canAdd={headcount < match.capacity}
         />
       )}
 

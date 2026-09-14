@@ -55,7 +55,7 @@ export default async function SummaryPage({
   const [{ data: lineup }, { data: events }, { data: history }] = await Promise.all([
     supabase
       .from("match_lineup")
-      .select("game_id, user_id, team, is_goalkeeper")
+      .select("game_id, id, user_id, team, is_goalkeeper, display_name, is_guest")
       .in("game_id", gameIds.length ? gameIds : ["-"]),
     supabase
       .from("match_events")
@@ -71,7 +71,11 @@ export default async function SummaryPage({
       .eq("scope", "group"),
   ]);
 
-  const allUserIds = [...new Set((lineup ?? []).map((p) => p.user_id))];
+  const allUserIds = [
+    ...new Set(
+      (lineup ?? []).map((p) => p.user_id).filter((id): id is string => Boolean(id)),
+    ),
+  ];
   const canEdit = allUserIds.includes(user.id);
 
   const [{ data: profiles }, { data: activities }] = await Promise.all([
@@ -126,9 +130,11 @@ export default async function SummaryPage({
     const goals = gameEvents.filter((e) => e.type === "goal" || e.type === "own_goal");
     const gameHistory = (history ?? []).filter((h) => h.game_id === game.id);
 
+    const registeredLineup = gameLineup.filter((p) => p.user_id && !p.is_guest);
+
     const contrib = computeContributions({
-      lineup: gameLineup.map((p) => ({
-        userId: p.user_id,
+      lineup: registeredLineup.map((p) => ({
+        userId: p.user_id!,
         team: p.team as Team,
         isGoalkeeper: p.is_goalkeeper,
       })),
@@ -143,13 +149,31 @@ export default async function SummaryPage({
     });
 
     const players = gameLineup.map((p) => {
+      if (p.is_guest || !p.user_id) {
+        return {
+          lineupId: p.id,
+          userId: null,
+          nickname: p.display_name ?? "Gost",
+          isGuest: true,
+          team: p.team as Team,
+          goals: 0,
+          assists: 0,
+          ownGoals: 0,
+          delta: null,
+          eloDelta: null,
+          contribution: 0,
+          rating: null,
+        };
+      }
       const record = gameHistory.find((r) => r.user_id === p.user_id);
       const delta = record ? record.rating_after - record.rating_before : null;
       const contribution = contrib.get(p.user_id)?.clamped ?? 0;
       const eloDelta = delta !== null ? delta - contribution : null;
       return {
+        lineupId: p.id,
         userId: p.user_id,
         nickname: nicknameOf(p.user_id),
+        isGuest: false,
         team: p.team as Team,
         goals: goals.filter((e) => e.type === "goal" && e.scorer_id === p.user_id).length,
         assists: goals.filter((e) => e.assist_id === p.user_id).length,
@@ -343,9 +367,9 @@ export default async function SummaryPage({
                 canEditAssists={admin && withinAssistEditWindow(b.game.ended_at)}
                 nicknames={nicknameMap}
                 lineup={(lineup ?? [])
-                  .filter((p) => p.game_id === b.game.id)
+                  .filter((p) => p.game_id === b.game.id && p.user_id && !p.is_guest)
                   .map((p) => ({
-                    userId: p.user_id,
+                    userId: p.user_id!,
                     nickname: nicknameOf(p.user_id),
                     team: p.team as Team,
                   }))}
@@ -407,8 +431,10 @@ export default async function SummaryPage({
 }
 
 type SummaryPlayer = {
-  userId: string;
+  lineupId: string;
+  userId: string | null;
   nickname: string;
+  isGuest: boolean;
   team: Team;
   goals: number;
   assists: number;
@@ -445,11 +471,17 @@ function TeamColumn({
       <ul className="space-y-1">
         {members.map((i) => (
           <li
-            key={i.userId}
+            key={i.lineupId}
             className={"rounded-lg border px-2.5 py-2 text-sm " + teamPanelClass(side)}
           >
-            <p className="break-words font-medium leading-snug">{i.nickname}</p>
-            {(i.goals > 0 || i.assists > 0 || i.ownGoals > 0 || i.delta !== null) && (
+            <p className="break-words font-medium leading-snug">
+              {i.nickname}
+              {i.isGuest && (
+                <span className="ml-1 text-xs font-normal uppercase text-slate-400">· gost</span>
+              )}
+            </p>
+            {!i.isGuest &&
+              (i.goals > 0 || i.assists > 0 || i.ownGoals > 0 || i.delta !== null) && (
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 {i.goals > 0 && <span className="text-slate-500">⚽{i.goals}</span>}
                 {i.assists > 0 && <span className="text-slate-400">🅰{i.assists}</span>}
@@ -469,7 +501,7 @@ function TeamColumn({
                   </span>
                 )}
               </div>
-            )}
+              )}
           </li>
         ))}
       </ul>
