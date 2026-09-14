@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -9,6 +9,12 @@ import { formatClock, elapsedSeconds } from "@/lib/domain/timer";
 import type { MatchTimerState, Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
 import { withinAssistEditWindow } from "@/lib/domain/assist-edit";
+import {
+  applyLiveEvent,
+  applyLiveGame,
+  parseLiveEventRow,
+  parseLiveGameRow,
+} from "@/lib/domain/live-sync";
 import { useOptionalBusy } from "@/components/BusyProvider";
 import { Stopwatch } from "@/components/termin/Stopwatch";
 import { PlayerButton } from "@/components/termin/PlayerButton";
@@ -84,7 +90,7 @@ function subscribeToNetwork(onChange: () => void) {
 export function LiveScreen({
   grupaId,
   terminId,
-  gameId: _gameId,
+  gameId: initialGameId,
   initialLineup,
   initialEvents,
   initialState,
@@ -112,6 +118,11 @@ export function LiveScreen({
   const [state, setState] = useState(initialState);
   const [teamAName, setTeamAName] = useState(initialTeamAName);
   const [teamBName, setTeamBName] = useState(initialTeamBName);
+  const [gameId, setGameId] = useState(initialGameId);
+  const gameIdRef = useRef(gameId);
+  const eventsRef = useRef(events);
+  gameIdRef.current = gameId;
+  eventsRef.current = events;
 
   const [pendingAssist, setPendingAssist] = useState<PendingAssist | null>(null);
   const [duplicate, setDuplicate] = useState<{
@@ -149,6 +160,7 @@ export function LiveScreen({
     const game = openGame ?? latestGame;
     if (!game || !matchRow) return;
 
+    setGameId(game.id);
     setTeamAName(teamDisplayName("A", game.team_a_name));
     setTeamBName(teamDisplayName("B", game.team_b_name));
     setState({
@@ -239,43 +251,128 @@ export function LiveScreen({
     }
   }, [supabase, terminId]);
 
+  const refreshInFlight = useRef(false);
+  const refreshQueued = useRef(false);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const runRefresh = useCallback(async () => {
+    if (refreshInFlight.current) {
+      refreshQueued.current = true;
+      return;
+    }
+    refreshInFlight.current = true;
+    try {
+      await refresh();
+    } finally {
+      refreshInFlight.current = false;
+      if (refreshQueued.current) {
+        refreshQueued.current = false;
+        void runRefresh();
+      }
+    }
+  }, [refresh]);
+
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimer.current != null) return;
+    refreshTimer.current = setTimeout(() => {
+      refreshTimer.current = null;
+      void runRefresh();
+    }, 50);
+  }, [runRefresh]);
+
   useEffect(() => {
     const channel = supabase
       .channel(`termin:${terminId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "match_events", filter: `match_id=eq.${terminId}` },
-        () => void refresh(),
+        (payload) => {
+          const raw = payload.eventType === "DELETE" ? payload.old : payload.new;
+          const row = parseLiveEventRow(raw);
+          const result = applyLiveEvent(
+            eventsRef.current,
+            payload.eventType,
+            row,
+            gameIdRef.current,
+          );
+          if (result.kind === "apply") {
+            eventsRef.current = result.value;
+            setEvents(result.value);
+            return;
+          }
+          if (result.kind === "refresh") scheduleRefresh();
+        },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "match_lineup", filter: `match_id=eq.${terminId}` },
-        () => void refresh(),
+        () => scheduleRefresh(),
       )
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "matches", filter: `id=eq.${terminId}` },
-        () => void refresh(),
+        (payload) => {
+          const status =
+            payload.new && typeof payload.new === "object" && "status" in payload.new
+              ? payload.new.status
+              : null;
+          if (typeof status === "string") {
+            setState((s) => (s.matchStatus === status ? s : { ...s, matchStatus: status }));
+            return;
+          }
+          scheduleRefresh();
+        },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "games", filter: `match_id=eq.${terminId}` },
-        () => void refresh(),
+        (payload) => {
+          const row = parseLiveGameRow(payload.new);
+          const result = applyLiveGame(gameIdRef.current, payload.eventType, row);
+          if (result.kind === "apply") {
+            setGameId(result.value.gameId);
+            setTeamAName(result.value.teamAName);
+            setTeamBName(result.value.teamBName);
+            setState((s) => ({
+              ...s,
+              gameStatus: result.value.gameStatus,
+              gameSeq: result.value.gameSeq,
+              startedAt: result.value.startedAt,
+              pausedAt: result.value.pausedAt,
+              endedAt: result.value.endedAt,
+              totalPausedSeconds: result.value.totalPausedSeconds,
+            }));
+            return;
+          }
+          if (result.kind === "refresh") scheduleRefresh();
+        },
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") void refresh();
+        if (status === "SUBSCRIBED") scheduleRefresh();
       });
 
     return () => {
+      if (refreshTimer.current != null) clearTimeout(refreshTimer.current);
       void supabase.removeChannel(channel);
     };
-  }, [supabase, terminId, refresh]);
+  }, [supabase, terminId, scheduleRefresh]);
 
   const online = useSyncExternalStore(
     subscribeToNetwork,
     () => navigator.onLine,
     () => true,
   );
+  const wasOffline = useRef(false);
+  useEffect(() => {
+    if (!online) {
+      wasOffline.current = true;
+      return;
+    }
+    if (wasOffline.current) {
+      wasOffline.current = false;
+      scheduleRefresh();
+    }
+  }, [online, scheduleRefresh]);
 
   const activeEvents = events.filter((e) => e.deletedAt === null);
   const goals = activeEvents.filter((e) => e.type === "goal" || e.type === "own_goal");
@@ -356,7 +453,24 @@ export function LiveScreen({
           return r ? [{ ref: r, nickname: p.nickname }] : [];
         }),
     });
-    await refresh();
+    setEvents((prev) => {
+      if (prev.some((e) => e.id === result.eventId)) return prev;
+      return [
+        {
+          id: result.eventId,
+          type: "goal",
+          team: player.team,
+          scorerId: player.isGuest ? null : player.userId,
+          scorerFillerId: player.isGuest ? player.fillerId : null,
+          assistId: null,
+          assistFillerId: null,
+          elapsedSeconds: elapsed,
+          createdAt: new Date().toISOString(),
+          deletedAt: null,
+        },
+        ...prev,
+      ];
+    });
   }
 
   async function recordPlayerOwnGoal(player: LineupPlayer) {
@@ -366,16 +480,28 @@ export function LiveScreen({
     setBusy(true);
     const result = await recordOwnGoal(terminId, ref, player.team, currentElapsed());
     setBusy(false);
-    if ("error" in result) setError(result.error);
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
     await afterChange();
   }
 
   async function undo(eventId: string) {
     setBusy(true);
-    await undoEvent(terminId, eventId);
+    const result = await undoEvent(terminId, eventId);
     setBusy(false);
     setPendingAssist(null);
-    await afterChange();
+    if ("error" in result) {
+      setError(result.error);
+      await afterChange();
+      return;
+    }
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === eventId ? { ...e, deletedAt: e.deletedAt ?? new Date().toISOString() } : e,
+      ),
+    );
   }
 
   async function selectAssistant(assistant: EventPlayerRef | null) {
@@ -385,8 +511,21 @@ export function LiveScreen({
     setBusy(true);
     const result = await addAssist(terminId, id, assistant);
     setBusy(false);
-    if ("error" in result) setError(result.error);
-    await afterChange();
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === id
+          ? {
+              ...e,
+              assistId: assistant?.kind === "user" ? assistant.id : null,
+              assistFillerId: assistant?.kind === "filler" ? assistant.id : null,
+            }
+          : e,
+      ),
+    );
   }
 
   function openAssistFromTimeline(event: LiveEvent) {
