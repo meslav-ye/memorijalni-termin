@@ -165,7 +165,11 @@ export default async function MatchPage({
     .filter(Boolean)
     .join(", ") || match.location_text || "";
 
-  const showCalendar = match.status !== "otkazan" && fill.tone !== "low";
+  // Once the match is live, calendar add is pointless — kickoff already passed.
+  const showCalendar =
+    match.status !== "otkazan" &&
+    match.status !== "u_tijeku" &&
+    fill.tone !== "low";
 
   const startsAt = new Date(match.starts_at);
   const calendarTitle = `${group?.name ?? "Termin"} — ${formatShortDate(match.starts_at)}`;
@@ -252,6 +256,12 @@ export default async function MatchPage({
           fileName={`termin-${formatShortDate(match.starts_at).replace(/\./g, "")}.ics`}
           googleUrl={googleUrl}
         />
+      )}
+
+      {/* Live CTA above the long signup lists so you don't scroll when
+          entering a termin that is already in progress. */}
+      {match.status === "u_tijeku" && (
+        <StartButton grupaId={grupaId} terminId={terminId} alreadyLive />
       )}
 
       <section className="mt-8">
@@ -391,10 +401,6 @@ export default async function MatchPage({
             {formatMatchDateTime(earliestStartAt(match.starts_at).toISOString())}.
           </p>
         ))}
-
-      {match.status === "u_tijeku" && (
-        <StartButton grupaId={grupaId} terminId={terminId} alreadyLive />
-      )}
 
       {match.status !== "otkazan" && (
         <BusyLink

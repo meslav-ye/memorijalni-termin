@@ -65,6 +65,31 @@ async function requireLineupAccess(matchId: string) {
   return { supabase, user };
 }
 
+/** Lineup player, or group admin (even if not playing). */
+async function requireLineupOrAdminAccess(groupId: string, matchId: string) {
+  const ctx = await requireLineupAccess(matchId);
+  if (ctx) return ctx;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: membership } = await supabase
+    .from("group_members")
+    .select("role, status")
+    .eq("group_id", groupId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (membership?.status === "active" && membership.role === "admin") {
+    return { supabase, user };
+  }
+
+  return null;
+}
+
 async function requireOpenGame(matchId: string) {
   const ctx = await requireLineupAccess(matchId);
   if (!ctx) return { error: "Nemaš pravo." as const };
@@ -716,8 +741,10 @@ export async function startNextGame(groupId: string, matchId: string): Promise<A
 }
 
 export async function endTermin(groupId: string, matchId: string): Promise<ActionResult> {
-  const ctx = await requireLineupAccess(matchId);
-  if (!ctx) return { error: "Termin završava netko tko je u postavi." };
+  const ctx = await requireLineupOrAdminAccess(groupId, matchId);
+  if (!ctx) {
+    return { error: "Termin završava netko tko je u postavi ili admin grupe." };
+  }
 
   const { data: match } = await ctx.supabase
     .from("matches")
