@@ -1,6 +1,6 @@
 # Brže otvaranje aplikacije
 
-**Status:** approved  
+**Status:** implemented  
 **Date:** 2026-09-14  
 **Scope:** cold open (A) + in-app navigacija (B); Free tier (Vercel Hobby + Supabase Free)
 

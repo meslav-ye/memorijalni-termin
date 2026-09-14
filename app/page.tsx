@@ -3,7 +3,7 @@ import { getUser } from "@/lib/data/user";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Fallback entry gate. Cold open normally redirects from `proxy.ts` so we
+ * Fallback entry gate. Cold open normally rewrites from `proxy.ts` so we
  * avoid a second full navigation. This page still covers edge cases where
  * the proxy path is skipped.
  *
