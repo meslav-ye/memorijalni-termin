@@ -86,7 +86,7 @@ export async function getLeaderboard(
 function cachedLeaderboard(groupId: string, seasonId: string | null) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", "v11-match-activity", groupId, seasonId ?? "all"],
+    ["leaderboard", "v12-fillers", groupId, seasonId ?? "all"],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }
@@ -193,18 +193,23 @@ async function computeLeaderboard(
 
   const gameIds = allGames.map((g) => g.id);
 
-  const [{ data: lineups }, { data: events }, { data: ratings }] = await Promise.all([
-    supabase
-      .from("match_lineup")
-      .select("game_id, match_id, user_id, team, is_goalkeeper, is_guest")
-      .in("game_id", gameIds),
-    supabase
-      .from("match_events")
-      .select("game_id, type, scorer_id, assist_id, team, elapsed_seconds, deleted_at")
-      .in("game_id", gameIds)
-      .in("type", ["goal", "own_goal", "keeper_change"]),
-    supabase.from("player_ratings").select("user_id, rating").eq("group_id", groupId),
-  ]);
+  const [{ data: lineups, error: lineupErr }, { data: events }, { data: ratings }] =
+    await Promise.all([
+      supabase
+        .from("match_lineup")
+        .select("game_id, match_id, user_id, team, is_goalkeeper, is_guest")
+        .in("game_id", gameIds),
+      supabase
+        .from("match_events")
+        .select("game_id, type, scorer_id, assist_id, team, elapsed_seconds, deleted_at")
+        .in("game_id", gameIds)
+        .in("type", ["goal", "own_goal", "keeper_change"]),
+      supabase.from("player_ratings").select("user_id, rating").eq("group_id", groupId),
+    ]);
+
+  if (lineupErr) {
+    throw new Error(`match_lineup: ${lineupErr.message}`);
+  }
 
   const forStats: MatchForStats[] = allGames.map((g) => ({
     matchId: g.match_id,
