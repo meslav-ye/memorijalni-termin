@@ -6,29 +6,49 @@ import { formatClock } from "@/lib/domain/timer";
 import { teamPanelClass } from "@/lib/domain/team-colors";
 import type { Team } from "@/lib/domain/types";
 import { AssistStrip, type PendingAssist } from "@/components/termin/AssistStrip";
-import { addAssist } from "../uzivo/actions";
+import { addAssist, type EventPlayerRef } from "../uzivo/actions";
 
 export type ChronologyGoal = {
   id: string;
   type: "goal" | "own_goal";
   team: Team | null;
   scorerId: string | null;
+  scorerFillerId: string | null;
   assistId: string | null;
+  assistFillerId: string | null;
   elapsedSeconds: number;
 };
 
-type Teammate = { userId: string; nickname: string; team: Team };
+type Teammate = {
+  userId: string | null;
+  fillerId: string | null;
+  nickname: string;
+  team: Team;
+  isGuest: boolean;
+};
+
+function teammateRef(p: Teammate): EventPlayerRef | null {
+  if (p.isGuest) return p.fillerId ? { kind: "filler", id: p.fillerId } : null;
+  return p.userId ? { kind: "user", id: p.userId } : null;
+}
+
+function sameTeammate(a: Teammate, b: Teammate): boolean {
+  if (a.isGuest || b.isGuest) return Boolean(a.fillerId && a.fillerId === b.fillerId);
+  return Boolean(a.userId && a.userId === b.userId);
+}
 
 export function GoalChronology({
   terminId,
   goals,
   nicknames,
+  fillerNames,
   lineup,
   canEditAssists,
 }: {
   terminId: string;
   goals: ChronologyGoal[];
   nicknames: Record<string, string>;
+  fillerNames: Record<string, string>;
   lineup: Teammate[];
   canEditAssists: boolean;
 }) {
@@ -37,29 +57,48 @@ export function GoalChronology({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nicknameOf = (id: string | null) => (id ? (nicknames[id] ?? "?") : "?");
+  const nameOf = (userId: string | null, fillerId: string | null) => {
+    if (fillerId) return fillerNames[fillerId] ?? "?";
+    if (userId) return nicknames[userId] ?? "?";
+    return "?";
+  };
   const dismiss = useCallback(() => setPending(null), []);
 
   function openAssist(goal: ChronologyGoal) {
-    if (!canEditAssists || goal.type !== "goal" || !goal.scorerId || !goal.team) return;
+    if (!canEditAssists || goal.type !== "goal" || !goal.team) return;
+    if (!goal.scorerId && !goal.scorerFillerId) return;
+    const scorer = goal.scorerFillerId
+      ? lineup.find((p) => p.fillerId === goal.scorerFillerId)
+      : lineup.find((p) => p.userId === goal.scorerId);
+    if (!scorer) return;
+
+    const currentAssist: EventPlayerRef | null = goal.assistFillerId
+      ? { kind: "filler", id: goal.assistFillerId }
+      : goal.assistId
+        ? { kind: "user", id: goal.assistId }
+        : null;
+
     setPending({
       eventId: goal.id,
-      scorer: nicknameOf(goal.scorerId),
+      scorer: scorer.nickname,
       elapsed: goal.elapsedSeconds,
       teammates: lineup
-        .filter((p) => p.team === goal.team && p.userId !== goal.scorerId)
-        .map((p) => ({ userId: p.userId, nickname: p.nickname })),
-      currentAssistId: goal.assistId,
+        .filter((p) => p.team === goal.team && !sameTeammate(p, scorer))
+        .flatMap((p) => {
+          const ref = teammateRef(p);
+          return ref ? [{ ref, nickname: p.nickname }] : [];
+        }),
+      currentAssist,
     });
   }
 
-  async function select(assistantId: string | null) {
+  async function select(assistant: EventPlayerRef | null) {
     if (!pending) return;
     const eventId = pending.eventId;
     setPending(null);
     setBusy(true);
     setError(null);
-    const result = await addAssist(terminId, eventId, assistantId);
+    const result = await addAssist(terminId, eventId, assistant);
     setBusy(false);
     if ("error" in result) setError(result.error);
     router.refresh();
@@ -82,15 +121,21 @@ export function GoalChronology({
       )}
       <ul className="space-y-1">
         {goals.map((e) => {
-          const editable = canEditAssists && e.type === "goal" && !!e.scorerId;
+          const editable =
+            canEditAssists && e.type === "goal" && (!!e.scorerId || !!e.scorerFillerId);
+          const scorerLabel = nameOf(e.scorerId, e.scorerFillerId);
+          const assistLabel =
+            e.assistId || e.assistFillerId
+              ? nameOf(e.assistId, e.assistFillerId)
+              : null;
           const body = (
             <>
               {e.type === "goal" ? "⚽ " : "🥅 "}
-              <span className="font-medium">{nicknameOf(e.scorerId)}</span>
-              {e.type === "goal" && e.assistId && (
-                <span className="text-slate-500"> ({nicknameOf(e.assistId)})</span>
+              <span className="font-medium">{scorerLabel}</span>
+              {e.type === "goal" && assistLabel && (
+                <span className="text-slate-500"> ({assistLabel})</span>
               )}
-              {e.type === "goal" && !e.assistId && canEditAssists && (
+              {e.type === "goal" && !assistLabel && canEditAssists && (
                 <span className="text-slate-400"> · asistent?</span>
               )}
               {e.type === "own_goal" && (

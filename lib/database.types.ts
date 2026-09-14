@@ -246,6 +246,7 @@ export type Database = {
       }
       match_events: {
         Row: {
+          assist_filler_id: string | null
           assist_id: string | null
           created_at: string
           created_by: string
@@ -255,11 +256,13 @@ export type Database = {
           game_id: string
           id: string
           match_id: string
+          scorer_filler_id: string | null
           scorer_id: string | null
           team: Database["public"]["Enums"]["team_side"] | null
           type: Database["public"]["Enums"]["event_type"]
         }
         Insert: {
+          assist_filler_id?: string | null
           assist_id?: string | null
           created_at?: string
           created_by: string
@@ -269,11 +272,13 @@ export type Database = {
           game_id: string
           id?: string
           match_id: string
+          scorer_filler_id?: string | null
           scorer_id?: string | null
           team?: Database["public"]["Enums"]["team_side"] | null
           type: Database["public"]["Enums"]["event_type"]
         }
         Update: {
+          assist_filler_id?: string | null
           assist_id?: string | null
           created_at?: string
           created_by?: string
@@ -283,11 +288,19 @@ export type Database = {
           game_id?: string
           id?: string
           match_id?: string
+          scorer_filler_id?: string | null
           scorer_id?: string | null
           team?: Database["public"]["Enums"]["team_side"] | null
           type?: Database["public"]["Enums"]["event_type"]
         }
         Relationships: [
+          {
+            foreignKeyName: "match_events_assist_filler_id_fkey"
+            columns: ["assist_filler_id"]
+            isOneToOne: false
+            referencedRelation: "match_fillers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "match_events_assist_id_fkey"
             columns: ["assist_id"]
@@ -321,6 +334,13 @@ export type Database = {
             columns: ["match_id"]
             isOneToOne: false
             referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_events_scorer_filler_id_fkey"
+            columns: ["scorer_filler_id"]
+            isOneToOne: false
+            referencedRelation: "match_fillers"
             referencedColumns: ["id"]
           },
           {

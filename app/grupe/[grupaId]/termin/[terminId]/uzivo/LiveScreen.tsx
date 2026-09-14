@@ -23,11 +23,13 @@ import {
   finishGame,
   startNextGame,
   endTermin,
+  type EventPlayerRef,
 } from "./actions";
 
 export type LineupPlayer = {
   lineupId: string;
   userId: string;
+  fillerId: string | null;
   nickname: string;
   team: Team;
   isGoalkeeper: boolean;
@@ -41,11 +43,27 @@ export type LiveEvent = {
   type: string;
   team: Team | null;
   scorerId: string | null;
+  scorerFillerId: string | null;
   assistId: string | null;
+  assistFillerId: string | null;
   elapsedSeconds: number;
   createdAt: string;
   deletedAt: string | null;
 };
+
+function playerRef(p: LineupPlayer): EventPlayerRef | null {
+  if (p.isGuest) {
+    return p.fillerId ? { kind: "filler", id: p.fillerId } : null;
+  }
+  return p.userId ? { kind: "user", id: p.userId } : null;
+}
+
+function samePlayer(a: LineupPlayer, b: LineupPlayer): boolean {
+  if (a.isGuest || b.isGuest) {
+    return Boolean(a.fillerId && a.fillerId === b.fillerId);
+  }
+  return a.userId === b.userId;
+}
 
 export type LiveState = MatchTimerState & {
   matchStatus: string;
@@ -146,12 +164,14 @@ export function LiveScreen({
     const [{ data: eventRows }, { data: lineupRows }] = await Promise.all([
       supabase
         .from("match_events")
-        .select("id, type, team, scorer_id, assist_id, elapsed_seconds, created_at, deleted_at")
+        .select(
+          "id, type, team, scorer_id, scorer_filler_id, assist_id, assist_filler_id, elapsed_seconds, created_at, deleted_at",
+        )
         .eq("game_id", game.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("match_lineup")
-        .select("id, user_id, team, is_goalkeeper, display_name, is_guest")
+        .select("id, user_id, filler_id, team, is_goalkeeper, display_name, is_guest")
         .eq("game_id", game.id),
     ]);
 
@@ -162,7 +182,9 @@ export function LiveScreen({
           type: e.type,
           team: e.team as Team | null,
           scorerId: e.scorer_id,
+          scorerFillerId: e.scorer_filler_id,
           assistId: e.assist_id,
+          assistFillerId: e.assist_filler_id,
           elapsedSeconds: e.elapsed_seconds,
           createdAt: e.created_at,
           deletedAt: e.deleted_at,
@@ -181,6 +203,7 @@ export function LiveScreen({
               ...p,
               team: row.team as Team,
               isGoalkeeper: row.is_goalkeeper,
+              fillerId: row.filler_id,
             };
           });
         for (const row of lineupRows) {
@@ -190,6 +213,7 @@ export function LiveScreen({
               next.push({
                 lineupId: row.id,
                 userId: "",
+                fillerId: row.filler_id,
                 nickname: row.display_name ?? "Gost",
                 team: row.team as Team,
                 isGoalkeeper: row.is_goalkeeper,
@@ -200,6 +224,7 @@ export function LiveScreen({
               next.push({
                 lineupId: row.id,
                 userId: row.user_id,
+                fillerId: null,
                 nickname: known?.nickname ?? "?",
                 team: row.team as Team,
                 isGoalkeeper: row.is_goalkeeper,
@@ -256,10 +281,27 @@ export function LiveScreen({
   const goals = activeEvents.filter((e) => e.type === "goal" || e.type === "own_goal");
   const scoreA = goals.filter((e) => e.team === "A").length;
   const scoreB = goals.filter((e) => e.team === "B").length;
-  const playerGoals = (userId: string) =>
-    activeEvents.filter((e) => e.type === "goal" && e.scorerId === userId).length;
-  const nicknameOf = (userId: string | null) =>
-    lineup.find((p) => p.userId === userId)?.nickname ?? "?";
+  const playerGoals = (p: LineupPlayer) =>
+    activeEvents.filter((e) => {
+      if (e.type !== "goal") return false;
+      if (p.isGuest) return e.scorerFillerId === p.fillerId;
+      return e.scorerId === p.userId;
+    }).length;
+  const eventScorerName = (e: LiveEvent) => {
+    if (e.scorerFillerId) {
+      return lineup.find((p) => p.fillerId === e.scorerFillerId)?.nickname ?? "?";
+    }
+    return lineup.find((p) => p.userId === e.scorerId)?.nickname ?? "?";
+  };
+  const eventAssistName = (e: LiveEvent) => {
+    if (e.assistFillerId) {
+      return lineup.find((p) => p.fillerId === e.assistFillerId)?.nickname ?? "?";
+    }
+    if (e.assistId) {
+      return lineup.find((p) => p.userId === e.assistId)?.nickname ?? "?";
+    }
+    return null;
+  };
   const teamA = lineup.filter((p) => p.team === "A");
   const teamB = lineup.filter((p) => p.team === "B");
 
@@ -288,10 +330,12 @@ export function LiveScreen({
   }
 
   async function recordPlayerGoal(player: LineupPlayer, confirmed = false) {
+    const ref = playerRef(player);
+    if (!ref) return;
     setError(null);
     setBusy(true);
     const elapsed = currentElapsed();
-    const result = await recordGoal(terminId, player.userId, player.team, elapsed, confirmed);
+    const result = await recordGoal(terminId, ref, player.team, elapsed, confirmed);
     setBusy(false);
     if ("error" in result) {
       setError(result.error);
@@ -306,16 +350,21 @@ export function LiveScreen({
       scorer: player.nickname,
       elapsed,
       teammates: lineup
-        .filter((p) => p.team === player.team && p.userId !== player.userId)
-        .map((p) => ({ userId: p.userId, nickname: p.nickname })),
+        .filter((p) => p.team === player.team && !samePlayer(p, player))
+        .flatMap((p) => {
+          const r = playerRef(p);
+          return r ? [{ ref: r, nickname: p.nickname }] : [];
+        }),
     });
     await refresh();
   }
 
   async function recordPlayerOwnGoal(player: LineupPlayer) {
+    const ref = playerRef(player);
+    if (!ref) return;
     setError(null);
     setBusy(true);
-    const result = await recordOwnGoal(terminId, player.userId, player.team, currentElapsed());
+    const result = await recordOwnGoal(terminId, ref, player.team, currentElapsed());
     setBusy(false);
     if ("error" in result) setError(result.error);
     await afterChange();
@@ -329,29 +378,39 @@ export function LiveScreen({
     await afterChange();
   }
 
-  async function selectAssistant(assistantId: string | null) {
+  async function selectAssistant(assistant: EventPlayerRef | null) {
     if (!pendingAssist) return;
     const id = pendingAssist.eventId;
     setPendingAssist(null);
     setBusy(true);
-    const result = await addAssist(terminId, id, assistantId);
+    const result = await addAssist(terminId, id, assistant);
     setBusy(false);
     if ("error" in result) setError(result.error);
     await afterChange();
   }
 
   function openAssistFromTimeline(event: LiveEvent) {
-    if (!canEditAssist || event.type !== "goal" || !event.scorerId) return;
-    const scorer = lineup.find((p) => p.userId === event.scorerId);
+    if (!canEditAssist || event.type !== "goal") return;
+    const scorer = event.scorerFillerId
+      ? lineup.find((p) => p.fillerId === event.scorerFillerId)
+      : lineup.find((p) => p.userId === event.scorerId);
     if (!scorer) return;
+    const currentAssist: EventPlayerRef | null = event.assistFillerId
+      ? { kind: "filler", id: event.assistFillerId }
+      : event.assistId
+        ? { kind: "user", id: event.assistId }
+        : null;
     setPendingAssist({
       eventId: event.id,
       scorer: scorer.nickname,
       elapsed: event.elapsedSeconds,
       teammates: lineup
-        .filter((p) => p.team === scorer.team && p.userId !== scorer.userId)
-        .map((p) => ({ userId: p.userId, nickname: p.nickname })),
-      currentAssistId: event.assistId,
+        .filter((p) => p.team === scorer.team && !samePlayer(p, scorer))
+        .flatMap((p) => {
+          const r = playerRef(p);
+          return r ? [{ ref: r, nickname: p.nickname }] : [];
+        }),
+      currentAssist,
     });
   }
 
@@ -526,72 +585,36 @@ export function LiveScreen({
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="space-y-2">
-          {teamA.map((p) =>
-            p.isGuest ? (
-              <div
-                key={p.lineupId}
-                className={
-                  "rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm " +
-                  teamPanelClass(p.team)
-                }
-              >
-                <span className="font-medium">{p.nickname}</span>
-                <span className="ml-1 text-xs uppercase text-slate-400">· gost</span>
-                {p.isGoalkeeper && (
-                  <span className="ml-1 text-xs font-semibold uppercase text-emerald-800">
-                    · golman
-                  </span>
-                )}
-              </div>
-            ) : (
-              <PlayerButton
-                key={p.lineupId}
-                nickname={p.nickname}
-                goals={playerGoals(p.userId)}
-                team={p.team}
-                isGoalkeeper={p.isGoalkeeper}
-                canBeGoalkeeper={false}
-                disabled={locked}
-                onGoal={() => void recordPlayerGoal(p)}
-                onOwnGoal={() => void recordPlayerOwnGoal(p)}
-                onGoalkeeper={() => {}}
-              />
-            ),
-          )}
+          {teamA.map((p) => (
+            <PlayerButton
+              key={p.lineupId}
+              nickname={p.isGuest ? `${p.nickname} · gost` : p.nickname}
+              goals={playerGoals(p)}
+              team={p.team}
+              isGoalkeeper={p.isGoalkeeper}
+              canBeGoalkeeper={false}
+              disabled={locked}
+              onGoal={() => void recordPlayerGoal(p)}
+              onOwnGoal={() => void recordPlayerOwnGoal(p)}
+              onGoalkeeper={() => {}}
+            />
+          ))}
         </div>
         <div className="space-y-2">
-          {teamB.map((p) =>
-            p.isGuest ? (
-              <div
-                key={p.lineupId}
-                className={
-                  "rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm " +
-                  teamPanelClass(p.team)
-                }
-              >
-                <span className="font-medium">{p.nickname}</span>
-                <span className="ml-1 text-xs uppercase text-slate-400">· gost</span>
-                {p.isGoalkeeper && (
-                  <span className="ml-1 text-xs font-semibold uppercase text-emerald-800">
-                    · golman
-                  </span>
-                )}
-              </div>
-            ) : (
-              <PlayerButton
-                key={p.lineupId}
-                nickname={p.nickname}
-                goals={playerGoals(p.userId)}
-                team={p.team}
-                isGoalkeeper={p.isGoalkeeper}
-                canBeGoalkeeper={false}
-                disabled={locked}
-                onGoal={() => void recordPlayerGoal(p)}
-                onOwnGoal={() => void recordPlayerOwnGoal(p)}
-                onGoalkeeper={() => {}}
-              />
-            ),
-          )}
+          {teamB.map((p) => (
+            <PlayerButton
+              key={p.lineupId}
+              nickname={p.isGuest ? `${p.nickname} · gost` : p.nickname}
+              goals={playerGoals(p)}
+              team={p.team}
+              isGoalkeeper={p.isGoalkeeper}
+              canBeGoalkeeper={false}
+              disabled={locked}
+              onGoal={() => void recordPlayerGoal(p)}
+              onOwnGoal={() => void recordPlayerOwnGoal(p)}
+              onGoalkeeper={() => {}}
+            />
+          ))}
         </div>
       </div>
 
@@ -628,9 +651,9 @@ export function LiveScreen({
                     className="min-w-0 flex-1 rounded text-left transition active:scale-[0.99] disabled:opacity-40"
                     title="Dodaj ili izmijeni asistenciju"
                   >
-                    ⚽ <span className="font-medium">{nicknameOf(e.scorerId)}</span>
-                    {e.assistId ? (
-                      <span className="text-slate-500"> ({nicknameOf(e.assistId)})</span>
+                    ⚽ <span className="font-medium">{eventScorerName(e)}</span>
+                    {eventAssistName(e) ? (
+                      <span className="text-slate-500"> ({eventAssistName(e)})</span>
                     ) : (
                       <span className="text-slate-400"> · asistent?</span>
                     )}
@@ -639,21 +662,21 @@ export function LiveScreen({
                   <span className="min-w-0 flex-1">
                     {e.type === "goal" && (
                       <>
-                        ⚽ <span className="font-medium">{nicknameOf(e.scorerId)}</span>
-                        {e.assistId && (
-                          <span className="text-slate-500"> ({nicknameOf(e.assistId)})</span>
+                        ⚽ <span className="font-medium">{eventScorerName(e)}</span>
+                        {eventAssistName(e) && (
+                          <span className="text-slate-500"> ({eventAssistName(e)})</span>
                         )}
                       </>
                     )}
                     {e.type === "own_goal" && (
                       <>
-                        🥅 <span className="font-medium">{nicknameOf(e.scorerId)}</span>
+                        🥅 <span className="font-medium">{eventScorerName(e)}</span>
                         <span className="text-slate-500"> — autogol</span>
                       </>
                     )}
                     {e.type === "keeper_change" && (
                       <>
-                        🧤 <span className="font-medium">{nicknameOf(e.scorerId)}</span>
+                        🧤 <span className="font-medium">{eventScorerName(e)}</span>
                         <span className="text-slate-500"> ide u gol</span>
                       </>
                     )}

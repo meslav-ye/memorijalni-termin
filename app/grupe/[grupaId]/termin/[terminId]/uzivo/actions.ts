@@ -25,6 +25,24 @@ export type GoalActionResult =
   | { possibleDuplicate: { secondsBefore: number } }
   | { error: string };
 
+/** Registered player or popunjač — never both. */
+export type EventPlayerRef =
+  | { kind: "user"; id: string }
+  | { kind: "filler"; id: string };
+
+function scorerColumns(ref: EventPlayerRef) {
+  return ref.kind === "user"
+    ? { scorer_id: ref.id, scorer_filler_id: null as string | null }
+    : { scorer_id: null as string | null, scorer_filler_id: ref.id };
+}
+
+function assistColumns(ref: EventPlayerRef | null) {
+  if (!ref) return { assist_id: null as string | null, assist_filler_id: null as string | null };
+  return ref.kind === "user"
+    ? { assist_id: ref.id, assist_filler_id: null as string | null }
+    : { assist_id: null as string | null, assist_filler_id: ref.id };
+}
+
 /** Whether the signed-in user may touch this session (any game's lineup). */
 async function requireLineupAccess(matchId: string) {
   const supabase = await createClient();
@@ -161,7 +179,7 @@ export async function resumeMatch(matchId: string): Promise<ActionResult> {
 
 export async function recordGoal(
   matchId: string,
-  scorerId: string,
+  scorer: EventPlayerRef,
   team: Team,
   elapsed: number,
   confirmedDuplicate = false,
@@ -169,7 +187,7 @@ export async function recordGoal(
   const open = await requireOpenGame(matchId);
   if ("error" in open) return { error: "Golove unosi netko tko je u postavi." };
 
-  if (!confirmedDuplicate) {
+  if (!confirmedDuplicate && scorer.kind === "user") {
     const since = new Date(Date.now() - DUPLICATE_WINDOW_SECONDS * 1000).toISOString();
 
     const { data: recent } = await open.supabase
@@ -177,7 +195,7 @@ export async function recordGoal(
       .select("id, type, scorer_id, created_at, deleted_at")
       .eq("game_id", open.game.id)
       .eq("type", "goal")
-      .eq("scorer_id", scorerId)
+      .eq("scorer_id", scorer.id)
       .is("deleted_at", null)
       .gte("created_at", since);
 
@@ -189,7 +207,7 @@ export async function recordGoal(
         createdAt: e.created_at,
         deletedAt: e.deleted_at,
       })),
-      scorerId,
+      scorer.id,
       new Date(),
     );
 
@@ -198,6 +216,52 @@ export async function recordGoal(
     }
   }
 
+  if (!confirmedDuplicate && scorer.kind === "filler") {
+    const since = new Date(Date.now() - DUPLICATE_WINDOW_SECONDS * 1000).toISOString();
+    const { data: recent } = await open.supabase
+      .from("match_events")
+      .select("id, created_at")
+      .eq("game_id", open.game.id)
+      .eq("type", "goal")
+      .eq("scorer_filler_id", scorer.id)
+      .is("deleted_at", null)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (recent) {
+      const secondsBefore = Math.max(
+        0,
+        Math.round((Date.now() - new Date(recent.created_at).getTime()) / 1000),
+      );
+      return { possibleDuplicate: { secondsBefore } };
+    }
+  }
+
+  // Ensure scorer is on this game's lineup for that team.
+  let lineupOk = false;
+  if (scorer.kind === "user") {
+    const { data } = await open.supabase
+      .from("match_lineup")
+      .select("user_id")
+      .eq("game_id", open.game.id)
+      .eq("user_id", scorer.id)
+      .eq("team", team)
+      .maybeSingle();
+    lineupOk = Boolean(data);
+  } else {
+    const { data } = await open.supabase
+      .from("match_lineup")
+      .select("filler_id")
+      .eq("game_id", open.game.id)
+      .eq("filler_id", scorer.id)
+      .eq("team", team)
+      .eq("is_guest", true)
+      .maybeSingle();
+    lineupOk = Boolean(data);
+  }
+  if (!lineupOk) return { error: "Igrač nije u postavi te ekipe." };
+
   const { data, error } = await open.supabase
     .from("match_events")
     .insert({
@@ -205,8 +269,9 @@ export async function recordGoal(
       game_id: open.game.id,
       type: "goal",
       team,
-      scorer_id: scorerId,
+      ...scorerColumns(scorer),
       assist_id: null,
+      assist_filler_id: null,
       elapsed_seconds: elapsed,
       created_by: open.user.id,
     })
@@ -222,7 +287,7 @@ export async function recordGoal(
 export async function addAssist(
   matchId: string,
   eventId: string,
-  assistId: string | null,
+  assist: EventPlayerRef | null,
 ): Promise<ActionResult> {
   const supabase = await createClient();
   const {
@@ -232,7 +297,7 @@ export async function addAssist(
 
   const { data: event } = await supabase
     .from("match_events")
-    .select("id, match_id, game_id, type, team, scorer_id, deleted_at")
+    .select("id, match_id, game_id, type, team, scorer_id, scorer_filler_id, deleted_at")
     .eq("id", eventId)
     .eq("match_id", matchId)
     .maybeSingle();
@@ -265,24 +330,42 @@ export async function addAssist(
     return { error: "Termin nije aktivan." };
   }
 
-  if (assistId !== null) {
-    if (assistId === event.scorer_id) {
+  if (assist !== null) {
+    if (
+      (assist.kind === "user" && assist.id === event.scorer_id) ||
+      (assist.kind === "filler" && assist.id === event.scorer_filler_id)
+    ) {
       return { error: "Asistent ne može biti strijelac." };
     }
     if (!event.team) return { error: "Gol nema ekipu." };
-    const { data: mate } = await supabase
-      .from("match_lineup")
-      .select("user_id")
-      .eq("game_id", event.game_id)
-      .eq("user_id", assistId)
-      .eq("team", event.team)
-      .maybeSingle();
-    if (!mate) return { error: "Asistent mora biti suigrač iz ekipe." };
+
+    let mateOk = false;
+    if (assist.kind === "user") {
+      const { data: mate } = await supabase
+        .from("match_lineup")
+        .select("user_id")
+        .eq("game_id", event.game_id)
+        .eq("user_id", assist.id)
+        .eq("team", event.team)
+        .maybeSingle();
+      mateOk = Boolean(mate);
+    } else {
+      const { data: mate } = await supabase
+        .from("match_lineup")
+        .select("filler_id")
+        .eq("game_id", event.game_id)
+        .eq("filler_id", assist.id)
+        .eq("team", event.team)
+        .eq("is_guest", true)
+        .maybeSingle();
+      mateOk = Boolean(mate);
+    }
+    if (!mateOk) return { error: "Asistent mora biti suigrač iz ekipe." };
   }
 
   const { error } = await supabase
     .from("match_events")
-    .update({ assist_id: assistId })
+    .update(assistColumns(assist))
     .eq("id", eventId);
 
   if (error) {
@@ -304,19 +387,42 @@ export async function addAssist(
 
 export async function recordOwnGoal(
   matchId: string,
-  playerId: string,
+  player: EventPlayerRef,
   theirTeam: Team,
   elapsed: number,
 ): Promise<ActionResult> {
   const open = await requireOpenGame(matchId);
   if ("error" in open) return { error: "Nemaš pravo." };
 
+  let lineupOk = false;
+  if (player.kind === "user") {
+    const { data } = await open.supabase
+      .from("match_lineup")
+      .select("user_id")
+      .eq("game_id", open.game.id)
+      .eq("user_id", player.id)
+      .eq("team", theirTeam)
+      .maybeSingle();
+    lineupOk = Boolean(data);
+  } else {
+    const { data } = await open.supabase
+      .from("match_lineup")
+      .select("filler_id")
+      .eq("game_id", open.game.id)
+      .eq("filler_id", player.id)
+      .eq("team", theirTeam)
+      .eq("is_guest", true)
+      .maybeSingle();
+    lineupOk = Boolean(data);
+  }
+  if (!lineupOk) return { error: "Igrač nije u postavi te ekipe." };
+
   const { error } = await open.supabase.from("match_events").insert({
     match_id: matchId,
     game_id: open.game.id,
     type: "own_goal",
     team: theirTeam === "A" ? "B" : "A",
-    scorer_id: playerId,
+    ...scorerColumns(player),
     elapsed_seconds: elapsed,
     created_by: open.user.id,
   });

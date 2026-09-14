@@ -2,23 +2,37 @@
 
 import { useEffect } from "react";
 import { formatClock } from "@/lib/domain/timer";
+import type { EventPlayerRef } from "@/app/grupe/[grupaId]/termin/[terminId]/uzivo/actions";
 
 /** After this long with no interaction the strip closes itself, without an assist. */
 const AUTO_CLOSE_MS = 8000;
+
+export type AssistTeammate = {
+  ref: EventPlayerRef;
+  nickname: string;
+};
 
 export type PendingAssist = {
   eventId: string;
   scorer: string;
   elapsed: number;
-  teammates: { userId: string; nickname: string }[];
+  teammates: AssistTeammate[];
   /** When editing from the timeline, show which assist is already set. */
-  currentAssistId?: string | null;
+  currentAssist?: EventPlayerRef | null;
 };
+
+function sameRef(a: EventPlayerRef | null | undefined, b: EventPlayerRef): boolean {
+  return Boolean(a && a.kind === b.kind && a.id === b.id);
+}
+
+function refKey(ref: EventPlayerRef): string {
+  return `${ref.kind}:${ref.id}`;
+}
 
 /**
  * Bottom strip for picking an assist after a goal (or from the timeline).
  *
- * The goal is already in the DB — this only updates assist_id. Closing or
+ * The goal is already in the DB — this only updates assist. Closing or
  * timing out does not delete the goal; undo lives on the timeline row.
  */
 export function AssistStrip({
@@ -28,7 +42,7 @@ export function AssistStrip({
   onExpire,
 }: {
   pending: PendingAssist;
-  onSelect: (assistantId: string | null) => void;
+  onSelect: (assistant: EventPlayerRef | null) => void;
   onDismiss: () => void;
   onExpire: () => void;
 }) {
@@ -64,12 +78,12 @@ export function AssistStrip({
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {pending.teammates.map((s) => (
             <button
-              key={s.userId}
+              key={refKey(s.ref)}
               type="button"
-              onClick={() => onSelect(s.userId)}
+              onClick={() => onSelect(s.ref)}
               className={
                 "h-12 shrink-0 rounded-lg px-4 text-sm font-bold uppercase transition active:scale-95 " +
-                (pending.currentAssistId === s.userId
+                (sameRef(pending.currentAssist, s.ref)
                   ? "bg-emerald-300 text-slate-900"
                   : "bg-white text-slate-900")
               }
@@ -82,7 +96,7 @@ export function AssistStrip({
             onClick={() => onSelect(null)}
             className={
               "h-12 shrink-0 rounded-lg border px-4 text-sm font-bold uppercase transition active:scale-95 " +
-              (pending.currentAssistId == null
+              (pending.currentAssist == null
                 ? "border-slate-300 bg-slate-600 text-white"
                 : "border-slate-500 text-slate-300")
             }

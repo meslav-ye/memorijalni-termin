@@ -55,11 +55,13 @@ export default async function SummaryPage({
   const [{ data: lineup }, { data: events }, { data: history }] = await Promise.all([
     supabase
       .from("match_lineup")
-      .select("game_id, id, user_id, team, is_goalkeeper, display_name, is_guest")
+      .select("game_id, id, user_id, filler_id, team, is_goalkeeper, display_name, is_guest")
       .in("game_id", gameIds.length ? gameIds : ["-"]),
     supabase
       .from("match_events")
-      .select("id, game_id, type, team, scorer_id, assist_id, elapsed_seconds, deleted_at")
+      .select(
+        "id, game_id, type, team, scorer_id, scorer_filler_id, assist_id, assist_filler_id, elapsed_seconds, deleted_at",
+      )
       .in("game_id", gameIds.length ? gameIds : ["-"])
       .is("deleted_at", null)
       .in("type", ["goal", "own_goal", "keeper_change"])
@@ -94,6 +96,12 @@ export default async function SummaryPage({
 
   const nicknameMap = Object.fromEntries(
     (profiles ?? []).map((p) => [p.id, p.nickname || "?"]),
+  );
+
+  const fillerNameMap = Object.fromEntries(
+    (lineup ?? [])
+      .filter((p) => p.is_guest && p.filler_id)
+      .map((p) => [p.filler_id!, p.display_name ?? "Gost"]),
   );
 
   const activityByUser = new Map(
@@ -150,15 +158,20 @@ export default async function SummaryPage({
 
     const players = gameLineup.map((p) => {
       if (p.is_guest || !p.user_id) {
+        const fillerId = p.filler_id;
         return {
           lineupId: p.id,
           userId: null,
           nickname: p.display_name ?? "Gost",
           isGuest: true,
           team: p.team as Team,
-          goals: 0,
-          assists: 0,
-          ownGoals: 0,
+          goals: goals.filter(
+            (e) => e.type === "goal" && e.scorer_filler_id === fillerId,
+          ).length,
+          assists: goals.filter((e) => e.assist_filler_id === fillerId).length,
+          ownGoals: goals.filter(
+            (e) => e.type === "own_goal" && e.scorer_filler_id === fillerId,
+          ).length,
           delta: null,
           eloDelta: null,
           contribution: 0,
@@ -366,19 +379,26 @@ export default async function SummaryPage({
                 terminId={terminId}
                 canEditAssists={admin && withinAssistEditWindow(b.game.ended_at)}
                 nicknames={nicknameMap}
+                fillerNames={fillerNameMap}
                 lineup={(lineup ?? [])
-                  .filter((p) => p.game_id === b.game.id && p.user_id && !p.is_guest)
+                  .filter((p) => p.game_id === b.game.id)
                   .map((p) => ({
-                    userId: p.user_id!,
-                    nickname: nicknameOf(p.user_id),
+                    userId: p.user_id,
+                    fillerId: p.filler_id,
+                    nickname: p.is_guest
+                      ? (p.display_name ?? "Gost")
+                      : nicknameOf(p.user_id),
                     team: p.team as Team,
+                    isGuest: p.is_guest,
                   }))}
                 goals={b.goals.map((e) => ({
                   id: e.id,
                   type: e.type as "goal" | "own_goal",
                   team: e.team as Team | null,
                   scorerId: e.scorer_id,
+                  scorerFillerId: e.scorer_filler_id,
                   assistId: e.assist_id,
+                  assistFillerId: e.assist_filler_id,
                   elapsedSeconds: e.elapsed_seconds,
                 }))}
               />
@@ -480,8 +500,7 @@ function TeamColumn({
                 <span className="ml-1 text-xs font-normal uppercase text-slate-400">· gost</span>
               )}
             </p>
-            {!i.isGuest &&
-              (i.goals > 0 || i.assists > 0 || i.ownGoals > 0 || i.delta !== null) && (
+            {(i.goals > 0 || i.assists > 0 || i.ownGoals > 0 || (!i.isGuest && i.delta !== null)) && (
               <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 {i.goals > 0 && <span className="text-slate-500">⚽{i.goals}</span>}
                 {i.assists > 0 && <span className="text-slate-400">🅰{i.assists}</span>}

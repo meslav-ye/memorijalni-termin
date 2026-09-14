@@ -22,7 +22,8 @@ Admin može dodati neregistrirane igrače („popunjači") na termin. Broje se u
 | Ekipe | Premještaj, golman (bez provjere profila) |
 | Predloži ekipe | Popunjači se zadržavaju |
 | Sljedeća utakmica | `copyLineup` kopira popunjače |
-| Golovi / rating | Samo registrirani igrači |
+| Golovi / asistencije | Da — ulaze u rezultat i kronologiju (`scorer_filler_id` / `assist_filler_id`) |
+| Statistika / rating | Ne — samo registrirani `user_id` |
 
 ## UI
 

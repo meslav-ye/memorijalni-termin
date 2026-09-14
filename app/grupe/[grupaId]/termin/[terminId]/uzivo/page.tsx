@@ -37,7 +37,7 @@ export default async function LivePage({
 
   const { data: lineupRows } = await supabase
     .from("match_lineup")
-    .select("id, user_id, team, is_goalkeeper, display_name, is_guest")
+    .select("id, user_id, filler_id, team, is_goalkeeper, display_name, is_guest")
     .eq("game_id", game.id);
 
   const registeredRows = (lineupRows ?? []).filter((p) => p.user_id && !p.is_guest);
@@ -64,6 +64,7 @@ export default async function LivePage({
       return {
         lineupId: p.id,
         userId: "",
+        fillerId: p.filler_id,
         nickname: p.display_name ?? "Gost",
         team: p.team as Team,
         isGoalkeeper: p.is_goalkeeper,
@@ -75,6 +76,7 @@ export default async function LivePage({
     return {
       lineupId: p.id,
       userId,
+      fillerId: null,
       nickname: labels.get(userId) ?? "?",
       team: p.team as Team,
       isGoalkeeper: p.is_goalkeeper,
@@ -85,7 +87,9 @@ export default async function LivePage({
 
   const { data: eventRows } = await supabase
     .from("match_events")
-    .select("id, type, team, scorer_id, assist_id, elapsed_seconds, created_at, deleted_at")
+    .select(
+      "id, type, team, scorer_id, scorer_filler_id, assist_id, assist_filler_id, elapsed_seconds, created_at, deleted_at",
+    )
     .eq("game_id", game.id)
     .order("created_at", { ascending: false });
 
@@ -94,7 +98,9 @@ export default async function LivePage({
     type: e.type,
     team: e.team as Team | null,
     scorerId: e.scorer_id,
+    scorerFillerId: e.scorer_filler_id,
     assistId: e.assist_id,
+    assistFillerId: e.assist_filler_id,
     elapsedSeconds: e.elapsed_seconds,
     createdAt: e.created_at,
     deletedAt: e.deleted_at,
