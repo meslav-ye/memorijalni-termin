@@ -43,12 +43,13 @@ Any player who was in goal counts (not limited to profile “Igram golmana”).
 
 | Conceded | Keeper points |
 |---|---|
-| 0–2 | +2 |
-| 3–4 | +1 |
-| 5–6 | 0 |
-| 7–9 | −1 |
-| 10–12 | −2 |
-| 13+ | −3 |
+| 0–2 | +3 |
+| 3–4 | +2 |
+| 5–6 | +1 |
+| 7–9 | 0 |
+| 10–12 | −1 |
+| 13–15 | −2 |
+| 16+ | −3 |
 
 If the player never stood in goal that game → 0 from the keeper component.
 

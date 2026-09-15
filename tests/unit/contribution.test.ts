@@ -48,18 +48,20 @@ const keeperChange = (team: Team, newKeeperId: string, elapsed: number) => ({
 });
 
 describe("keeperConcededPoints", () => {
-  it("rewards few conceded, zero mid band, then penalties", () => {
-    expect(keeperConcededPoints(0)).toBe(2);
-    expect(keeperConcededPoints(2)).toBe(2);
-    expect(keeperConcededPoints(3)).toBe(1);
-    expect(keeperConcededPoints(4)).toBe(1);
-    expect(keeperConcededPoints(5)).toBe(0);
-    expect(keeperConcededPoints(6)).toBe(0);
-    expect(keeperConcededPoints(7)).toBe(-1);
-    expect(keeperConcededPoints(9)).toBe(-1);
-    expect(keeperConcededPoints(10)).toBe(-2);
-    expect(keeperConcededPoints(12)).toBe(-2);
-    expect(keeperConcededPoints(13)).toBe(-3);
+  it("rewards few conceded, softens mid band, then penalties to −3", () => {
+    expect(keeperConcededPoints(0)).toBe(3);
+    expect(keeperConcededPoints(2)).toBe(3);
+    expect(keeperConcededPoints(3)).toBe(2);
+    expect(keeperConcededPoints(4)).toBe(2);
+    expect(keeperConcededPoints(5)).toBe(1);
+    expect(keeperConcededPoints(6)).toBe(1);
+    expect(keeperConcededPoints(7)).toBe(0);
+    expect(keeperConcededPoints(9)).toBe(0);
+    expect(keeperConcededPoints(10)).toBe(-1);
+    expect(keeperConcededPoints(12)).toBe(-1);
+    expect(keeperConcededPoints(13)).toBe(-2);
+    expect(keeperConcededPoints(15)).toBe(-2);
+    expect(keeperConcededPoints(16)).toBe(-3);
     expect(keeperConcededPoints(20)).toBe(-3);
   });
 });
@@ -77,9 +79,9 @@ describe("computeContributions", () => {
     });
     expect(byId.get("a2")?.raw).toBe(2);
     expect(byId.get("a2")?.goalPoints).toBe(2);
-    expect(byId.get("a1")?.raw).toBe(1 + 2); // assist + keeper 0 conceded → +2
+    expect(byId.get("a1")?.raw).toBe(1 + 3); // assist + keeper 0 conceded → +3
     expect(byId.get("a1")?.assistPoints).toBe(1);
-    expect(byId.get("a1")?.keeperPoints).toBe(2);
+    expect(byId.get("a1")?.keeperPoints).toBe(3);
     expect(byId.get("a2")?.clamped).toBe(2);
   });
 
@@ -116,9 +118,9 @@ describe("computeContributions", () => {
       ]),
       events: [ownGoal("B", "a1", 5)], // A put it in own net → B credited
     });
-    // a1: OG -1 + keeper conceded 1 → band +2 → raw +1
-    expect(byId.get("a1")?.raw).toBe(-1 + 2);
-    expect(byId.get("b1")?.raw).toBe(2); // 0 conceded
+    // a1: OG -1 + keeper conceded 1 → band +3 → raw +2
+    expect(byId.get("a1")?.raw).toBe(-1 + 3);
+    expect(byId.get("b1")?.raw).toBe(3); // 0 conceded
   });
 
   it("ignores deleted events", () => {
@@ -134,7 +136,7 @@ describe("computeContributions", () => {
         },
       ],
     });
-    expect(byId.get("a1")?.raw).toBe(2); // keeper only
+    expect(byId.get("a1")?.raw).toBe(3); // keeper only
   });
 
   it("splits conceded across keeper changes", () => {
@@ -157,8 +159,8 @@ describe("computeContributions", () => {
     expect(byId.get("a1")?.conceded).toBe(2);
     expect(byId.get("a2")?.conceded).toBe(2);
     // both stood in goal → keeper band only (no team penalty)
-    expect(byId.get("a1")?.raw).toBe(2);
-    expect(byId.get("a2")?.raw).toBe(2);
+    expect(byId.get("a1")?.raw).toBe(3);
+    expect(byId.get("a2")?.raw).toBe(3);
   });
 
   it("awards +2 per goal for the first four, then +1", () => {
@@ -217,7 +219,7 @@ describe("computeContributions", () => {
       events: four,
     });
     expect(at4.get("a2")?.raw).toBe(-1);
-    expect(at4.get("a1")?.raw).toBe(1); // keeper band +1 (3–4) only
+    expect(at4.get("a1")?.raw).toBe(2); // keeper band +2 (3–4) only
 
     const eight = Array.from({ length: 8 }, (_, i) => goal("B", "b1", i + 1));
     const at8 = computeContributions({
@@ -229,7 +231,7 @@ describe("computeContributions", () => {
       events: eight,
     });
     expect(at8.get("a2")?.raw).toBe(-2);
-    expect(at8.get("a1")?.raw).toBe(-1); // keeper −1 (7–9) only
+    expect(at8.get("a1")?.raw).toBe(0); // keeper 0 (7–9) only
   });
 
   it("caps team conceded penalty at −3", () => {
@@ -243,7 +245,7 @@ describe("computeContributions", () => {
       events,
     });
     expect(byId.get("a2")?.raw).toBe(-3);
-    expect(byId.get("a1")?.raw).toBe(-3); // keeper band only
+    expect(byId.get("a1")?.raw).toBe(-3); // keeper 16+ band
   });
 
   it("gives no team penalty below 4 conceded", () => {
@@ -257,6 +259,6 @@ describe("computeContributions", () => {
       events,
     });
     expect(byId.get("a2")?.raw).toBe(0);
-    expect(byId.get("a1")?.raw).toBe(1); // keeper 3–4 band
+    expect(byId.get("a1")?.raw).toBe(2); // keeper 3–4 band
   });
 });

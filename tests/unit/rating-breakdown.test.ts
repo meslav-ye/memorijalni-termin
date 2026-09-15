@@ -96,18 +96,18 @@ describe("ratingBreakdownLines", () => {
     expect(
       ratingBreakdownLines({
         eloDelta: -4,
-        delta: -2,
+        delta: -1,
         contrib: row({
           conceded: 1,
-          keeperPoints: 2,
-          raw: 2,
-          clamped: 2,
+          keeperPoints: 3,
+          raw: 3,
+          clamped: 3,
         }),
       }),
     ).toEqual([
       { label: "Timski Elo", points: -4 },
-      { label: "Golman (primljeno 1)", points: 2 },
-      { label: "Ukupno", points: -2 },
+      { label: "Golman (primljeno 1)", points: 3 },
+      { label: "Ukupno", points: -1 },
     ]);
   });
 });

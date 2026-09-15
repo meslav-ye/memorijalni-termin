@@ -307,13 +307,14 @@ export default async function SummaryPage({
                 </li>
                 <li>
                   <strong>Golman</strong> — bodovi po broju primljenih dok je na
-                  golu (uključujući zamjene): 0–2 → +2, 3–4 → +1, 5–6 → 0, 7–9 →
-                  −1, 10–12 → −2, 13+ → −3. Ne ulazi u timsku kaznu ispod.
+                  golu (uključujući zamjene): 0–2 → +3, 3–4 → +2, 5–6 → +1, 7–9 →
+                  0, 10–12 → −1, 13–15 → −2, 16+ → −3. Ne ulazi u „Obrana ekipe“
+                  ispod.
                 </li>
                 <li>
-                  <strong>Ostali u ekipi</strong> — −⌊primljenih / 4⌋, najviše
-                  −3 (4–7 → −1, 8–11 → −2, 12+ → −3), da se „samo napad“ i
-                  propusna obrana osjeti i kod igrača iz polja.
+                  <strong>Obrana ekipe</strong> — −⌊primljenih / 4⌋, najviše
+                  −3 (4–7 → −1, 8–11 → −2, 12+ → −3), samo za igrače iz polja
+                  (ne golmana), da se „samo napad“ i propusna obrana osjeti.
                 </li>
               </ul>
             </div>

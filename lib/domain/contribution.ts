@@ -56,11 +56,12 @@ function opposite(team: Team): Team {
  * Soft bands — recreational matches often see many goals.
  */
 export function keeperConcededPoints(conceded: number): number {
-  if (conceded <= 2) return 2;
-  if (conceded <= 4) return 1;
-  if (conceded <= 6) return 0;
-  if (conceded <= 9) return -1;
-  if (conceded <= 12) return -2;
+  if (conceded <= 2) return 3;
+  if (conceded <= 4) return 2;
+  if (conceded <= 6) return 1;
+  if (conceded <= 9) return 0;
+  if (conceded <= 12) return -1;
+  if (conceded <= 15) return -2;
   return -3;
 }
 
