@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, unlink } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
@@ -38,14 +38,6 @@ async function main() {
   await writeFile(path.join(iconsDir, "icon-maskable-512.png"), maskable);
   await writeFile(path.join(iconsDir, "apple-touch-icon.png"), apple);
   await writeFile(path.join(root, "app/icon.png"), icon192);
-
-  const oldLogo = path.join(root, "public/logo.png");
-  try {
-    await unlink(oldLogo);
-    console.log("removed public/logo.png");
-  } catch (e) {
-    if (e && e.code !== "ENOENT") throw e;
-  }
 
   console.log("wrote public/icons/* and app/icon.png");
 }

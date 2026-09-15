@@ -1,4 +1,4 @@
--- Test podaci za LOKALNI razvoj i Playwright.
+-- Test podaci za LOKALNI razvoj.
 -- NE izvrsava se na produkciji — `supabase db push` salje samo migracije.
 --
 -- Lozinka za SVE korisnike: test1234
