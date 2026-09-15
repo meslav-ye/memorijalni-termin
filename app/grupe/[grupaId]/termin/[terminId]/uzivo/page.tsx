@@ -46,7 +46,7 @@ export default async function LivePage({
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, nickname, full_name, is_goalkeeper")
+    .select("id, nickname, full_name")
     .in("id", inUuids(ids));
 
   const labels = disambiguateNicknames(
@@ -69,7 +69,6 @@ export default async function LivePage({
         nickname: p.display_name ?? "Gost",
         team: p.team as Team,
         isGoalkeeper: p.is_goalkeeper,
-        profileIsGoalkeeper: false,
         isGuest: true,
       };
     }
@@ -81,7 +80,6 @@ export default async function LivePage({
       nickname: labels.get(userId) ?? "?",
       team: p.team as Team,
       isGoalkeeper: p.is_goalkeeper,
-      profileIsGoalkeeper: profiles?.find((x) => x.id === userId)?.is_goalkeeper ?? false,
       isGuest: false,
     };
   });
