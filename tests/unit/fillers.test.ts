@@ -3,7 +3,6 @@ import {
   defaultGuestTeam,
   matchHeadcount,
   normalizeFillerName,
-  registeredLineupOnly,
   signupCapacity,
 } from "@/lib/domain/fillers";
 
@@ -28,16 +27,6 @@ describe("signupCapacity", () => {
 describe("matchHeadcount", () => {
   it("sums signups and fillers", () => {
     expect(matchHeadcount(8, 2)).toBe(10);
-  });
-});
-
-describe("registeredLineupOnly", () => {
-  it("drops guest rows", () => {
-    const rows = registeredLineupOnly([
-      { userId: "a1", team: "A", isGoalkeeper: false },
-      { userId: null, team: "B", isGoalkeeper: true, isGuest: true },
-    ]);
-    expect(rows).toEqual([{ userId: "a1", team: "A", isGoalkeeper: false }]);
   });
 });
 

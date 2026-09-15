@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { SeasonBar } from "@/components/group/SeasonBar";
 import { YouStrip } from "@/components/group/YouStrip";
-import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard } from "@/lib/data/leaderboard";
+import { latestSeason } from "@/lib/seasons";
 import { LeaderboardTable } from "./LeaderboardTable";
 
 export default async function LeaderboardPage({
@@ -65,7 +65,6 @@ export default async function LeaderboardPage({
     <div>
       <div className="mb-4">
         <SeasonBar
-          grupaId={grupaId}
           basePath={`/grupe/${grupaId}/ljestvica`}
           seasons={seasons}
           requestedSeason={requestedSeason}
@@ -196,18 +195,4 @@ export default async function LeaderboardPage({
       </section>
     </div>
   );
-}
-
-/** Id of the group's newest season, or null if there are none. */
-async function latestSeason(grupaId: string): Promise<string | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("seasons")
-    .select("id")
-    .eq("group_id", grupaId)
-    .order("name", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return data?.id ?? null;
 }

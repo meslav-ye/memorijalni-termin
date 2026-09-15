@@ -4,38 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureSeason } from "@/lib/seasons";
 
 export type GroupState = {
   error?: string;
   message?: string;
 };
-
-/** A season is a calendar year. Created lazily the first time it is needed. */
-async function ensureSeason(groupId: string, year: number) {
-  const admin = createAdminClient();
-
-  const { data: existing } = await admin
-    .from("seasons")
-    .select("id")
-    .eq("group_id", groupId)
-    .eq("name", String(year))
-    .maybeSingle();
-
-  if (existing) return existing.id;
-
-  const { data: created } = await admin
-    .from("seasons")
-    .insert({
-      group_id: groupId,
-      name: String(year),
-      starts_on: `${year}-01-01`,
-      ends_on: `${year}-12-31`,
-    })
-    .select("id")
-    .single();
-
-  return created?.id ?? null;
-}
 
 export async function createGroup(
   _previous: GroupState,

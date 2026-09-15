@@ -4,7 +4,6 @@ import { isSeasonChipActive } from "@/lib/domain/season-chips";
 type Season = { id: string; name: string };
 
 type Props = {
-  grupaId: string;
   /** Base path without query: `/grupe/${id}/ljestvica` or `.../statistika` */
   basePath: string;
   seasons: Season[];
@@ -13,7 +12,6 @@ type Props = {
 };
 
 export function SeasonBar({
-  grupaId: _grupaId,
   basePath,
   seasons,
   requestedSeason,

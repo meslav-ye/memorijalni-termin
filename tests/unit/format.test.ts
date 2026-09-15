@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   formatMatchDateTime,
   formatShortDate,
-  formatTimeOfDay,
   zagrebUIso,
   zagrebNowParts,
 } from "@/lib/format";
@@ -28,12 +27,6 @@ describe("formatMatchDateTime", () => {
 describe("formatShortDate", () => {
   it("daje samo datum", () => {
     expect(formatShortDate("2026-09-08T18:00:00.000Z")).toBe("08.09.2026.");
-  });
-});
-
-describe("formatTimeOfDay", () => {
-  it("daje samo sate i minute", () => {
-    expect(formatTimeOfDay("2026-09-08T18:00:00.000Z")).toBe("20:00");
   });
 });
 

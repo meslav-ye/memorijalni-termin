@@ -18,7 +18,7 @@ type BusyContextValue = {
 
 const BusyContext = createContext<BusyContextValue | null>(null);
 
-export function useBusy(): BusyContextValue {
+function useBusy(): BusyContextValue {
   const ctx = useContext(BusyContext);
   if (!ctx) {
     throw new Error("useBusy must be used within BusyProvider");

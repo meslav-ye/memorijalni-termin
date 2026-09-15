@@ -4,15 +4,15 @@ import type { Team } from "./types";
 export const CONTRIBUTION_CAP = 12;
 
 /** Points for each of the first GOAL_FULL_COUNT goals in a game. */
-export const GOAL_POINTS = 2;
+const GOAL_POINTS = 2;
 /** Points for the 5th goal onward in the same game. */
-export const GOAL_POINTS_AFTER_FULL = 1;
-export const GOAL_FULL_COUNT = 4;
-export const ASSIST_POINTS = 1;
-export const OWN_GOAL_POINTS = -1;
+const GOAL_POINTS_AFTER_FULL = 1;
+const GOAL_FULL_COUNT = 4;
+const ASSIST_POINTS = 1;
+const OWN_GOAL_POINTS = -1;
 /** Outfield only: −1 per this many goals the side conceded, capped. */
-export const TEAM_CONCEDED_STEP = 4;
-export const TEAM_CONCEDED_PENALTY_CAP = 3;
+const TEAM_CONCEDED_STEP = 4;
+const TEAM_CONCEDED_PENALTY_CAP = 3;
 
 export type ContributionEvent = {
   type: "goal" | "own_goal" | "keeper_change";
@@ -62,7 +62,7 @@ export function keeperConcededPoints(conceded: number): number {
  * Shared defensive stake for outfield players only — keepers already have
  * personal conceded bands. −⌊conceded / 4⌋, capped at −3.
  */
-export function teamConcededPoints(conceded: number): number {
+function teamConcededPoints(conceded: number): number {
   if (conceded < TEAM_CONCEDED_STEP) return 0;
   const steps = Math.floor(conceded / TEAM_CONCEDED_STEP);
   return -Math.min(TEAM_CONCEDED_PENALTY_CAP, steps);
@@ -100,7 +100,7 @@ function clamp(n: number): number {
 }
 
 /** Points for the Nth goal in a game (1-based). First four are full value. */
-export function goalPointsForOrdinal(goalNumber: number): number {
+function goalPointsForOrdinal(goalNumber: number): number {
   return goalNumber <= GOAL_FULL_COUNT ? GOAL_POINTS : GOAL_POINTS_AFTER_FULL;
 }
 

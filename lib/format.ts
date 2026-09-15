@@ -47,12 +47,6 @@ export function formatShortDate(iso: string): string {
   return dijelovi(iso).datum;
 }
 
-/** e.g. "20:00" */
-export function formatTimeOfDay(iso: string): string {
-  const { sat, minuta } = dijelovi(iso);
-  return `${sat}:${minuta}`;
-}
-
 /** Koliko je zagrebacko vrijeme pomaknuto od UTC-a u danom trenutku (ms). */
 function pomakZoneMs(trenutak: Date): number {
   const f = new Intl.DateTimeFormat("en-US", {
