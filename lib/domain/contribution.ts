@@ -39,6 +39,12 @@ export type ContributionRow = {
   assists: number;
   ownGoals: number;
   conceded: number;
+  /** Point fields — sum equals `raw`. */
+  goalPoints: number;
+  assistPoints: number;
+  ownGoalPoints: number;
+  keeperPoints: number;
+  teamConcededPoints: number;
 };
 
 function opposite(team: Team): Team {
@@ -126,6 +132,11 @@ export function computeContributions({
       assists: 0,
       ownGoals: 0,
       conceded: 0,
+      goalPoints: 0,
+      assistPoints: 0,
+      ownGoalPoints: 0,
+      keeperPoints: 0,
+      teamConcededPoints: 0,
     });
   }
 
@@ -135,16 +146,20 @@ export function computeContributions({
     if (e.type === "goal" && e.scorerId && byId.has(e.scorerId)) {
       const row = byId.get(e.scorerId)!;
       row.goals += 1;
-      row.raw += goalPointsForOrdinal(row.goals);
+      const pts = goalPointsForOrdinal(row.goals);
+      row.goalPoints += pts;
+      row.raw += pts;
     }
     if (e.type === "own_goal" && e.scorerId && byId.has(e.scorerId)) {
       const row = byId.get(e.scorerId)!;
       row.ownGoals += 1;
+      row.ownGoalPoints += OWN_GOAL_POINTS;
       row.raw += OWN_GOAL_POINTS;
     }
     if (e.type === "goal" && e.assistId && byId.has(e.assistId)) {
       const row = byId.get(e.assistId)!;
       row.assists += 1;
+      row.assistPoints += ASSIST_POINTS;
       row.raw += ASSIST_POINTS;
     }
   }
@@ -168,7 +183,9 @@ export function computeContributions({
   for (const userId of stoodInGoal) {
     const row = byId.get(userId);
     if (!row) continue;
-    row.raw += keeperConcededPoints(row.conceded);
+    const pts = keeperConcededPoints(row.conceded);
+    row.keeperPoints += pts;
+    row.raw += pts;
   }
 
   let concededA = 0;
@@ -186,7 +203,9 @@ export function computeContributions({
       if (stoodInGoal.has(p.userId)) continue; // personal keeper bands only
       const row = byId.get(p.userId);
       if (!row) continue;
-      row.raw += p.team === "A" ? teamPenaltyA : teamPenaltyB;
+      const pts = p.team === "A" ? teamPenaltyA : teamPenaltyB;
+      row.teamConcededPoints += pts;
+      row.raw += pts;
     }
   }
 

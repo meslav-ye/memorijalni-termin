@@ -76,8 +76,36 @@ describe("computeContributions", () => {
       events: [goal("A", "a2", 10, "a1")],
     });
     expect(byId.get("a2")?.raw).toBe(2);
+    expect(byId.get("a2")?.goalPoints).toBe(2);
     expect(byId.get("a1")?.raw).toBe(1 + 2); // assist + keeper 0 conceded → +2
+    expect(byId.get("a1")?.assistPoints).toBe(1);
+    expect(byId.get("a1")?.keeperPoints).toBe(2);
     expect(byId.get("a2")?.clamped).toBe(2);
+  });
+
+  it("keeps point fields summing to raw", () => {
+    const byId = computeContributions({
+      lineup: lineup([
+        { id: "a1", team: "A", gk: true },
+        { id: "a2", team: "A" },
+        { id: "b1", team: "B", gk: true },
+      ]),
+      events: [
+        goal("A", "a2", 1, "a1"),
+        goal("A", "a2", 2),
+        ownGoal("B", "a2", 3),
+        ...Array.from({ length: 4 }, (_, i) => goal("B", "b1", 10 + i)),
+      ],
+    });
+    for (const row of byId.values()) {
+      expect(
+        row.goalPoints +
+          row.assistPoints +
+          row.ownGoalPoints +
+          row.keeperPoints +
+          row.teamConcededPoints,
+      ).toBe(row.raw);
+    }
   });
 
   it("penalises own-goal scorer", () => {

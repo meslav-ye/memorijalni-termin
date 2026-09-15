@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { formatRatingBreakdown } from "@/lib/domain/rating-breakdown";
+import {
+  formatRatingBreakdown,
+  ratingBreakdownLines,
+} from "@/lib/domain/rating-breakdown";
 import type { ContributionRow } from "@/lib/domain/contribution";
 
 const row = (partial: Partial<ContributionRow>): ContributionRow => ({
@@ -10,6 +13,11 @@ const row = (partial: Partial<ContributionRow>): ContributionRow => ({
   assists: 0,
   ownGoals: 0,
   conceded: 0,
+  goalPoints: 0,
+  assistPoints: 0,
+  ownGoalPoints: 0,
+  keeperPoints: 0,
+  teamConcededPoints: 0,
   ...partial,
 });
 
@@ -36,5 +44,70 @@ describe("formatRatingBreakdown", () => {
     expect(
       formatRatingBreakdown(12, row({ clamped: 4, goals: 2 })),
     ).toBe("Elo +12 · doprinos +4 (2G)");
+  });
+});
+
+describe("ratingBreakdownLines", () => {
+  it("always includes Elo and Ukupno and hides zero components", () => {
+    expect(
+      ratingBreakdownLines({
+        eloDelta: 8,
+        delta: 12,
+        contrib: row({
+          goals: 2,
+          goalPoints: 4,
+          assists: 1,
+          assistPoints: 1,
+          teamConcededPoints: -1,
+          raw: 4,
+          clamped: 4,
+        }),
+      }),
+    ).toEqual([
+      { label: "Timski Elo", points: 8 },
+      { label: "Golovi (2)", points: 4 },
+      { label: "Asistencije (1)", points: 1 },
+      { label: "Obrana ekipe", points: -1 },
+      { label: "Ukupno", points: 12 },
+    ]);
+  });
+
+  it("shows clamp when raw differs from clamped", () => {
+    expect(
+      ratingBreakdownLines({
+        eloDelta: 0,
+        delta: 12,
+        contrib: row({
+          goals: 9,
+          goalPoints: 13,
+          raw: 13,
+          clamped: 12,
+        }),
+      }),
+    ).toEqual([
+      { label: "Timski Elo", points: 0 },
+      { label: "Golovi (9)", points: 13 },
+      { label: "Ograničenje ±12", points: -1 },
+      { label: "Ukupno", points: 12 },
+    ]);
+  });
+
+  it("shows keeper band with conceded count", () => {
+    expect(
+      ratingBreakdownLines({
+        eloDelta: -4,
+        delta: -2,
+        contrib: row({
+          conceded: 1,
+          keeperPoints: 2,
+          raw: 2,
+          clamped: 2,
+        }),
+      }),
+    ).toEqual([
+      { label: "Timski Elo", points: -4 },
+      { label: "Golman (primljeno 1)", points: 2 },
+      { label: "Ukupno", points: -2 },
+    ]);
   });
 });

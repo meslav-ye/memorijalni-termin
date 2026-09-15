@@ -5,13 +5,16 @@ import { inUuids } from "@/lib/supabase/in-filter";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatShortDate, formatMatchDateTime } from "@/lib/format";
 import { formatClock } from "@/lib/domain/timer";
+import { computeContributions } from "@/lib/domain/contribution";
+import { ratingBreakdownLines } from "@/lib/domain/rating-breakdown";
 import type { Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
-import { teamHeadingClass, teamNameOnDarkClass, teamPanelClass } from "@/lib/domain/team-colors";
+import { teamNameOnDarkClass } from "@/lib/domain/team-colors";
 import { ShareButton } from "./ShareButton";
 import { MatchDescription } from "./MatchDescription";
 import { ActivityForm } from "./ActivityForm";
 import { GoalChronology } from "./GoalChronology";
+import { TeamsRatingExpand } from "./TeamsRatingExpand";
 import { deleteMatch } from "../../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { withinAssistEditWindow } from "@/lib/domain/assist-edit";
@@ -138,12 +141,28 @@ export default async function SummaryPage({
     const goals = gameEvents.filter((e) => e.type === "goal" || e.type === "own_goal");
     const gameHistory = (history ?? []).filter((h) => h.game_id === game.id);
 
+    const registeredLineup = gameLineup.filter((p) => p.user_id && !p.is_guest);
+    const contrib = computeContributions({
+      lineup: registeredLineup.map((p) => ({
+        userId: p.user_id!,
+        team: p.team as Team,
+        isGoalkeeper: p.is_goalkeeper,
+      })),
+      events: gameEvents.map((e) => ({
+        type: e.type as "goal" | "own_goal" | "keeper_change",
+        team: e.team as Team | null,
+        scorerId: e.scorer_id,
+        assistId: e.assist_id,
+        elapsedSeconds: e.elapsed_seconds,
+        deletedAt: e.deleted_at,
+      })),
+    });
+
     const players = gameLineup.map((p) => {
       if (p.is_guest || !p.user_id) {
         const fillerId = p.filler_id;
         return {
           lineupId: p.id,
-          userId: null,
           nickname: p.display_name ?? "Gost",
           isGuest: true,
           team: p.team as Team,
@@ -155,14 +174,20 @@ export default async function SummaryPage({
             (e) => e.type === "own_goal" && e.scorer_filler_id === fillerId,
           ).length,
           delta: null,
-          rating: null,
+          breakdown: null,
         };
       }
       const record = gameHistory.find((r) => r.user_id === p.user_id);
       const delta = record ? record.rating_after - record.rating_before : null;
+      const row = contrib.get(p.user_id);
+      const contribution = row?.clamped ?? 0;
+      const eloDelta = delta !== null ? delta - contribution : null;
+      const breakdown =
+        delta !== null && eloDelta !== null && row
+          ? ratingBreakdownLines({ eloDelta, contrib: row, delta })
+          : null;
       return {
         lineupId: p.id,
-        userId: p.user_id,
         nickname: nicknameOf(p.user_id),
         isGuest: false,
         team: p.team as Team,
@@ -170,7 +195,7 @@ export default async function SummaryPage({
         assists: goals.filter((e) => e.assist_id === p.user_id).length,
         ownGoals: goals.filter((e) => e.type === "own_goal" && e.scorer_id === p.user_id).length,
         delta,
-        rating: record?.rating_after ?? null,
+        breakdown,
       };
     });
 
@@ -345,10 +370,12 @@ export default async function SummaryPage({
               </p>
             </div>
 
-            <div className="mt-4 flex gap-3">
-              <TeamColumn side="A" label={b.labelA} players={b.players} winner={b.winner} />
-              <TeamColumn side="B" label={b.labelB} players={b.players} winner={b.winner} />
-            </div>
+            <TeamsRatingExpand
+              labelA={b.labelA}
+              labelB={b.labelB}
+              players={b.players}
+              winner={b.winner}
+            />
 
             {b.goals.length > 0 && (
               <GoalChronology
@@ -422,82 +449,6 @@ export default async function SummaryPage({
           </p>
         </form>
       )}
-    </div>
-  );
-}
-
-type SummaryPlayer = {
-  lineupId: string;
-  userId: string | null;
-  nickname: string;
-  isGuest: boolean;
-  team: Team;
-  goals: number;
-  assists: number;
-  ownGoals: number;
-  delta: number | null;
-  rating: number | null;
-};
-
-/** Outside the page component: inside it would be recreated on every render. */
-function TeamColumn({
-  side,
-  label,
-  players,
-  winner,
-}: {
-  side: Team;
-  label: string;
-  players: SummaryPlayer[];
-  winner: Team | null;
-}) {
-  const members = players.filter((i) => i.team === side);
-  const won = winner === side;
-
-  const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
-
-  return (
-    <div className="flex-1">
-      <h3 className={"mb-2 truncate font-bold " + teamHeadingClass(side)}>
-        {label}
-        {won && <span className="ml-2 text-sm font-semibold text-emerald-700">✓</span>}
-      </h3>
-      <ul className="space-y-1">
-        {members.map((i) => (
-          <li
-            key={i.lineupId}
-            className={"rounded-lg border px-2.5 py-2 text-sm " + teamPanelClass(side)}
-          >
-            <p className="break-words font-medium leading-snug">
-              {i.nickname}
-              {i.isGuest && (
-                <span className="ml-1 text-xs font-normal uppercase text-slate-400">· gost</span>
-              )}
-            </p>
-            {(i.goals > 0 || i.assists > 0 || i.ownGoals > 0 || (!i.isGuest && i.delta !== null)) && (
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                {i.goals > 0 && <span className="text-slate-500">⚽{i.goals}</span>}
-                {i.assists > 0 && <span className="text-slate-400">🅰{i.assists}</span>}
-                {i.ownGoals > 0 && <span className="text-red-500">🥅{i.ownGoals}</span>}
-                {i.delta !== null && (
-                  <span
-                    className={
-                      "ml-auto text-xs font-semibold tabular-nums " +
-                      (i.delta > 0
-                        ? "text-emerald-700"
-                        : i.delta < 0
-                          ? "text-red-600"
-                          : "text-slate-400")
-                    }
-                  >
-                    {fmt(i.delta)}
-                  </span>
-                )}
-              </div>
-              )}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
