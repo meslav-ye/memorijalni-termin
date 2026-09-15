@@ -5,7 +5,6 @@ import { inUuids } from "@/lib/supabase/in-filter";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatShortDate, formatMatchDateTime } from "@/lib/format";
 import { formatClock } from "@/lib/domain/timer";
-import { computeContributions } from "@/lib/domain/contribution";
 import type { Team } from "@/lib/domain/types";
 import { teamDisplayName } from "@/lib/domain/team-name";
 import { teamHeadingClass, teamNameOnDarkClass, teamPanelClass } from "@/lib/domain/team-colors";
@@ -139,24 +138,6 @@ export default async function SummaryPage({
     const goals = gameEvents.filter((e) => e.type === "goal" || e.type === "own_goal");
     const gameHistory = (history ?? []).filter((h) => h.game_id === game.id);
 
-    const registeredLineup = gameLineup.filter((p) => p.user_id && !p.is_guest);
-
-    const contrib = computeContributions({
-      lineup: registeredLineup.map((p) => ({
-        userId: p.user_id!,
-        team: p.team as Team,
-        isGoalkeeper: p.is_goalkeeper,
-      })),
-      events: gameEvents.map((e) => ({
-        type: e.type as "goal" | "own_goal" | "keeper_change",
-        team: e.team as Team | null,
-        scorerId: e.scorer_id,
-        assistId: e.assist_id,
-        elapsedSeconds: e.elapsed_seconds,
-        deletedAt: e.deleted_at,
-      })),
-    });
-
     const players = gameLineup.map((p) => {
       if (p.is_guest || !p.user_id) {
         const fillerId = p.filler_id;
@@ -174,15 +155,11 @@ export default async function SummaryPage({
             (e) => e.type === "own_goal" && e.scorer_filler_id === fillerId,
           ).length,
           delta: null,
-          eloDelta: null,
-          contribution: 0,
           rating: null,
         };
       }
       const record = gameHistory.find((r) => r.user_id === p.user_id);
       const delta = record ? record.rating_after - record.rating_before : null;
-      const contribution = contrib.get(p.user_id)?.clamped ?? 0;
-      const eloDelta = delta !== null ? delta - contribution : null;
       return {
         lineupId: p.id,
         userId: p.user_id,
@@ -193,8 +170,6 @@ export default async function SummaryPage({
         assists: goals.filter((e) => e.assist_id === p.user_id).length,
         ownGoals: goals.filter((e) => e.type === "own_goal" && e.scorer_id === p.user_id).length,
         delta,
-        eloDelta,
-        contribution,
         rating: record?.rating_after ?? null,
       };
     });
@@ -461,8 +436,6 @@ type SummaryPlayer = {
   assists: number;
   ownGoals: number;
   delta: number | null;
-  eloDelta: number | null;
-  contribution: number;
   rating: number | null;
 };
 

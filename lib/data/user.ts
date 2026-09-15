@@ -45,9 +45,3 @@ export const getMembership = cache(async (groupId: string): Promise<Membership> 
 export async function isMember(groupId: string): Promise<boolean> {
   return (await getMembership(groupId))?.status === "active";
 }
-
-/** Whether the user is an active admin of the group. */
-export async function isAdmin(groupId: string): Promise<boolean> {
-  const m = await getMembership(groupId);
-  return m?.status === "active" && m.role === "admin";
-}

@@ -67,15 +67,6 @@ export function nextWeeklyStartsAt(
   return zagrebUIso(ymd, timeLocal);
 }
 
-/** Same weekday/time one calendar week later (DST-safe). */
-export function addOneWeekZagreb(startsAtIso: string): string {
-  const { weekday, ymd, hour, minute } = zagrebParts(startsAtIso);
-  const nextYmd = addDaysToYmd(ymd, 7);
-  // Sanity: same weekday after +7 calendar days.
-  void weekday;
-  return zagrebUIso(nextYmd, `${hour}:${minute}`);
-}
-
 /**
  * True when kickoff is in the future and at most SERIES_VISIBILITY_DAYS ahead.
  * Uses calendar-day distance in Zagreb so DST does not widen/narrow the window.

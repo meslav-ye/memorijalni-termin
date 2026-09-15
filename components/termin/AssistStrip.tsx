@@ -7,7 +7,7 @@ import type { EventPlayerRef } from "@/app/grupe/[grupaId]/termin/[terminId]/uzi
 /** After this long with no interaction the strip closes itself, without an assist. */
 const AUTO_CLOSE_MS = 8000;
 
-export type AssistTeammate = {
+type AssistTeammate = {
   ref: EventPlayerRef;
   nickname: string;
 };

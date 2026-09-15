@@ -6,7 +6,7 @@ const fmtSigned = (n: number) => (n > 0 ? `+${n}` : String(n));
  * Short Croatian hint for individual contribution, e.g. "+4 (2G, 1A)".
  * Omits empty G/A/AG parts; still shows the signed clamped total.
  */
-export function formatContributionDetail(row: ContributionRow): string {
+function formatContributionDetail(row: ContributionRow): string {
   const bits: string[] = [];
   if (row.goals > 0) bits.push(`${row.goals}G`);
   if (row.assists > 0) bits.push(`${row.assists}A`);

@@ -5,10 +5,10 @@ import { STATS_ART } from "@/components/brand/statsArt";
 import { SeasonBar } from "@/components/group/SeasonBar";
 import { StatsLeaderCard } from "@/components/group/StatsLeaderCard";
 import { YouStrip } from "@/components/group/YouStrip";
-import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard, type LeaderboardRow } from "@/lib/data/leaderboard";
 import { bestKeeperByGoalsAgainst } from "@/lib/domain/keepers";
+import { latestSeason } from "@/lib/seasons";
 
 /** Leader for one category; null when nobody has any value yet. */
 function leader(
@@ -105,7 +105,6 @@ export default async function StatsPage({
   return (
     <div className="space-y-8">
       <SeasonBar
-        grupaId={grupaId}
         basePath={`/grupe/${grupaId}/statistika`}
         seasons={seasons}
         requestedSeason={requestedSeason}
@@ -352,18 +351,4 @@ export default async function StatsPage({
       </p>
     </div>
   );
-}
-
-/** Id of the group's newest season, or null if there are none. */
-async function latestSeason(grupaId: string): Promise<string | null> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("seasons")
-    .select("id")
-    .eq("group_id", grupaId)
-    .order("name", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return data?.id ?? null;
 }

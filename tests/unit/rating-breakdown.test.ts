@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  formatContributionDetail,
-  formatRatingBreakdown,
-} from "@/lib/domain/rating-breakdown";
+import { formatRatingBreakdown } from "@/lib/domain/rating-breakdown";
 import type { ContributionRow } from "@/lib/domain/contribution";
 
 const row = (partial: Partial<ContributionRow>): ContributionRow => ({
@@ -16,25 +13,25 @@ const row = (partial: Partial<ContributionRow>): ContributionRow => ({
   ...partial,
 });
 
-describe("formatContributionDetail", () => {
-  it("formats goals and assists", () => {
+describe("formatRatingBreakdown", () => {
+  it("joins elo and contribution with goals and assists", () => {
     expect(
-      formatContributionDetail(row({ clamped: 5, goals: 2, assists: 1 })),
-    ).toBe("+5 (2G, 1A)");
+      formatRatingBreakdown(0, row({ clamped: 5, goals: 2, assists: 1 })),
+    ).toBe("Elo 0 · doprinos +5 (2G, 1A)");
   });
 
   it("formats zero contribution without bits", () => {
-    expect(formatContributionDetail(row({ clamped: 0 }))).toBe("0");
+    expect(formatRatingBreakdown(3, row({ clamped: 0 }))).toBe(
+      "Elo +3 · doprinos 0",
+    );
   });
 
-  it("formats negative with own goals", () => {
+  it("formats negative contribution with own goals", () => {
     expect(
-      formatContributionDetail(row({ clamped: -1, ownGoals: 1 })),
-    ).toBe("-1 (1AG)");
+      formatRatingBreakdown(-2, row({ clamped: -1, ownGoals: 1 })),
+    ).toBe("Elo -2 · doprinos -1 (1AG)");
   });
-});
 
-describe("formatRatingBreakdown", () => {
   it("joins elo and contribution", () => {
     expect(
       formatRatingBreakdown(12, row({ clamped: 4, goals: 2 })),

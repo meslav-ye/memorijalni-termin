@@ -4,22 +4,12 @@ import {
   isWithinVisibilityWindow,
   nextWeeklyStartsAt,
   zagrebWeekdayFromYmd,
-  addOneWeekZagreb,
 } from "@/lib/domain/recurring";
 import { formatMatchDateTime, zagrebUIso } from "@/lib/format";
 
 describe("zagrebWeekdayFromYmd", () => {
   it("maps Monday 2026-10-19 to 1", () => {
     expect(zagrebWeekdayFromYmd("2026-10-19")).toBe(1);
-  });
-});
-
-describe("addOneWeekZagreb", () => {
-  it("keeps wall-clock time across the autumn DST change", () => {
-    // Mon 19.10.2026 18:00 → Mon 26.10.2026 18:00 (not 17:00)
-    const first = zagrebUIso("2026-10-19", "18:00");
-    const second = addOneWeekZagreb(first);
-    expect(formatMatchDateTime(second)).toBe("pon 26.10.2026. u 18:00");
   });
 });
 

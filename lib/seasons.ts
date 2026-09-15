@@ -33,6 +33,20 @@ export async function ensureSeason(groupId: string, year: number): Promise<strin
   return created?.id ?? null;
 }
 
+/** Id of the group's newest season, or null if there are none. */
+export async function latestSeason(groupId: string): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("seasons")
+    .select("id")
+    .eq("group_id", groupId)
+    .order("name", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data?.id ?? null;
+}
+
 /** Calendar year the match belongs to, in Zagreb time. */
 export function matchYear(iso: string): number {
   return Number(

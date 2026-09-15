@@ -1,6 +1,6 @@
 import type { Team } from "./types";
 
-export const FILLER_NAME_MAX = 40;
+const FILLER_NAME_MAX = 40;
 
 /** Trim, collapse spaces; null if empty or too long. */
 export function normalizeFillerName(raw: string): string | null {
@@ -17,24 +17,6 @@ export function signupCapacity(capacity: number, fillerCount: number): number {
 /** Headcount for fill status (prijavljeni + popunjači). */
 export function matchHeadcount(confirmedSignups: number, fillerCount: number): number {
   return confirmedSignups + fillerCount;
-}
-
-export type RegisteredLineupEntry = {
-  userId: string;
-  team: Team;
-  isGoalkeeper: boolean;
-};
-
-export function registeredLineupOnly(
-  rows: { userId: string | null; team: Team; isGoalkeeper: boolean; isGuest?: boolean }[],
-): RegisteredLineupEntry[] {
-  return rows
-    .filter((p): p is typeof p & { userId: string } => Boolean(p.userId) && !p.isGuest)
-    .map((p) => ({
-      userId: p.userId,
-      team: p.team,
-      isGoalkeeper: p.isGoalkeeper,
-    }));
 }
 
 /** Smaller team first; tie → A. */
