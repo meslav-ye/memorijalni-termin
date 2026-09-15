@@ -10,7 +10,6 @@ import { INITIAL_RATING } from "@/lib/domain/elo";
 import { computeContributions } from "@/lib/domain/contribution";
 import { computeDualElo } from "@/lib/domain/settle-ratings";
 import { canStart, MINUTES_BEFORE_START } from "@/lib/domain/startability";
-import { canAssignLineupGoalkeeper, canChangeLineupGoalkeeper } from "@/lib/domain/lineup-goalkeeper";
 import type { Team } from "@/lib/domain/types";
 
 /**
@@ -786,54 +785,5 @@ export async function endTermin(groupId: string, matchId: string): Promise<Actio
 
   revalidatePath(`/grupe/${groupId}`);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
-  return { ok: true };
-}
-
-export async function changeGoalkeeper(
-  matchId: string,
-  playerId: string,
-  team: Team,
-  elapsed: number,
-): Promise<ActionResult> {
-  const open = await requireOpenGame(matchId);
-  if ("error" in open) return { error: "Nemaš pravo." };
-
-  if (!canChangeLineupGoalkeeper(open.game.started_at)) {
-    return { error: "Golman se bira na Ekipama prije početka utakmice." };
-  }
-
-  const { data: profile } = await open.supabase
-    .from("profiles")
-    .select("is_goalkeeper")
-    .eq("id", playerId)
-    .maybeSingle();
-
-  // Regression guard: Jozo (outfield) must not steal the glove from Zdravko mid-match.
-  if (!canAssignLineupGoalkeeper(profile?.is_goalkeeper ?? false)) {
-    return { error: "Golmana može biti samo igrač označen kao golman na profilu." };
-  }
-
-  await open.supabase
-    .from("match_lineup")
-    .update({ is_goalkeeper: false })
-    .eq("game_id", open.game.id)
-    .eq("team", team);
-
-  await open.supabase
-    .from("match_lineup")
-    .update({ is_goalkeeper: true })
-    .eq("game_id", open.game.id)
-    .eq("user_id", playerId);
-
-  await open.supabase.from("match_events").insert({
-    match_id: matchId,
-    game_id: open.game.id,
-    type: "keeper_change",
-    team,
-    scorer_id: playerId,
-    elapsed_seconds: elapsed,
-    created_by: open.user.id,
-  });
-
   return { ok: true };
 }

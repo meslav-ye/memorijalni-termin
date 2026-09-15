@@ -9,7 +9,6 @@ const LONG_PRESS_MS = 600;
  *
  *   tap            -> goal
  *   long press     -> own goal
- *   tap on 🧤      -> goalkeeper change
  *
  * Height is 56 px because this screen is used standing, one-handed, outdoors.
  */
@@ -18,7 +17,6 @@ export function PlayerButton({
   goals,
   team,
   isGoalkeeper,
-  canBeGoalkeeper = true,
   disabled,
   onGoal,
   onOwnGoal,
@@ -28,12 +26,10 @@ export function PlayerButton({
   goals: number;
   team: "A" | "B";
   isGoalkeeper: boolean;
-  /** False for outfield players — glove is hidden so accidental taps cannot steal GK. */
-  canBeGoalkeeper?: boolean;
   disabled?: boolean;
   onGoal: () => void;
   onOwnGoal: () => void;
-  onGoalkeeper: () => void;
+  onGoalkeeper?: () => void;
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
@@ -91,7 +87,7 @@ export function PlayerButton({
           "flex h-14 min-w-0 flex-1 items-center justify-between gap-2 px-3 " +
           "text-left text-base font-bold uppercase tracking-tight " +
           "transition select-none active:scale-[0.97] disabled:opacity-40 " +
-          (canBeGoalkeeper ? "" : "rounded-r-lg")
+          (onGoalkeeper ? "" : "rounded-r-lg")
         }
         style={{ WebkitTouchCallout: "none" }}
         aria-label={`Gol za ${nickname}. Dugi pritisak upisuje autogol.`}
@@ -104,7 +100,7 @@ export function PlayerButton({
         )}
       </button>
 
-      {canBeGoalkeeper && (
+      {onGoalkeeper && (
         <button
           type="button"
           disabled={disabled}

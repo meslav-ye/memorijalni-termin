@@ -39,8 +39,6 @@ export type LineupPlayer = {
   nickname: string;
   team: Team;
   isGoalkeeper: boolean;
-  /** Profile "Igram golmana" — used for display; glove is not editable live. */
-  profileIsGoalkeeper: boolean;
   isGuest: boolean;
 };
 
@@ -229,7 +227,6 @@ export function LiveScreen({
                 nickname: row.display_name ?? "Gost",
                 team: row.team as Team,
                 isGoalkeeper: row.is_goalkeeper,
-                profileIsGoalkeeper: false,
                 isGuest: true,
               });
             } else if (row.user_id) {
@@ -240,7 +237,6 @@ export function LiveScreen({
                 nickname: known?.nickname ?? "?",
                 team: row.team as Team,
                 isGoalkeeper: row.is_goalkeeper,
-                profileIsGoalkeeper: known?.profileIsGoalkeeper ?? false,
                 isGuest: false,
               });
             }
@@ -731,11 +727,9 @@ export function LiveScreen({
               goals={playerGoals(p)}
               team={p.team}
               isGoalkeeper={p.isGoalkeeper}
-              canBeGoalkeeper={false}
               disabled={locked}
               onGoal={() => void recordPlayerGoal(p)}
               onOwnGoal={() => void recordPlayerOwnGoal(p)}
-              onGoalkeeper={() => {}}
             />
           ))}
         </div>
@@ -747,11 +741,9 @@ export function LiveScreen({
               goals={playerGoals(p)}
               team={p.team}
               isGoalkeeper={p.isGoalkeeper}
-              canBeGoalkeeper={false}
               disabled={locked}
               onGoal={() => void recordPlayerGoal(p)}
               onOwnGoal={() => void recordPlayerOwnGoal(p)}
-              onGoalkeeper={() => {}}
             />
           ))}
         </div>
