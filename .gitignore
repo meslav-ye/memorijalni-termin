@@ -22,10 +22,6 @@ next-env.d.ts
 
 # --- Testovi ---
 /coverage
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
 
 # --- Supabase (lokalni Docker volumeni i privremene datoteke) ---
 supabase/.branches/
