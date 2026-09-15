@@ -30,7 +30,6 @@ import { AdminAddSignups } from "./AdminAddSignups";
 import { StartButton } from "./StartButton";
 import { AddToCalendar } from "./AddToCalendar";
 import { SubmitButton } from "@/components/SubmitButton";
-import { BusyLink } from "@/components/BusyLink";
 import {
   DEFAULT_MATCH_DURATION_MINUTES,
   REMINDER_MINUTES_BEFORE,
@@ -403,15 +402,14 @@ export default async function MatchPage({
         ))}
 
       {match.status !== "otkazan" && (
-        <BusyLink
-          prefetch
+        <Link
           href={`/grupe/${grupaId}/termin/${terminId}/ekipe`}
           className="mt-8 flex h-12 w-full items-center justify-center rounded-lg
                      border border-slate-300 bg-white text-sm font-semibold
                      transition active:scale-[0.98] hover:border-slate-400"
         >
           Ekipe
-        </BusyLink>
+        </Link>
       )}
 
       {admin &&
