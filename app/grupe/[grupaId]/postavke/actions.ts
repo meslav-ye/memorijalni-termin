@@ -1,7 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { groupTag } from "@/lib/data/groups";
 
 async function requireAdmin(groupId: string) {
   const supabase = await createClient();
@@ -38,6 +39,7 @@ export async function saveSettings(formData: FormData) {
     .update({ name, default_capacity: capacity })
     .eq("id", groupId);
 
+  updateTag(groupTag(groupId));
   revalidatePath(`/grupe/${groupId}`, "layout");
 }
 
@@ -57,5 +59,6 @@ export async function refreshInviteCode(formData: FormData) {
 
   await supabase.from("groups").update({ invite_code: newCode }).eq("id", groupId);
 
+  updateTag(groupTag(groupId));
   revalidatePath(`/grupe/${groupId}/postavke`);
 }

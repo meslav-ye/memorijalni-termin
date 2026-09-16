@@ -1,5 +1,7 @@
 import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isMember } from "@/lib/data/user";
 
 export type Group = {
   id: string;
@@ -9,21 +11,36 @@ export type Group = {
   invite_code: string;
 };
 
+/** Cache tag per group — invalidated when settings or the invite code change. */
+export const groupTag = (groupId: string) => `group-${groupId}`;
+
 /**
- * Group row, fetched at most once per request.
+ * Group row, fetched at most once per request (React `cache`) and shared
+ * across members between requests (`unstable_cache`).
  *
- * The group layout needs the name for the header; Termini, Postavke and
- * Novi termin ask for the same row (or a subset). Without `cache()` that
- * is a second round-trip on every nested page.
- *
- * Uses the user client so RLS still hides groups you are not in.
+ * Access control stays outside the cache: only an active member may read.
+ * The cached load uses the service-role key so the entry does not depend
+ * on cookies and can be reused for everyone in the group.
  */
 export const getGroup = cache(async (groupId: string): Promise<Group | null> => {
-  const supabase = await createClient();
+  if (!(await isMember(groupId))) return null;
+  return cachedGroup(groupId);
+});
+
+function cachedGroup(groupId: string) {
+  return unstable_cache(
+    () => loadGroup(groupId),
+    ["group", "v1", groupId],
+    { tags: [groupTag(groupId)], revalidate: 3600 },
+  )();
+}
+
+async function loadGroup(groupId: string): Promise<Group | null> {
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("groups")
     .select("id, name, default_capacity, default_min_players, invite_code")
     .eq("id", groupId)
     .maybeSingle();
   return data;
-});
+}
