@@ -13,10 +13,12 @@ import {
   applyLiveEvent,
   applyLiveGame,
   applyLiveLineup,
+  mergeLiveLineup,
   parseLiveEventRow,
   parseLiveGameRow,
   parseLiveLineupRow,
 } from "@/lib/domain/live-sync";
+import { inUuids } from "@/lib/supabase/in-filter";
 import { useOptionalBusy } from "@/components/BusyProvider";
 import { Stopwatch } from "@/components/termin/Stopwatch";
 import { PlayerButton } from "@/components/termin/PlayerButton";
@@ -206,48 +208,25 @@ export function LiveScreen({
       );
     }
 
-    if (lineupRows) {
-      setLineup((prev) => {
-        const byLineupId = new Map(lineupRows.map((x) => [x.id, x]));
-        const next = prev
-          .filter((p) => byLineupId.has(p.lineupId))
-          .map((p) => {
-            const row = byLineupId.get(p.lineupId)!;
-            return {
-              ...p,
-              team: row.team as Team,
-              isGoalkeeper: row.is_goalkeeper,
-              fillerId: row.filler_id,
-            };
-          });
-        for (const row of lineupRows) {
-          if (!next.some((p) => p.lineupId === row.id)) {
-            const known = prev.find((p) => p.lineupId === row.id);
-            if (row.is_guest) {
-              next.push({
-                lineupId: row.id,
-                userId: "",
-                fillerId: row.filler_id,
-                nickname: row.display_name ?? "Gost",
-                team: row.team as Team,
-                isGoalkeeper: row.is_goalkeeper,
-                isGuest: true,
-              });
-            } else if (row.user_id) {
-              next.push({
-                lineupId: row.id,
-                userId: row.user_id,
-                fillerId: null,
-                nickname: known?.nickname ?? "?",
-                team: row.team as Team,
-                isGoalkeeper: row.is_goalkeeper,
-                isGuest: false,
-              });
-            }
-          }
+    if (lineupRows && lineupRows.length > 0) {
+      const extra = new Map<string, string>();
+      const missing = lineupRows
+        .filter((row) => row.user_id && !row.is_guest)
+        .map((row) => row.user_id!)
+        .filter((id) => {
+          const known = lineupRef.current.find((p) => !p.isGuest && p.userId === id);
+          return !known || known.nickname === "?";
+        });
+      if (missing.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, nickname")
+          .in("id", inUuids(missing));
+        for (const p of profiles ?? []) {
+          if (p.nickname) extra.set(p.id, p.nickname);
         }
-        return next;
-      });
+      }
+      setLineup((prev) => mergeLiveLineup(prev, lineupRows, extra));
     }
   }, [supabase, terminId]);
 
@@ -696,7 +675,8 @@ export function LiveScreen({
               : "Spremno za sljedeću utakmicu."}
           </p>
           <p className="text-center text-xs text-slate-500">
-            Možeš promiješati ekipe, pokrenuti novu utakmicu ili završiti termin.
+            Nova utakmica kreće s istim ekipama. Promiješaj ih samo ako želiš
+            drugačiju postavu.
           </p>
           <button
             type="button"

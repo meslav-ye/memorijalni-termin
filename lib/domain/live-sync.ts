@@ -166,6 +166,64 @@ function nicknameForLineup(
   return known || null;
 }
 
+export type LiveLineupSnapshotRow = {
+  id: string;
+  user_id: string | null;
+  filler_id: string | null;
+  team: Team | string;
+  is_goalkeeper: boolean;
+  display_name: string | null;
+  is_guest: boolean;
+};
+
+/**
+ * Rebuild the on-screen lineup from DB rows.
+ * Nova utakmica copies players under new lineup ids — match by user / filler
+ * so nicknames do not collapse to "?".
+ */
+export function mergeLiveLineup(
+  prev: LiveSyncLineupPlayer[],
+  rows: LiveLineupSnapshotRow[],
+  extraNicknames: Map<string, string> = new Map(),
+): LiveSyncLineupPlayer[] {
+  const teamOf = (team: Team | string): Team => (team === "B" ? "B" : "A");
+
+  return rows.flatMap((row) => {
+    if (row.is_guest) {
+      const known = prev.find((p) => p.isGuest && p.fillerId === row.filler_id);
+      return [
+        {
+          lineupId: row.id,
+          userId: "",
+          fillerId: row.filler_id,
+          nickname: row.display_name ?? known?.nickname ?? "Gost",
+          team: teamOf(row.team),
+          isGoalkeeper: row.is_goalkeeper,
+          isGuest: true,
+        },
+      ];
+    }
+    if (!row.user_id) return [];
+    const known =
+      prev.find((p) => p.lineupId === row.id) ??
+      prev.find((p) => !p.isGuest && p.userId === row.user_id);
+    return [
+      {
+        lineupId: row.id,
+        userId: row.user_id,
+        fillerId: null,
+        nickname:
+          (known?.nickname && known.nickname !== "?"
+            ? known.nickname
+            : extraNicknames.get(row.user_id)) ?? "?",
+        team: teamOf(row.team),
+        isGoalkeeper: row.is_goalkeeper,
+        isGuest: false,
+      },
+    ];
+  });
+}
+
 export function liveLineupFromRow(
   row: LiveLineupRow,
   nickname: string,

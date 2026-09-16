@@ -4,6 +4,7 @@ import {
   applyLiveGame,
   applyLiveLineup,
   liveEventFromRow,
+  mergeLiveLineup,
   type LiveEventRow,
   type LiveLineupRow,
   type LiveSyncLineupPlayer,
@@ -207,5 +208,74 @@ describe("applyLiveLineup", () => {
 
   it("asks for a refetch when the row is missing", () => {
     expect(applyLiveLineup([], "INSERT", null, "g1").kind).toBe("refresh");
+  });
+});
+
+describe("mergeLiveLineup", () => {
+  it("keeps nicknames when Nova utakmica copies the same players under new ids", () => {
+    const prev = [
+      player({ lineupId: "old-a", userId: "u1", nickname: "MISO", team: "A" }),
+      player({ lineupId: "old-b", userId: "u2", nickname: "BRUNO", team: "B" }),
+    ];
+    const next = mergeLiveLineup(prev, [
+      lineupRow({ id: "new-a", user_id: "u1", team: "A" }),
+      lineupRow({ id: "new-b", user_id: "u2", team: "B", game_id: "g2" }),
+    ]);
+    expect(next).toEqual([
+      {
+        lineupId: "new-a",
+        userId: "u1",
+        fillerId: null,
+        nickname: "MISO",
+        team: "A",
+        isGoalkeeper: false,
+        isGuest: false,
+      },
+      {
+        lineupId: "new-b",
+        userId: "u2",
+        fillerId: null,
+        nickname: "BRUNO",
+        team: "B",
+        isGoalkeeper: false,
+        isGuest: false,
+      },
+    ]);
+  });
+
+  it("uses extra nicknames when the previous list has no match", () => {
+    const next = mergeLiveLineup(
+      [],
+      [lineupRow({ id: "l9", user_id: "u9" })],
+      new Map([["u9", "CVIJA"]]),
+    );
+    expect(next[0]?.nickname).toBe("CVIJA");
+  });
+
+  it("keeps guest names by filler id across games", () => {
+    const prev = [
+      player({
+        lineupId: "old-g",
+        userId: "",
+        fillerId: "f1",
+        nickname: "Marko",
+        isGuest: true,
+      }),
+    ];
+    const next = mergeLiveLineup(prev, [
+      lineupRow({
+        id: "new-g",
+        user_id: null,
+        filler_id: "f1",
+        is_guest: true,
+        display_name: "Marko",
+      }),
+    ]);
+    expect(next[0]).toMatchObject({
+      lineupId: "new-g",
+      fillerId: "f1",
+      nickname: "Marko",
+      isGuest: true,
+    });
   });
 });

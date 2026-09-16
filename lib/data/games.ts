@@ -131,7 +131,7 @@ export async function copyLineup(
   fromGameId: string,
   toGameId: string,
   client?: GamesClient,
-): Promise<void> {
+): Promise<boolean> {
   const supabase = client ?? (await createClient());
 
   const { data: rows } = await supabase
@@ -141,9 +141,9 @@ export async function copyLineup(
     )
     .eq("game_id", fromGameId);
 
-  if (!rows?.length) return;
+  if (!rows?.length) return false;
 
-  await supabase.from("match_lineup").insert(
+  const { error } = await supabase.from("match_lineup").insert(
     rows.map((r) => ({
       game_id: toGameId,
       match_id: r.match_id,
@@ -155,4 +155,5 @@ export async function copyLineup(
       is_guest: r.is_guest,
     })),
   );
+  return !error;
 }

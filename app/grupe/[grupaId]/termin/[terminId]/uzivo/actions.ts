@@ -734,7 +734,10 @@ export async function startNextGame(groupId: string, matchId: string): Promise<A
 
   if (insertError || !next) return { error: "Nova utakmica nije kreirana." };
 
-  await copyLineup(latest.id, next.id, ctx.supabase);
+  if (!(await copyLineup(latest.id, next.id, ctx.supabase))) {
+    await ctx.supabase.from("games").delete().eq("id", next.id);
+    return { error: "Iste ekipe nisu prenesene. Pokušaj ponovno ili promiješaj ekipe." };
+  }
 
   revalidatePath(`/grupe/${groupId}/termin/${matchId}`);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/uzivo`);

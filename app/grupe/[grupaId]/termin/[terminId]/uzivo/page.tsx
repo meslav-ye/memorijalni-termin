@@ -119,6 +119,7 @@ export default async function LivePage({
       </SoftLink>
 
       <LiveScreen
+        key={game.id}
         grupaId={grupaId}
         terminId={terminId}
         gameId={game.id}
