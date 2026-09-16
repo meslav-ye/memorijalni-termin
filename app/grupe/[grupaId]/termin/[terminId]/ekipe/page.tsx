@@ -311,7 +311,7 @@ export default async function TeamsPage({
       </SoftLink>
 
       <header className="mt-4 mb-6">
-        <h2 className="text-lg font-bold tracking-tight">Ekipe</h2>
+        <h2 className="text-lg font-bold tracking-tight">Slaganje ekipa</h2>
         <p className="text-sm text-slate-500">{formatMatchDateTime(match.starts_at)}</p>
       </header>
 

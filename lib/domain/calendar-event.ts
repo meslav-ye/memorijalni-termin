@@ -4,6 +4,29 @@ export const DEFAULT_MATCH_DURATION_MINUTES = 90;
 /** Calendar reminder before kickoff (spec §13.1). */
 export const REMINDER_MINUTES_BEFORE = 120;
 
+export type CalendarOfferInput = {
+  status: "najavljen" | "zakljucan" | "u_tijeku" | "zavrsen" | "otkazan";
+  enoughForPlay: boolean;
+  startsAt: Date;
+  now: Date;
+};
+
+/**
+ * Calendar add is for upcoming sessions you might forget.
+ * Play-now matches stamp kickoff as "now", so a reminder has nothing to fire.
+ */
+export function shouldOfferCalendar(input: CalendarOfferInput): boolean {
+  if (
+    input.status === "otkazan" ||
+    input.status === "u_tijeku" ||
+    input.status === "zavrsen"
+  ) {
+    return false;
+  }
+  if (!input.enoughForPlay) return false;
+  return input.startsAt.getTime() > input.now.getTime();
+}
+
 export type CalendarEventInput = {
   uid: string;
   title: string;

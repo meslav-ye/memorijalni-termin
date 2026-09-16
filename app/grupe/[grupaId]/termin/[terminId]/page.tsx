@@ -36,6 +36,7 @@ import {
   REMINDER_MINUTES_BEFORE,
   buildGoogleCalendarUrl,
   buildIcs,
+  shouldOfferCalendar,
 } from "@/lib/domain/calendar-event";
 import { formatShortDate } from "@/lib/format";
 
@@ -165,13 +166,14 @@ export default async function MatchPage({
     .filter(Boolean)
     .join(", ") || match.location_text || "";
 
-  // Once the match is live, calendar add is pointless — kickoff already passed.
-  const showCalendar =
-    match.status !== "otkazan" &&
-    match.status !== "u_tijeku" &&
-    fill.tone !== "low";
-
   const startsAt = new Date(match.starts_at);
+  // Play-now / already-started matches have no reminder left to fire.
+  const showCalendar = shouldOfferCalendar({
+    status: match.status,
+    enoughForPlay: fill.tone !== "low",
+    startsAt,
+    now: new Date(),
+  });
   const calendarTitle = `${group?.name ?? "Termin"} — ${formatShortDate(match.starts_at)}`;
   const calendarDescription = [
     group?.name ? `Grupa: ${group.name}` : null,
@@ -263,6 +265,23 @@ export default async function MatchPage({
       {match.status === "u_tijeku" && (
         <StartButton grupaId={grupaId} terminId={terminId} alreadyLive />
       )}
+
+      {match.status !== "otkazan" && (
+        <Link
+          href={`/grupe/${grupaId}/termin/${terminId}/ekipe`}
+          className="mt-6 flex h-12 w-full items-center justify-center rounded-lg
+                     border border-slate-300 bg-white text-sm font-semibold
+                     transition active:scale-[0.98] hover:border-slate-400"
+        >
+          Slaganje ekipa
+        </Link>
+      )}
+
+      {iAmInLineup &&
+        (match.status === "zakljucan" || match.status === "najavljen") &&
+        mayStart && (
+          <StartButton grupaId={grupaId} terminId={terminId} alreadyLive={false} />
+        )}
 
       <section className="mt-8">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
@@ -388,30 +407,18 @@ export default async function MatchPage({
       )}
 
       {/* Anyone in the lineup can start live, but only half an hour before
-          kickoff. Before that the button is NOT shown — better than the user
-          tapping it and getting a rejection. */}
+          kickoff. The start button itself sits above Dolaze with Ekipe.
+          Before the window we still explain why there is no button — better
+          than the user hunting for it under the list. */}
       {iAmInLineup &&
         (match.status === "zakljucan" || match.status === "najavljen") &&
-        (mayStart ? (
-          <StartButton grupaId={grupaId} terminId={terminId} alreadyLive={false} />
-        ) : (
+        !mayStart && (
           <p className="mt-8 rounded-lg border border-slate-200 bg-white p-4 text-center text-sm text-slate-600">
             Termin ne kreće sam — pokreće ga netko od igrača, a to je moguće{" "}
             <strong>{MINUTES_BEFORE_START} minuta prije početka</strong>, od{" "}
             {formatMatchDateTime(earliestStartAt(match.starts_at).toISOString())}.
           </p>
-        ))}
-
-      {match.status !== "otkazan" && (
-        <Link
-          href={`/grupe/${grupaId}/termin/${terminId}/ekipe`}
-          className="mt-8 flex h-12 w-full items-center justify-center rounded-lg
-                     border border-slate-300 bg-white text-sm font-semibold
-                     transition active:scale-[0.98] hover:border-slate-400"
-        >
-          Ekipe
-        </Link>
-      )}
+        )}
 
       {admin &&
         (match.status === "najavljen" || match.status === "zakljucan") && (

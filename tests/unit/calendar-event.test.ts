@@ -6,6 +6,7 @@ import {
   buildIcs,
   escapeIcsText,
   formatIcsUtc,
+  shouldOfferCalendar,
 } from "@/lib/domain/calendar-event";
 
 describe("escapeIcsText", () => {
@@ -69,5 +70,70 @@ describe("buildGoogleCalendarUrl", () => {
     expect(url).toContain("dates=20260908T180000Z%2F20260908T193000Z");
     expect(url).toContain("location=Dvorana");
     expect(url).toContain("details=detalji");
+  });
+});
+
+describe("shouldOfferCalendar", () => {
+  const now = new Date("2026-09-16T13:45:00.000Z");
+  const later = new Date("2026-09-16T18:00:00.000Z");
+
+  it("offers calendar for a future announced match with enough players", () => {
+    expect(
+      shouldOfferCalendar({
+        status: "najavljen",
+        enoughForPlay: true,
+        startsAt: later,
+        now,
+      }),
+    ).toBe(true);
+  });
+
+  it("hides calendar for a play-now match whose kickoff is now", () => {
+    expect(
+      shouldOfferCalendar({
+        status: "najavljen",
+        enoughForPlay: true,
+        startsAt: now,
+        now,
+      }),
+    ).toBe(false);
+  });
+
+  it("hides calendar once kickoff has passed, even if still announced", () => {
+    expect(
+      shouldOfferCalendar({
+        status: "najavljen",
+        enoughForPlay: true,
+        startsAt: new Date("2026-09-16T13:44:00.000Z"),
+        now,
+      }),
+    ).toBe(false);
+  });
+
+  it("hides calendar when the match is live or cancelled, or still short of players", () => {
+    expect(
+      shouldOfferCalendar({
+        status: "u_tijeku",
+        enoughForPlay: true,
+        startsAt: later,
+        now,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferCalendar({
+        status: "otkazan",
+        enoughForPlay: true,
+        startsAt: later,
+        now,
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferCalendar({
+        status: "najavljen",
+        enoughForPlay: false,
+        startsAt: later,
+        now,
+      }),
+    ).toBe(false);
   });
 });
