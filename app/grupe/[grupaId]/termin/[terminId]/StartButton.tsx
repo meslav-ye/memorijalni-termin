@@ -9,10 +9,12 @@ export function StartButton({
   grupaId,
   terminId,
   alreadyLive,
+  className = "mt-8",
 }: {
   grupaId: string;
   terminId: string;
   alreadyLive: boolean;
+  className?: string;
 }) {
   const router = useRouter();
   const { setBusy: setGlobalBusy } = useOptionalBusy();
@@ -46,7 +48,7 @@ export function StartButton({
   }
 
   return (
-    <div className="mt-8">
+    <div className={className}>
       <button
         type="button"
         onClick={start}

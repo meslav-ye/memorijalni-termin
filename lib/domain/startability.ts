@@ -23,3 +23,25 @@ export function canStart(startsAt: string, now: Date): boolean {
 export function earliestStartAt(startsAt: string): Date {
   return new Date(new Date(startsAt).getTime() - MINUTES_BEFORE_START * 60_000);
 }
+
+export type StartOfferInput = {
+  status: "najavljen" | "zakljucan" | "u_tijeku" | "zavrsen" | "otkazan";
+  hasLineup: boolean;
+  inLineup: boolean;
+  startsAt: string;
+  now: Date;
+};
+
+/**
+ * Whether the teams screen should offer Pokreni / Nastavi at the top.
+ * Start only after teams exist, to someone in the lineup, inside the window.
+ */
+export function shouldOfferStart(
+  input: StartOfferInput,
+): "start" | "continue" | null {
+  if (input.status === "u_tijeku") return "continue";
+  if (input.status === "zavrsen" || input.status === "otkazan") return null;
+  if (!input.hasLineup || !input.inLineup) return null;
+  if (!canStart(input.startsAt, input.now)) return null;
+  return "start";
+}

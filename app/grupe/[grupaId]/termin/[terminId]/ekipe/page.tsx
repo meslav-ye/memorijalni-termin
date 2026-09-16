@@ -13,7 +13,9 @@ import { teamHeadingClass, teamPanelClass } from "@/lib/domain/team-colors";
 import { proposeTeams, movePlayer, setGoalkeeper, setTeamNames } from "../../actions";
 import { AdminAddFillers } from "../AdminAddFillers";
 import { AdminAddSignups } from "../AdminAddSignups";
+import { StartButton } from "../StartButton";
 import { SubmitButton } from "@/components/SubmitButton";
+import { shouldOfferStart } from "@/lib/domain/startability";
 
 type LineupPlayerRow = {
   lineupId: string;
@@ -289,6 +291,14 @@ export default async function TeamsPage({
   const teamB = (lineup ?? []).filter((p) => p.team === "B").map(makePlayer);
 
   const hasLineup = teamA.length + teamB.length > 0;
+  const iAmInLineup = (lineup ?? []).some((p) => p.user_id === user.id);
+  const startOffer = shouldOfferStart({
+    status: match.status,
+    hasLineup,
+    inLineup: iAmInLineup,
+    startsAt: match.starts_at,
+    now: new Date(),
+  });
   const sumA = teamA.reduce((s, p) => s + p.rating, 0);
   const sumB = teamB.reduce((s, p) => s + p.rating, 0);
   const goalkeeperEditable = game != null && game.started_at == null;
@@ -314,6 +324,15 @@ export default async function TeamsPage({
         <h2 className="text-lg font-bold tracking-tight">Slaganje ekipa</h2>
         <p className="text-sm text-slate-500">{formatMatchDateTime(match.starts_at)}</p>
       </header>
+
+      {startOffer && (
+        <StartButton
+          grupaId={grupaId}
+          terminId={terminId}
+          alreadyLive={startOffer === "continue"}
+          className="mb-6"
+        />
+      )}
 
       {admin && match.status === "najavljen" && addableMembers.length > 0 && (
         <div className="mb-8">

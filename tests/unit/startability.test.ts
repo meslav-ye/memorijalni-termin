@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { canStart, MINUTES_BEFORE_START } from "@/lib/domain/startability";
+import {
+  canStart,
+  MINUTES_BEFORE_START,
+  shouldOfferStart,
+} from "@/lib/domain/startability";
 
 /** Termin: utorak 08.09.2026. u 20:00 po zagrebackom vremenu (18:00 UTC). */
 const TERMIN = "2026-09-08T18:00:00.000Z";
@@ -45,5 +49,38 @@ describe("canStart", () => {
 
   it("i dan poslije MOZE — nitko ne pokrece stari termin slucajno", () => {
     expect(at("2026-09-09T18:00:00.000Z")).toBe(true);
+  });
+});
+
+describe("shouldOfferStart", () => {
+  const now = new Date("2026-09-08T17:45:00.000Z");
+  const ready = {
+    status: "najavljen" as const,
+    hasLineup: true,
+    inLineup: true,
+    startsAt: TERMIN,
+    now,
+  };
+
+  it("offers start after teams are mixed, inside the window, to someone in the lineup", () => {
+    expect(shouldOfferStart(ready)).toBe("start");
+  });
+
+  it("hides start before teams are mixed", () => {
+    expect(shouldOfferStart({ ...ready, hasLineup: false })).toBe(null);
+  });
+
+  it("hides start from someone who is not in the lineup", () => {
+    expect(shouldOfferStart({ ...ready, inLineup: false })).toBe(null);
+  });
+
+  it("hides start outside the 30-minute window", () => {
+    expect(
+      shouldOfferStart({ ...ready, now: new Date("2026-09-08T17:00:00.000Z") }),
+    ).toBe(null);
+  });
+
+  it("offers continue when the match is already live", () => {
+    expect(shouldOfferStart({ ...ready, status: "u_tijeku" })).toBe("continue");
   });
 });
