@@ -8,7 +8,10 @@ import { YouStrip } from "@/components/group/YouStrip";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard, type LeaderboardRow } from "@/lib/data/leaderboard";
 import { bestKeeperByGoalsAgainst } from "@/lib/domain/keepers";
-import { latestSeason } from "@/lib/seasons";
+import {
+  latestSeasonIdFromList,
+  seasonIdFromQuery,
+} from "@/lib/domain/season-chips";
 
 /** Leader for one category; null when nobody has any value yet. */
 function leader(
@@ -38,13 +41,10 @@ export default async function StatsPage({
   if (!user) redirect("/prijava");
 
   const requestedSeason = typeof query.sezona === "string" ? query.sezona : null;
-  const allTime = requestedSeason === "sve";
-
-  const latestSeasonId = await latestSeason(grupaId);
-  const seasonToShow = allTime ? null : (requestedSeason ?? latestSeasonId);
 
   const { rows, seasons, matchesPlayed, sessionsPlayed, records, distanceLeaders } =
-    await getLeaderboard(grupaId, seasonToShow);
+    await getLeaderboard(grupaId, seasonIdFromQuery(requestedSeason));
+  const latestSeasonId = latestSeasonIdFromList(seasons);
 
   if (rows.length === 0) {
     return (

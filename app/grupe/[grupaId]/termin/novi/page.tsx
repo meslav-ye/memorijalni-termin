@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { SoftLink } from "@/components/ui/SoftLink";
 import { createClient } from "@/lib/supabase/server";
+import { getGroup } from "@/lib/data/groups";
 import { getMembership, getUser } from "@/lib/data/user";
 import { NewMatchForm } from "./NewMatchForm";
 
@@ -17,19 +18,16 @@ export default async function NewMatchPage({
 
   if (membership?.role !== "admin" || membership.status !== "active") notFound();
 
-  const { data: group } = await supabase
-    .from("groups")
-    .select("default_capacity, default_min_players")
-    .eq("id", grupaId)
-    .maybeSingle();
+  const [group, { data: locations }] = await Promise.all([
+    getGroup(grupaId),
+    supabase
+      .from("locations")
+      .select("id, name")
+      .eq("group_id", grupaId)
+      .order("name"),
+  ]);
 
   if (!group) notFound();
-
-  const { data: locations } = await supabase
-    .from("locations")
-    .select("id, name")
-    .eq("group_id", grupaId)
-    .order("name");
 
   return (
     <main className="mx-auto w-full max-w-md flex-1 px-5 py-8">

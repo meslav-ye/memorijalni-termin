@@ -4,6 +4,7 @@ import { SoftLink } from "@/components/ui/SoftLink";
 import { softControlClassName } from "@/components/ui/softControl";
 import { createClient } from "@/lib/supabase/server";
 import { inUuids } from "@/lib/supabase/in-filter";
+import { getGroup } from "@/lib/data/groups";
 import { getMembership, getUser } from "@/lib/data/user";
 import { formatMatchDateTime } from "@/lib/format";
 import { matchHeadcount, signupCapacity } from "@/lib/domain/fillers";
@@ -76,9 +77,9 @@ export default async function MatchPage({
     redirect(`/grupe/${grupaId}/termin/${terminId}/sazetak`);
   }
 
-  const [{ data: group }, seriesResult, { data: signups }, { data: fillers }, lineupResult] =
+  const [group, seriesResult, { data: signups }, { data: fillers }, lineupResult] =
     await Promise.all([
-      supabase.from("groups").select("name").eq("id", grupaId).maybeSingle(),
+      getGroup(grupaId),
       match.series_id
         ? supabase
             .from("match_series")

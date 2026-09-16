@@ -3,7 +3,10 @@ import { SeasonBar } from "@/components/group/SeasonBar";
 import { YouStrip } from "@/components/group/YouStrip";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard } from "@/lib/data/leaderboard";
-import { latestSeason } from "@/lib/seasons";
+import {
+  latestSeasonIdFromList,
+  seasonIdFromQuery,
+} from "@/lib/domain/season-chips";
 import { LeaderboardTable } from "./LeaderboardTable";
 
 export default async function LeaderboardPage({
@@ -17,14 +20,10 @@ export default async function LeaderboardPage({
   if (!user) redirect("/prijava");
 
   const requestedSeason = typeof query.sezona === "string" ? query.sezona : null;
-  const allTime = requestedSeason === "sve";
-
-  // Fetch newest season once — default view and SeasonBar active state share it.
-  const latestSeasonId = await latestSeason(grupaId);
-  const seasonToShow = allTime ? null : (requestedSeason ?? latestSeasonId);
 
   const { rows, seasons, matchesPlayed, sessionsPlayed, distanceLeaders } =
-    await getLeaderboard(grupaId, seasonToShow);
+    await getLeaderboard(grupaId, seasonIdFromQuery(requestedSeason));
+  const latestSeasonId = latestSeasonIdFromList(seasons);
 
   // When no matches have been played yet, still show the table — all members
   // at zero. An empty screen would not say who is in the group or what is tracked.

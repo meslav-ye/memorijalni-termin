@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getGroup } from "@/lib/data/groups";
 import { getMembership, getUser } from "@/lib/data/user";
 import { getAppOrigin } from "@/lib/origin";
 import { softControlClassName } from "@/components/ui/softControl";
@@ -13,7 +13,6 @@ export default async function SettingsPage({
   const { grupaId } = await params;
 
   const user = await getUser();
-  const supabase = await createClient();
   if (!user) redirect("/prijava");
 
   const membership = await getMembership(grupaId);
@@ -21,11 +20,7 @@ export default async function SettingsPage({
   // Settings are admin-only. To a regular member they behave as if missing.
   if (membership?.role !== "admin" || membership.status !== "active") notFound();
 
-  const { data: group } = await supabase
-    .from("groups")
-    .select("id, name, default_capacity, invite_code")
-    .eq("id", grupaId)
-    .maybeSingle();
+  const group = await getGroup(grupaId);
 
   if (!group) notFound();
 

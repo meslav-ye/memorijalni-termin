@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { SoftLink } from "@/components/ui/SoftLink";
-import { createClient } from "@/lib/supabase/server";
+import { getGroup } from "@/lib/data/groups";
 import { getMembership, getUser } from "@/lib/data/user";
 import { GroupTabs } from "./Tabs";
 
@@ -10,16 +10,13 @@ export default async function GroupLayout({
 }: LayoutProps<"/grupe/[grupaId]">) {
   const { grupaId } = await params;
 
-  // User and membership go through cache() — the page below asks for the
-  // same data, so this way we hit the DB only once per request.
+  // User, membership and group go through cache() — nested pages ask for
+  // the same data, so this way we hit the DB only once per request.
   const user = await getUser();
   if (!user) redirect("/prijava");
 
-  const supabase = await createClient();
-
-  // Group + membership in parallel (membership uses cached getUser).
-  const [{ data: group }, membership] = await Promise.all([
-    supabase.from("groups").select("id, name").eq("id", grupaId).maybeSingle(),
+  const [group, membership] = await Promise.all([
+    getGroup(grupaId),
     getMembership(grupaId),
   ]);
 

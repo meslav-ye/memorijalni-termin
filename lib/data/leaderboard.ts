@@ -18,6 +18,10 @@ import {
 } from "@/lib/domain/activity";
 import { formatShortDate } from "@/lib/format";
 import { isMember } from "@/lib/data/user";
+import {
+  leaderboardSeasonCacheKey,
+  resolveLeaderboardSeasonId,
+} from "@/lib/domain/season-chips";
 import type { MatchForStats, PlayerStats, Team } from "@/lib/domain/types";
 
 /** Cache tag per group — invalidated when a match finishes. */
@@ -62,11 +66,12 @@ export type LeaderboardData = {
  * the computation used the user client, it could not be cached: the cache
  * must not read cookies.
  *
- * @param seasonId season id, or null for "all time"
+ * @param seasonId season id, `null` for all time, `undefined` for the
+ *   newest season (resolved inside the cache from the seasons list)
  */
 export async function getLeaderboard(
   groupId: string,
-  seasonId: string | null,
+  seasonId: string | null | undefined,
 ): Promise<LeaderboardData> {
   if (!(await isMember(groupId))) notFound();
 
@@ -84,17 +89,20 @@ export async function getLeaderboard(
  * TTL is 5 minutes as a safety net; real refresh goes through the tag when
  * a match finishes or membership changes.
  */
-function cachedLeaderboard(groupId: string, seasonId: string | null) {
+function cachedLeaderboard(
+  groupId: string,
+  seasonId: string | null | undefined,
+) {
   return unstable_cache(
     () => computeLeaderboard(groupId, seasonId),
-    ["leaderboard", "v12-fillers", groupId, seasonId ?? "all"],
+    ["leaderboard", "v12-fillers", groupId, leaderboardSeasonCacheKey(seasonId)],
     { tags: [leaderboardTag(groupId)], revalidate: 300 },
   )();
 }
 
 async function computeLeaderboard(
   groupId: string,
-  seasonId: string | null,
+  seasonId: string | null | undefined,
 ): Promise<LeaderboardData> {
   const supabase = createAdminClient();
 
@@ -103,6 +111,8 @@ async function computeLeaderboard(
     .select("id, name")
     .eq("group_id", groupId)
     .order("name", { ascending: false });
+
+  const seasonFilter = resolveLeaderboardSeasonId(seasonId, seasons ?? []);
 
   // Members are always fetched, regardless of matches. The leaderboard thus
   // shows who is in the group from day one, all zeros, instead of an empty
@@ -122,7 +132,7 @@ async function computeLeaderboard(
     .eq("status", "zavrsen")
     .order("starts_at", { ascending: true });
 
-  if (seasonId) query = query.eq("season_id", seasonId);
+  if (seasonFilter) query = query.eq("season_id", seasonFilter);
 
   const { data: matches } = await query;
   const allMatches = matches ?? [];

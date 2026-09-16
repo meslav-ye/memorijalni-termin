@@ -1,4 +1,6 @@
+import { updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { leaderboardTag } from "@/lib/data/leaderboard";
 
 /**
  * Returns the season id for the given year, creating it if missing.
@@ -30,21 +32,16 @@ export async function ensureSeason(groupId: string, year: number): Promise<strin
     .select("id")
     .single();
 
+  if (created) {
+    try {
+      updateTag(leaderboardTag(groupId));
+    } catch {
+      // updateTag is a Server Action API. Series materialisation runs in
+      // after() during RSC — TTL (5 min) covers that rare new-year case.
+    }
+  }
+
   return created?.id ?? null;
-}
-
-/** Id of the group's newest season, or null if there are none. */
-export async function latestSeason(groupId: string): Promise<string | null> {
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from("seasons")
-    .select("id")
-    .eq("group_id", groupId)
-    .order("name", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return data?.id ?? null;
 }
 
 /** Calendar year the match belongs to, in Zagreb time. */
