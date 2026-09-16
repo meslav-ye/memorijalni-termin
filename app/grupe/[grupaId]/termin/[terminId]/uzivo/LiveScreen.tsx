@@ -12,8 +12,10 @@ import { withinAssistEditWindow } from "@/lib/domain/assist-edit";
 import {
   applyLiveEvent,
   applyLiveGame,
+  applyLiveLineup,
   parseLiveEventRow,
   parseLiveGameRow,
+  parseLiveLineupRow,
 } from "@/lib/domain/live-sync";
 import { useOptionalBusy } from "@/components/BusyProvider";
 import { Stopwatch } from "@/components/termin/Stopwatch";
@@ -119,8 +121,10 @@ export function LiveScreen({
   const [gameId, setGameId] = useState(initialGameId);
   const gameIdRef = useRef(gameId);
   const eventsRef = useRef(events);
+  const lineupRef = useRef(lineup);
   gameIdRef.current = gameId;
   eventsRef.current = events;
+  lineupRef.current = lineup;
 
   const [pendingAssist, setPendingAssist] = useState<PendingAssist | null>(null);
   const [duplicate, setDuplicate] = useState<{
@@ -302,7 +306,22 @@ export function LiveScreen({
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "match_lineup", filter: `match_id=eq.${terminId}` },
-        () => scheduleRefresh(),
+        (payload) => {
+          const raw = payload.eventType === "DELETE" ? payload.old : payload.new;
+          const row = parseLiveLineupRow(raw);
+          const result = applyLiveLineup(
+            lineupRef.current,
+            payload.eventType,
+            row,
+            gameIdRef.current,
+          );
+          if (result.kind === "apply") {
+            lineupRef.current = result.value;
+            setLineup(result.value);
+            return;
+          }
+          if (result.kind === "refresh") scheduleRefresh();
+        },
       )
       .on(
         "postgres_changes",

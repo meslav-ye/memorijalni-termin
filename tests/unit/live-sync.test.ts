@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   applyLiveEvent,
   applyLiveGame,
+  applyLiveLineup,
   liveEventFromRow,
   type LiveEventRow,
+  type LiveLineupRow,
+  type LiveSyncLineupPlayer,
 } from "@/lib/domain/live-sync";
 
 const row = (over: Partial<LiveEventRow> = {}): LiveEventRow => ({
@@ -95,5 +98,114 @@ describe("applyLiveGame", () => {
 
   it("ignores updates for a previous game", () => {
     expect(applyLiveGame("g2", "UPDATE", game).kind).toBe("unchanged");
+  });
+});
+
+const lineupRow = (over: Partial<LiveLineupRow> = {}): LiveLineupRow => ({
+  id: "l1",
+  game_id: "g1",
+  match_id: "m1",
+  user_id: "u1",
+  filler_id: null,
+  team: "A",
+  is_goalkeeper: false,
+  display_name: null,
+  is_guest: false,
+  ...over,
+});
+
+const player = (
+  over: Partial<LiveSyncLineupPlayer> = {},
+): LiveSyncLineupPlayer => ({
+  lineupId: "l1",
+  userId: "u1",
+  fillerId: null,
+  nickname: "Miki",
+  team: "A",
+  isGoalkeeper: false,
+  isGuest: false,
+  ...over,
+});
+
+describe("applyLiveLineup", () => {
+  it("moves a player to the other team without a refetch", () => {
+    const result = applyLiveLineup([player()], "UPDATE", lineupRow({ team: "B" }), "g1");
+    expect(result.kind).toBe("apply");
+    if (result.kind !== "apply") return;
+    expect(result.value[0]?.team).toBe("B");
+    expect(result.value[0]?.nickname).toBe("Miki");
+  });
+
+  it("toggles goalkeeper on the same row", () => {
+    const result = applyLiveLineup(
+      [player()],
+      "UPDATE",
+      lineupRow({ is_goalkeeper: true }),
+      "g1",
+    );
+    expect(result.kind).toBe("apply");
+    if (result.kind !== "apply") return;
+    expect(result.value[0]?.isGoalkeeper).toBe(true);
+  });
+
+  it("inserts a guest from the payload", () => {
+    const result = applyLiveLineup(
+      [],
+      "INSERT",
+      lineupRow({
+        id: "l2",
+        user_id: null,
+        filler_id: "f1",
+        is_guest: true,
+        display_name: "Gost Pero",
+      }),
+      "g1",
+    );
+    expect(result.kind).toBe("apply");
+    if (result.kind !== "apply") return;
+    expect(result.value).toEqual([
+      {
+        lineupId: "l2",
+        userId: "",
+        fillerId: "f1",
+        nickname: "Gost Pero",
+        team: "A",
+        isGoalkeeper: false,
+        isGuest: true,
+      },
+    ]);
+  });
+
+  it("refetches a registered insert when the nickname is unknown", () => {
+    expect(applyLiveLineup([], "INSERT", lineupRow(), "g1").kind).toBe("refresh");
+  });
+
+  it("inserts a registered player when display_name is on the row", () => {
+    const result = applyLiveLineup(
+      [],
+      "INSERT",
+      lineupRow({ id: "l2", user_id: "u2", display_name: "Iva" }),
+      "g1",
+    );
+    expect(result.kind).toBe("apply");
+    if (result.kind !== "apply") return;
+    expect(result.value.some((p) => p.lineupId === "l2" && p.nickname === "Iva")).toBe(
+      true,
+    );
+  });
+
+  it("removes a deleted player", () => {
+    const result = applyLiveLineup([player()], "DELETE", lineupRow(), "g1");
+    expect(result.kind).toBe("apply");
+    if (result.kind !== "apply") return;
+    expect(result.value).toEqual([]);
+  });
+
+  it("ignores lineup rows from another game", () => {
+    expect(applyLiveLineup([], "INSERT", lineupRow(), "g2").kind).toBe("unchanged");
+  });
+
+  it("asks for a refetch when the row is missing", () => {
+    expect(applyLiveLineup([], "INSERT", null, "g1").kind).toBe("refresh");
   });
 });

@@ -112,6 +112,75 @@ export function parseLiveGameRow(raw: unknown): LiveGameRow | null {
   };
 }
 
+export type LiveLineupRow = {
+  id: string;
+  game_id: string;
+  match_id: string;
+  user_id: string | null;
+  filler_id: string | null;
+  team: Team;
+  is_goalkeeper: boolean;
+  display_name: string | null;
+  is_guest: boolean;
+};
+
+export type LiveSyncLineupPlayer = {
+  lineupId: string;
+  userId: string;
+  fillerId: string | null;
+  nickname: string;
+  team: Team;
+  isGoalkeeper: boolean;
+  isGuest: boolean;
+};
+
+export function parseLiveLineupRow(raw: unknown): LiveLineupRow | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== "string" || typeof r.game_id !== "string") return null;
+  if (typeof r.match_id !== "string") return null;
+  if (r.team !== "A" && r.team !== "B") return null;
+  if (typeof r.is_goalkeeper !== "boolean" || typeof r.is_guest !== "boolean") return null;
+  return {
+    id: r.id,
+    game_id: r.game_id,
+    match_id: r.match_id,
+    user_id: typeof r.user_id === "string" ? r.user_id : null,
+    filler_id: typeof r.filler_id === "string" ? r.filler_id : null,
+    team: r.team,
+    is_goalkeeper: r.is_goalkeeper,
+    display_name: typeof r.display_name === "string" ? r.display_name : null,
+    is_guest: r.is_guest,
+  };
+}
+
+function nicknameForLineup(
+  row: LiveLineupRow,
+  existing: LiveSyncLineupPlayer[],
+): string | null {
+  if (row.is_guest) return row.display_name ?? "Gost";
+  const known =
+    existing.find((p) => p.lineupId === row.id)?.nickname ??
+    existing.find((p) => !p.isGuest && p.userId === row.user_id)?.nickname ??
+    row.display_name;
+  return known || null;
+}
+
+export function liveLineupFromRow(
+  row: LiveLineupRow,
+  nickname: string,
+): LiveSyncLineupPlayer {
+  return {
+    lineupId: row.id,
+    userId: row.is_guest ? "" : (row.user_id ?? ""),
+    fillerId: row.filler_id,
+    nickname,
+    team: row.team,
+    isGoalkeeper: row.is_goalkeeper,
+    isGuest: row.is_guest,
+  };
+}
+
 /**
  * Apply a Realtime event row. Other games are ignored. Unknown shapes
  * tell the caller to fall back to a full fetch.
@@ -179,4 +248,43 @@ export function applyLiveGame(
       teamBName: teamDisplayName("B", row.team_b_name),
     },
   };
+}
+
+export function applyLiveLineup(
+  lineup: LiveSyncLineupPlayer[],
+  eventType: string,
+  row: LiveLineupRow | null,
+  gameId: string,
+): ApplyResult<LiveSyncLineupPlayer[]> {
+  if (eventType === "DELETE") {
+    if (!row) return { kind: "refresh" };
+    if (row.game_id !== gameId) return { kind: "unchanged" };
+    if (!lineup.some((p) => p.lineupId === row.id)) return { kind: "unchanged" };
+    return { kind: "apply", value: lineup.filter((p) => p.lineupId !== row.id) };
+  }
+
+  if (!row) return { kind: "refresh" };
+  if (row.game_id !== gameId) return { kind: "unchanged" };
+
+  const nickname = nicknameForLineup(row, lineup);
+  if (!nickname) return { kind: "refresh" };
+
+  const next = liveLineupFromRow(row, nickname);
+
+  if (eventType === "INSERT") {
+    if (lineup.some((p) => p.lineupId === next.lineupId)) return { kind: "unchanged" };
+    return { kind: "apply", value: [...lineup, next] };
+  }
+
+  if (eventType === "UPDATE") {
+    if (!lineup.some((p) => p.lineupId === next.lineupId)) {
+      return { kind: "apply", value: [...lineup, next] };
+    }
+    return {
+      kind: "apply",
+      value: lineup.map((p) => (p.lineupId === next.lineupId ? next : p)),
+    };
+  }
+
+  return { kind: "refresh" };
 }
