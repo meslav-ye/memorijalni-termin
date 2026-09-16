@@ -4,6 +4,7 @@ import { playerProfileHref } from "@/lib/domain/player-profile";
 import {
   appendActivityRecords,
   buildStatRecords,
+  recordHref,
   type StatRecord,
 } from "@/lib/domain/stat-records";
 import type { MatchForStats } from "@/lib/domain/types";
@@ -99,11 +100,12 @@ describe("buildStatRecords profile links", () => {
       value: "4",
       who: "Ana",
       userId: "ana",
+      matchId: null,
     });
     expect(byTitle["Najviše kilometara na terminu"]?.userId).toBe("bruno");
   });
 
-  it("leaves Najveća pobjeda without userId (game record, not player)", () => {
+  it("links Najveća pobjeda to that termin's sažetak via matchId", () => {
     const records = buildStatRecords(games, attendance, [], nick);
     const win = records.find((r) => r.title === "Najveća pobjeda");
     expect(win).toEqual({
@@ -111,22 +113,19 @@ describe("buildStatRecords profile links", () => {
       value: "5:1",
       who: formatShortDate("2026-09-01T18:00:00Z"),
       userId: null,
+      matchId: "m1",
     });
+    expect(recordHref("grupa", win!)).toBe(
+      "/grupe/grupa/termin/m1/sazetak",
+    );
   });
 
-  it("only player records are linkable via userId", () => {
+  it("prefers player profile over sažetak when both could apply", () => {
     const records = buildStatRecords(games, attendance, activity, nick);
-    const linkable = records.filter((r) => r.userId !== null);
-    const notLinkable = records.filter((r) => r.userId === null);
-
-    expect(linkable.length).toBeGreaterThan(0);
-    expect(notLinkable.map((r) => r.title)).toEqual(["Najveća pobjeda"]);
-
-    for (const r of linkable) {
-      expect(playerProfileHref("grupa", r.userId!, "statistika")).toContain(
-        `/igrac/${r.userId}?from=statistika`,
-      );
-    }
+    const goals = records.find((r) => r.title === "Najviše golova na utakmici")!;
+    expect(recordHref("g1", goals)).toBe(
+      playerProfileHref("g1", "ana", "statistika"),
+    );
   });
 });
 

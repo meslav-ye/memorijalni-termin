@@ -9,6 +9,7 @@ import { getUser } from "@/lib/data/user";
 import { getLeaderboard, type LeaderboardRow } from "@/lib/data/leaderboard";
 import { bestKeeperByGoalsAgainst } from "@/lib/domain/keepers";
 import { playerProfileHref } from "@/lib/domain/player-profile";
+import { recordHref } from "@/lib/domain/stat-records";
 import {
   latestSeasonIdFromList,
   seasonIdFromQuery,
@@ -334,9 +335,7 @@ export default async function StatsPage({
                 title={title}
                 value={found?.value ?? "—"}
                 who={found?.who ?? (found ? "—" : "")}
-                href={
-                  found?.userId ? playerHref(grupaId, found.userId) : null
-                }
+                href={found ? recordHref(grupaId, found) : null}
               />
             );
           })}
