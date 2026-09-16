@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { STATS_ART } from "@/components/brand/statsArt";
+import { playerProfileHref } from "@/lib/domain/player-profile";
 import {
   defaultLeaderboardOrder,
   nextSortState,
@@ -227,7 +228,7 @@ export function LeaderboardTable({ grupaId, rows, currentUserId }: Props) {
                       {rank}.
                     </span>
                     <Link
-                      href={`/grupe/${grupaId}/igrac/${r.userId}?from=ljestvica`}
+                      href={playerProfileHref(grupaId, r.userId, "ljestvica")}
                       className="min-w-0 truncate font-medium underline-offset-4 hover:underline"
                     >
                       {r.nickname}

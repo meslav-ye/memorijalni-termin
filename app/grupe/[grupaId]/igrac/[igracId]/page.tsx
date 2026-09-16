@@ -20,27 +20,28 @@ export default async function PlayerPage({
   const supabase = await createClient();
   if (!user) redirect("/prijava");
 
-  const membership = await getMembership(grupaId);
-  if (membership?.status !== "active") notFound();
+  const [{ data: profile }, membership, leaderboard, { data: history }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, nickname, full_name, is_goalkeeper, global_rating, global_matches_played")
+      .eq("id", igracId)
+      .maybeSingle(),
+    getMembership(grupaId),
+    getLeaderboard(grupaId, null),
+    supabase
+      .from("rating_history")
+      .select("match_id, game_id, rating_before, rating_after, games(score_a, score_b, seq, matches(starts_at))")
+      .eq("user_id", igracId)
+      .eq("scope", "group")
+      .order("game_id")
+      .limit(200),
+  ]);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, nickname, full_name, is_goalkeeper, global_rating, global_matches_played")
-    .eq("id", igracId)
-    .maybeSingle();
+  if (membership?.status !== "active") notFound();
   if (!profile) notFound();
 
-  // All-time stats — that is what you want on a profile.
-  const { rows, matchesPlayed, sessionsPlayed } = await getLeaderboard(grupaId, null);
+  const { rows, matchesPlayed, sessionsPlayed } = leaderboard;
   const row = rows.find((r) => r.userId === igracId);
-
-  const { data: history } = await supabase
-    .from("rating_history")
-    .select("match_id, game_id, rating_before, rating_after, games(score_a, score_b, seq, matches(starts_at))")
-    .eq("user_id", igracId)
-    .eq("scope", "group")
-    .order("game_id")
-    .limit(200);
 
   type HistoryGame = {
     score_a: number;

@@ -32,6 +32,7 @@ import {
   validateActivityFields,
 } from "@/lib/domain/activity";
 import { leaderboardTag } from "@/lib/data/leaderboard";
+import { invalidateMatchSummary } from "@/lib/data/match-summary";
 import { ensureDraftGame, ensureEditableGame } from "@/lib/data/games";
 
 export type MatchFormState = {
@@ -636,6 +637,7 @@ export async function setTeamNames(formData: FormData) {
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/ekipe`);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/uzivo`);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/sazetak`);
+  invalidateMatchSummary(matchId);
 }
 
 export async function cancelMatch(formData: FormData) {
@@ -684,6 +686,7 @@ export async function updateMatchDescription(formData: FormData) {
     .eq("id", matchId)
     .eq("group_id", groupId);
 
+  invalidateMatchSummary(matchId);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/sazetak`);
 }
 
@@ -745,6 +748,7 @@ export async function saveMatchActivity(
   }
 
   updateTag(leaderboardTag(groupId));
+  invalidateMatchSummary(matchId);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}/sazetak`);
   revalidatePath(`/grupe/${groupId}/statistika`);
   revalidatePath(`/grupe/${groupId}/ljestvica`);
@@ -779,6 +783,7 @@ export async function deleteMatch(formData: FormData) {
   if (error) return;
 
   updateTag(leaderboardTag(groupId));
+  invalidateMatchSummary(matchId);
   revalidatePath(`/grupe/${groupId}`);
   redirect(`/grupe/${groupId}`);
 }

@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SeasonBar } from "@/components/group/SeasonBar";
 import { YouStrip } from "@/components/group/YouStrip";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard } from "@/lib/data/leaderboard";
+import { playerProfileHref } from "@/lib/domain/player-profile";
 import {
   latestSeasonIdFromList,
   seasonIdFromQuery,
@@ -166,7 +168,12 @@ export default async function LeaderboardPage({
                   }
                 >
                   <span className="min-w-0 flex-1 truncate font-medium">
-                    {r.nickname}
+                    <Link
+                      href={playerProfileHref(grupaId, r.userId, "ljestvica")}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {r.nickname}
+                    </Link>
                     {isYou && (
                       <span className="ml-1.5 text-[0.65rem] font-bold uppercase text-marka-svijetla">
                         Ti

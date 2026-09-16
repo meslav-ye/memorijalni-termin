@@ -2,6 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import { leaderboardTag } from "@/lib/data/leaderboard";
+import { invalidateMatchSummary } from "@/lib/data/match-summary";
 import { copyLineup, ensureDraftGame, getCurrentGame } from "@/lib/data/games";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -402,6 +403,7 @@ export async function addAssist(
   }
 
   updateTag(leaderboardTag(match.group_id));
+  invalidateMatchSummary(matchId);
   revalidatePath(`/grupe/${match.group_id}/termin/${matchId}/sazetak`);
   revalidatePath(`/grupe/${match.group_id}/termin/${matchId}/uzivo`);
   revalidatePath(`/grupe/${match.group_id}/statistika`);
@@ -782,6 +784,7 @@ export async function endTermin(groupId: string, matchId: string): Promise<Actio
   if (error) return { error: "Završavanje termina nije uspjelo." };
 
   updateTag(leaderboardTag(groupId));
+  invalidateMatchSummary(matchId);
 
   revalidatePath(`/grupe/${groupId}`);
   revalidatePath(`/grupe/${groupId}/termin/${matchId}`);

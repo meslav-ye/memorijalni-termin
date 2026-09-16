@@ -5,24 +5,22 @@ import { inUuids } from "@/lib/supabase/in-filter";
 import { aggregateStats, aggregateAttendance } from "@/lib/domain/stats";
 import { aggregateKeeperStats } from "@/lib/domain/keepers";
 import {
-  bestGoalsAssistsInSingleGame,
-  bestGoalsInSingleGame,
-  fewestGoalsAgainstInSingleGame,
-} from "@/lib/domain/records";
-import {
   type ActivityEntry,
   sumDistanceByUser,
-  bestDistanceInSingleTermin,
-  bestMaxSpeedInSingleTermin,
-  bestAvgSpeedInSingleTermin,
 } from "@/lib/domain/activity";
-import { formatShortDate } from "@/lib/format";
+import {
+  appendActivityRecords,
+  buildStatRecords,
+  type StatRecord,
+} from "@/lib/domain/stat-records";
 import { isMember } from "@/lib/data/user";
 import {
   leaderboardSeasonCacheKey,
   resolveLeaderboardSeasonId,
 } from "@/lib/domain/season-chips";
 import type { MatchForStats, PlayerStats, Team } from "@/lib/domain/types";
+
+export type { StatRecord };
 
 /** Cache tag per group — invalidated when a match finishes. */
 export const leaderboardTag = (groupId: string) => `leaderboard-${groupId}`;
@@ -40,8 +38,6 @@ export type LeaderboardRow = PlayerStats & {
   cleanSheets: number;
   matchesAsKeeper: number;
 };
-
-export type StatRecord = { title: string; value: string; who: string };
 
 export type DistanceLeaderRow = { userId: string; nickname: string; distanceKm: number };
 
@@ -335,7 +331,16 @@ async function computeLeaderboard(
     seasons: (seasons ?? []).map((s) => ({ id: s.id, name: s.name })),
     matchesPlayed: allGames.length,
     sessionsPlayed: allMatches.length,
-    records: computeRecords(forStats, rows, activityEntries, nicknameOf),
+    records: buildStatRecords(
+      forStats,
+      rows.map((r) => ({
+        userId: r.userId,
+        nickname: r.nickname,
+        sessionsAttended: r.sessionsAttended,
+      })),
+      activityEntries,
+      nicknameOf,
+    ),
     distanceLeaders: buildDistanceLeaders(activityEntries, nicknameOf),
   };
 }
@@ -425,132 +430,4 @@ function buildDistanceLeaders(
       (a, b) =>
         b.distanceKm - a.distanceKm || a.nickname.localeCompare(b.nickname, "hr"),
     );
-}
-
-function appendActivityRecords(
-  records: StatRecord[],
-  entries: ActivityEntry[],
-  nickname: (id: string) => string,
-) {
-  const whoWithDate = (userId: string, startsAt: string | null) => {
-    const date = startsAt ? formatShortDate(startsAt) : "—";
-    return `${nickname(userId)} · ${date}`;
-  };
-
-  const dist = bestDistanceInSingleTermin(entries);
-  if (dist) {
-    records.push({
-      title: "Najviše kilometara na terminu",
-      value: `${dist.value} km`,
-      who: whoWithDate(dist.userId, dist.startsAt),
-    });
-  }
-
-  const maxS = bestMaxSpeedInSingleTermin(entries);
-  if (maxS) {
-    records.push({
-      title: "Najveća max brzina",
-      value: `${maxS.value} km/h`,
-      who: whoWithDate(maxS.userId, maxS.startsAt),
-    });
-  }
-
-  const avgS = bestAvgSpeedInSingleTermin(entries);
-  if (avgS) {
-    records.push({
-      title: "Najveća prosj. brzina",
-      value: `${avgS.value} km/h`,
-      who: whoWithDate(avgS.userId, avgS.startsAt),
-    });
-  }
-}
-
-function computeRecords(
-  matches: MatchForStats[],
-  rows: LeaderboardRow[],
-  activityEntries: ActivityEntry[],
-  nicknameOf: (id: string) => string,
-): StatRecord[] {
-  const records: StatRecord[] = [];
-  const nickname = (id: string) =>
-    rows.find((r) => r.userId === id)?.nickname ?? nicknameOf(id);
-  const whoWithDate = (userId: string, startsAt: string | null) => {
-    const date = startsAt ? formatShortDate(startsAt) : "—";
-    return `${nickname(userId)} · ${date}`;
-  };
-
-  const bestGoals = bestGoalsInSingleGame(matches);
-  if (bestGoals) {
-    records.push({
-      title: "Najviše golova na utakmici",
-      value: String(bestGoals.value),
-      who: whoWithDate(bestGoals.userId, bestGoals.startsAt),
-    });
-  }
-
-  const bestGa = bestGoalsAssistsInSingleGame(matches);
-  if (bestGa) {
-    records.push({
-      title: "Najviše G+A",
-      value: String(bestGa.value),
-      who: whoWithDate(bestGa.userId, bestGa.startsAt),
-    });
-  }
-
-  const fewestGa = fewestGoalsAgainstInSingleGame(matches);
-  if (fewestGa) {
-    records.push({
-      title: "Najmanje primljenih na utakmici",
-      value: String(fewestGa.value),
-      who: whoWithDate(fewestGa.userId, fewestGa.startsAt),
-    });
-  }
-
-  // Largest win by goal difference.
-  //
-  // This record is tied to the GAME, not a player, so `who` is the session date.
-  // Previously it was left empty, and the card treats empty `who` as "no record" —
-  // so a real result showed greyed out next to "jos nitko".
-  const largest = matches.reduce(
-    (best, t) => {
-      const diff = Math.abs(t.scoreA - t.scoreB);
-      return diff > best.diff
-        ? {
-            diff,
-            score: `${Math.max(t.scoreA, t.scoreB)}:${Math.min(t.scoreA, t.scoreB)}`,
-            when: t.startsAt ?? "",
-          }
-        : best;
-    },
-    { diff: 0, score: "", when: "" },
-  );
-  if (largest.diff > 0) {
-    records.push({
-      title: "Najveća pobjeda",
-      value: largest.score,
-      who: largest.when ? formatShortDate(largest.when) : "—",
-    });
-  }
-
-  const mostSessions = rows.reduce(
-    (best, r) =>
-      best && r.sessionsAttended > best.sessionsAttended ? r : (best ?? r),
-    rows[0] as LeaderboardRow | undefined,
-  );
-  if (mostSessions && mostSessions.sessionsAttended > 0) {
-    records.push({
-      title: "Najviše termina ukupno",
-      value: String(mostSessions.sessionsAttended),
-      who: mostSessions.nickname,
-    });
-  }
-
-  // "Najbolji strijelac" is NOT added here. It already appears among Leaders,
-  // computed as the max by goals; here it used to read `rows[0]` — an unsorted
-  // array, so a random player showed up. Two cards with the same title and
-  // different numbers made stats look broken.
-
-  appendActivityRecords(records, activityEntries, nickname);
-
-  return records;
 }

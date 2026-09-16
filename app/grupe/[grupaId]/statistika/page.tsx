@@ -8,6 +8,7 @@ import { YouStrip } from "@/components/group/YouStrip";
 import { getUser } from "@/lib/data/user";
 import { getLeaderboard, type LeaderboardRow } from "@/lib/data/leaderboard";
 import { bestKeeperByGoalsAgainst } from "@/lib/domain/keepers";
+import { playerProfileHref } from "@/lib/domain/player-profile";
 import {
   latestSeasonIdFromList,
   seasonIdFromQuery,
@@ -27,7 +28,7 @@ function leader(
 }
 
 function playerHref(grupaId: string, userId: string) {
-  return `/grupe/${grupaId}/igrac/${userId}?from=statistika`;
+  return playerProfileHref(grupaId, userId, "statistika");
 }
 
 export default async function StatsPage({
@@ -333,6 +334,9 @@ export default async function StatsPage({
                 title={title}
                 value={found?.value ?? "—"}
                 who={found?.who ?? (found ? "—" : "")}
+                href={
+                  found?.userId ? playerHref(grupaId, found.userId) : null
+                }
               />
             );
           })}
