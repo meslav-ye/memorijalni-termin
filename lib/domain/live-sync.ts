@@ -188,40 +188,39 @@ export function mergeLiveLineup(
 ): LiveSyncLineupPlayer[] {
   const teamOf = (team: Team | string): Team => (team === "B" ? "B" : "A");
 
-  return rows.flatMap((row) => {
+  const next: LiveSyncLineupPlayer[] = [];
+  for (const row of rows) {
     if (row.is_guest) {
       const known = prev.find((p) => p.isGuest && p.fillerId === row.filler_id);
-      return [
-        {
-          lineupId: row.id,
-          userId: "",
-          fillerId: row.filler_id,
-          nickname: row.display_name ?? known?.nickname ?? "Gost",
-          team: teamOf(row.team),
-          isGoalkeeper: row.is_goalkeeper,
-          isGuest: true,
-        },
-      ];
+      next.push({
+        lineupId: row.id,
+        userId: "",
+        fillerId: row.filler_id,
+        nickname: row.display_name ?? known?.nickname ?? "Gost",
+        team: teamOf(row.team),
+        isGoalkeeper: row.is_goalkeeper,
+        isGuest: true,
+      });
+      continue;
     }
-    if (!row.user_id) return [];
+    if (!row.user_id) continue;
     const known =
       prev.find((p) => p.lineupId === row.id) ??
       prev.find((p) => !p.isGuest && p.userId === row.user_id);
-    return [
-      {
-        lineupId: row.id,
-        userId: row.user_id,
-        fillerId: null,
-        nickname:
-          (known?.nickname && known.nickname !== "?"
-            ? known.nickname
-            : extraNicknames.get(row.user_id)) ?? "?",
-        team: teamOf(row.team),
-        isGoalkeeper: row.is_goalkeeper,
-        isGuest: false,
-      },
-    ];
-  });
+    next.push({
+      lineupId: row.id,
+      userId: row.user_id,
+      fillerId: null,
+      nickname:
+        (known?.nickname && known.nickname !== "?"
+          ? known.nickname
+          : extraNicknames.get(row.user_id)) ?? "?",
+      team: teamOf(row.team),
+      isGoalkeeper: row.is_goalkeeper,
+      isGuest: false,
+    });
+  }
+  return next;
 }
 
 export function liveLineupFromRow(
