@@ -1,8 +1,16 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { redirect, RedirectType } from "next/navigation";
 import { revalidatePath, updateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { groupTag } from "@/lib/data/groups";
+import { leaderboardTag } from "@/lib/data/leaderboard";
+import {
+  MT_HOME_COOKIE,
+  mtHomeCookieOptions,
+  parseMtHomeGroupId,
+} from "@/lib/auth/home-cookie";
 
 async function requireAdmin(groupId: string) {
   const supabase = await createClient();
@@ -61,4 +69,41 @@ export async function refreshInviteCode(formData: FormData) {
 
   updateTag(groupTag(groupId));
   revalidatePath(`/grupe/${groupId}/postavke`);
+}
+
+/**
+ * Permanently delete the group and everything under it (matches, members,
+ * ratings). The SQL function deletes matches first because seasons are
+ * ON DELETE RESTRICT from matches.
+ */
+export async function deleteGroup(formData: FormData) {
+  const groupId = String(formData.get("groupId") ?? "");
+
+  const supabase = await requireAdmin(groupId);
+  if (!supabase) return;
+
+  const { error } = await supabase.rpc("delete_group", { p_group: groupId });
+  if (error) {
+    // RETURNS VOID can surface as an empty PostgREST body. If the row is
+    // gone, the delete committed and we continue to redirect.
+    const { data: leftover } = await supabase
+      .from("groups")
+      .select("id")
+      .eq("id", groupId)
+      .maybeSingle();
+    if (leftover) {
+      console.error("delete_group", error.code, error.message);
+      return;
+    }
+  }
+
+  const cookieStore = await cookies();
+  if (parseMtHomeGroupId(cookieStore.get(MT_HOME_COOKIE)?.value) === groupId) {
+    cookieStore.set(MT_HOME_COOKIE, "", { ...mtHomeCookieOptions(), maxAge: 0 });
+  }
+
+  updateTag(groupTag(groupId));
+  updateTag(leaderboardTag(groupId));
+  revalidatePath("/grupe");
+  redirect("/grupe", RedirectType.replace);
 }

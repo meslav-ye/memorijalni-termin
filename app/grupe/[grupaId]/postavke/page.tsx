@@ -4,6 +4,7 @@ import { getMembership, getUser } from "@/lib/data/user";
 import { getAppOrigin } from "@/lib/origin";
 import { softControlClassName } from "@/components/ui/softControl";
 import { InviteLink } from "./InviteLink";
+import { DeleteGroupForm } from "./DeleteGroupForm";
 import { refreshInviteCode, saveSettings } from "./actions";
 import { SubmitButton } from "@/components/SubmitButton";
 
@@ -105,6 +106,17 @@ export default async function SettingsPage({
             Spremi
           </SubmitButton>
         </form>
+      </section>
+
+      <section className="border-t border-slate-200 pt-8">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Brisanje
+        </h2>
+        <p className="mb-4 text-sm text-slate-600">
+          Trajno briše grupu, sve termine, statistiku i članove. Ovo se ne može
+          vratiti.
+        </p>
+        <DeleteGroupForm groupId={grupaId} groupName={group.name} />
       </section>
     </div>
   );

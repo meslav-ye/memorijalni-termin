@@ -815,6 +815,7 @@ export type Database = {
         Returns: undefined
       }
       broj_mojih_grupa: { Args: never; Returns: number }
+      delete_group: { Args: { p_group: string }; Returns: undefined }
       is_group_admin: { Args: { g: string }; Returns: boolean }
       is_group_member: { Args: { g: string }; Returns: boolean }
       is_in_lineup: { Args: { m: string }; Returns: boolean }
