@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { teamNameOnDarkClass, teamPanelClass } from "@/lib/domain/team-colors";
 import { formatClock, elapsedSeconds } from "@/lib/domain/timer";
 import type { MatchTimerState, Team } from "@/lib/domain/types";
+import { livePhase, livePlayerGoals, liveScore } from "@/lib/domain/live-display";
 import { teamDisplayName } from "@/lib/domain/team-name";
 import { withinAssistEditWindow } from "@/lib/domain/assist-edit";
 import {
@@ -369,15 +370,8 @@ export function LiveScreen({
   }, [online, scheduleRefresh]);
 
   const activeEvents = events.filter((e) => e.deletedAt === null);
-  const goals = activeEvents.filter((e) => e.type === "goal" || e.type === "own_goal");
-  const scoreA = goals.filter((e) => e.team === "A").length;
-  const scoreB = goals.filter((e) => e.team === "B").length;
-  const playerGoals = (p: LineupPlayer) =>
-    activeEvents.filter((e) => {
-      if (e.type !== "goal") return false;
-      if (p.isGuest) return e.scorerFillerId === p.fillerId;
-      return e.scorerId === p.userId;
-    }).length;
+  const { a: scoreA, b: scoreB } = liveScore(events);
+  const playerGoals = (p: LineupPlayer) => livePlayerGoals(events, p);
   const eventScorerName = (e: LiveEvent) => {
     if (e.scorerFillerId) {
       return lineup.find((p) => p.fillerId === e.scorerFillerId)?.nickname ?? "?";
@@ -396,15 +390,10 @@ export function LiveScreen({
   const teamA = lineup.filter((p) => p.team === "A");
   const teamB = lineup.filter((p) => p.team === "B");
 
-  const gameLive =
-    state.matchStatus === "u_tijeku" &&
-    state.gameStatus === "u_tijeku" &&
-    state.startedAt != null;
-  const awaitingNext =
-    state.matchStatus === "u_tijeku" &&
-    (state.gameStatus === "zavrsena" ||
-      (state.gameStatus === "u_tijeku" && state.startedAt == null));
-  const terminDone = state.matchStatus === "zavrsen";
+  const phase = livePhase(state);
+  const gameLive = phase === "live";
+  const awaitingNext = phase === "awaiting_next";
+  const terminDone = phase === "termin_done";
   const canEditAssist =
     gameLive || (terminDone && isAdmin && withinAssistEditWindow(state.endedAt));
   const locked = !gameLive || busy;

@@ -13,6 +13,7 @@ import { TeamsRatingExpand } from "./TeamsRatingExpand";
 import { deleteMatch } from "../../actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { withinAssistEditWindow } from "@/lib/domain/assist-edit";
+import { finishedGamesHeading } from "@/lib/domain/match-summary-text";
 
 export default async function SummaryPage({
   params,
@@ -47,11 +48,7 @@ export default async function SummaryPage({
       <header className="mt-4 text-center">
         <p className="text-sm text-slate-500">{formatMatchDateTime(match.startsAt)}</p>
         <h2 className="mt-1 text-lg font-bold tracking-tight">
-          {gameBlocks.length === 0
-            ? "Nema završenih utakmica"
-            : gameBlocks.length === 1
-              ? "1 utakmica"
-              : `${gameBlocks.length} utakmice`}
+          {finishedGamesHeading(gameBlocks.length)}
         </h2>
       </header>
 

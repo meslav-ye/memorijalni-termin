@@ -195,4 +195,33 @@ describe("aggregateStats — prosjeci i rubni slucajevi", () => {
     expect(nadji(s, "a1").goals).toBe(0);
     expect(nadji(s, "a1").ownGoals).toBe(0);
   });
+
+  it("dvije utakmice u istom terminu se broje odvojeno, golovi se ne mijesaju", () => {
+    const s = aggregateStats([
+      termin({ matchId: "m1", gameId: "g1", scoreA: 2, scoreB: 1 }),
+      termin({
+        matchId: "m1",
+        gameId: "g2",
+        scoreA: 0,
+        scoreB: 1,
+        events: [
+          {
+            type: "goal",
+            scorerId: "b1",
+            assistId: null,
+            team: "B",
+            elapsedSeconds: 40,
+            deletedAt: null,
+          },
+        ],
+      }),
+    ]);
+    expect(nadji(s, "a1").matches).toBe(2);
+    expect(nadji(s, "a1").goals).toBe(2);
+    expect(nadji(s, "a1").wins).toBe(1);
+    expect(nadji(s, "a1").losses).toBe(1);
+    expect(nadji(s, "b1").matches).toBe(2);
+    expect(nadji(s, "b1").goals).toBe(2);
+    expect(nadji(s, "b1").wins).toBe(1);
+  });
 });

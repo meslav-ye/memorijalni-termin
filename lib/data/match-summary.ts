@@ -3,7 +3,7 @@ import { unstable_cache, updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inUuids } from "@/lib/supabase/in-filter";
 import { isMember } from "@/lib/data/user";
-import { formatShortDate } from "@/lib/format";
+import { matchShareText } from "@/lib/domain/match-summary-text";
 import { computeContributions } from "@/lib/domain/contribution";
 import { ratingBreakdownLines, type RatingBreakdownLine } from "@/lib/domain/rating-breakdown";
 import { teamDisplayName } from "@/lib/domain/team-name";
@@ -347,13 +347,18 @@ async function loadMatchSummary(
     };
   });
 
-  const shareText = [
-    `Termin ${formatShortDate(match.starts_at)}${location ? `, ${location}` : ""}`,
-    ...gameBlocks.map((b) => {
-      const header = `Utakmica ${b.game.seq}: ${b.labelA} ${b.game.score_a} : ${b.game.score_b} ${b.labelB}`;
-      return b.scorers ? `${header}\n⚽ ${b.scorers}` : header;
-    }),
-  ].join("\n\n");
+  const shareText = matchShareText(
+    match.starts_at,
+    location,
+    gameBlocks.map((b) => ({
+      seq: b.game.seq,
+      labelA: b.labelA,
+      labelB: b.labelB,
+      scoreA: b.game.score_a,
+      scoreB: b.game.score_b,
+      scorers: b.scorers,
+    })),
+  );
 
   return {
     kind: "ok",
