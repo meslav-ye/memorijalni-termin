@@ -30,6 +30,7 @@ import { AdminAddFillers } from "./AdminAddFillers";
 import { AdminAddSignups } from "./AdminAddSignups";
 import { StartButton } from "./StartButton";
 import { AddToCalendar } from "./AddToCalendar";
+import { ShareMatchLink } from "./ShareMatchLink";
 import { SubmitButton } from "@/components/SubmitButton";
 import {
   DEFAULT_MATCH_DURATION_MINUTES,
@@ -208,9 +209,14 @@ export default async function MatchPage({
   const iAmInLineup = Boolean(lineupResult.data);
   const mayStart = canStart(match.starts_at, new Date());
 
+  const shareTitle = `${group?.name ?? "Termin"} — ${formatMatchDateTime(match.starts_at)}`;
+
   return (
     <div className="pb-28">
-      <SoftLink href={`/grupe/${grupaId}`}>← Natrag na termine</SoftLink>
+      <div className="flex items-start justify-between gap-4">
+        <SoftLink href={`/grupe/${grupaId}`}>← Natrag na termine</SoftLink>
+        <ShareMatchLink title={shareTitle} />
+      </div>
 
       <header className="mt-4">
         <h2 className="text-xl font-bold tracking-tight">
