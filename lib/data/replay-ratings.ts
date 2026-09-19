@@ -1,8 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { INITIAL_RATING } from "@/lib/domain/elo";
-import { computeDualElo } from "@/lib/domain/settle-ratings";
-import { computeContributions } from "@/lib/domain/contribution";
-import type { Team } from "@/lib/domain/types";
+import { computeSettledRatings, toSettleSources } from "@/lib/domain/settle-ratings";
 
 type MatchEmbed = {
   id: string;
@@ -89,83 +87,37 @@ export async function replayAllRatings(): Promise<{ games: number }> {
         .in("type", ["goal", "own_goal", "keeper_change"]),
     ]);
 
-    const registered = (lineup ?? []).filter((p) => p.user_id && !p.is_guest);
+    const registered = (lineup ?? []).filter(
+      (p): p is typeof p & { user_id: string } => Boolean(p.user_id) && !p.is_guest,
+    );
     if (registered.length === 0) continue;
 
-    const teamPlayers = (side: Team) =>
-      registered
-        .filter((p) => p.team === side)
-        .map((p) => ({
-          userId: p.user_id!,
-          groupRating: groupRating.get(key(groupId, p.user_id!)) ?? INITIAL_RATING,
-          globalRating: globalRating.get(p.user_id!) ?? INITIAL_RATING,
-        }));
-
-    const { group, global } = computeDualElo({
-      teamA: teamPlayers("A"),
-      teamB: teamPlayers("B"),
+    const settled = computeSettledRatings({
+      ...toSettleSources(registered, events ?? []),
+      ratings: registered.map((p) => ({
+        userId: p.user_id,
+        groupRating: groupRating.get(key(groupId, p.user_id)) ?? INITIAL_RATING,
+        globalRating: globalRating.get(p.user_id) ?? INITIAL_RATING,
+      })),
       scoreA: game.score_a,
       scoreB: game.score_b,
+      matchId,
+      gameId: game.id,
     });
 
-    const contrib = computeContributions({
-      lineup: registered.map((p) => ({
-        userId: p.user_id!,
-        team: p.team as Team,
-        isGoalkeeper: p.is_goalkeeper,
-      })),
-      events: (events ?? []).map((e) => ({
-        type: e.type as "goal" | "own_goal" | "keeper_change",
-        team: e.team as Team | null,
-        scorerId: e.scorer_id,
-        assistId: e.assist_id,
-        elapsedSeconds: e.elapsed_seconds,
-        deletedAt: e.deleted_at,
-      })),
-    });
-
-    const historyRows: {
-      match_id: string;
-      game_id: string;
-      user_id: string;
-      scope: "group" | "global";
-      rating_before: number;
-      rating_after: number;
-    }[] = [];
-
-    for (const u of group.updates) {
-      const c = contrib.get(u.userId)?.clamped ?? 0;
-      const after = u.ratingAfter + c;
-      historyRows.push({
-        match_id: matchId,
-        game_id: game.id,
-        user_id: u.userId,
-        scope: "group",
-        rating_before: u.ratingBefore,
-        rating_after: after,
-      });
+    for (const u of settled.groupUpdates) {
       const k = key(groupId, u.userId);
-      groupRating.set(k, after);
+      groupRating.set(k, u.ratingAfter);
       groupPlayed.set(k, (groupPlayed.get(k) ?? 0) + 1);
     }
 
-    for (const u of global.updates) {
-      const c = contrib.get(u.userId)?.clamped ?? 0;
-      const after = u.ratingAfter + c;
-      historyRows.push({
-        match_id: matchId,
-        game_id: game.id,
-        user_id: u.userId,
-        scope: "global",
-        rating_before: u.ratingBefore,
-        rating_after: after,
-      });
-      globalRating.set(u.userId, after);
+    for (const u of settled.globalUpdates) {
+      globalRating.set(u.userId, u.ratingAfter);
       globalPlayed.set(u.userId, (globalPlayed.get(u.userId) ?? 0) + 1);
     }
 
-    if (historyRows.length > 0) {
-      const { error: histErr } = await admin.from("rating_history").insert(historyRows);
+    if (settled.historyRows.length > 0) {
+      const { error: histErr } = await admin.from("rating_history").insert(settled.historyRows);
       if (histErr) throw new Error(histErr.message);
     }
   }

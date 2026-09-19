@@ -8,8 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findRecentDuplicate, secondsAgo, DUPLICATE_WINDOW_SECONDS } from "@/lib/domain/duplicates";
 import { INITIAL_RATING } from "@/lib/domain/elo";
-import { computeContributions } from "@/lib/domain/contribution";
-import { computeDualElo } from "@/lib/domain/settle-ratings";
+import { computeSettledRatings, toSettleSources } from "@/lib/domain/settle-ratings";
 import { canStart, MINUTES_BEFORE_START } from "@/lib/domain/startability";
 import type { Team } from "@/lib/domain/types";
 
@@ -502,7 +501,9 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
 
   if (!game || !lineup?.length) return;
 
-  const registered = lineup.filter((p) => p.user_id && !p.is_guest);
+  const registered = lineup.filter(
+    (p): p is typeof p & { user_id: string } => Boolean(p.user_id) && !p.is_guest,
+  );
   if (registered.length === 0) return;
 
   const { data: events } = await admin
@@ -511,7 +512,7 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
     .eq("game_id", gameId)
     .in("type", ["goal", "own_goal", "keeper_change"]);
 
-  const userIds = registered.map((p) => p.user_id!);
+  const userIds = registered.map((p) => p.user_id);
 
   const { data: ratings } = !hasGroup
     ? await admin
@@ -525,73 +526,26 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
     ? await admin.from("profiles").select("id, global_rating").in("id", userIds)
     : { data: [] as { id: string; global_rating: number }[] };
 
-  const teamPlayers = (side: Team) =>
-    registered
-      .filter((p) => p.team === side)
-      .map((p) => ({
-        userId: p.user_id!,
-        groupRating:
-          ratings?.find((r) => r.user_id === p.user_id)?.rating ?? INITIAL_RATING,
-        globalRating:
-          profiles?.find((pr) => pr.id === p.user_id)?.global_rating ?? INITIAL_RATING,
-      }));
-
-  const { group, global } = computeDualElo({
-    teamA: teamPlayers("A"),
-    teamB: teamPlayers("B"),
+  const settled = computeSettledRatings({
+    ...toSettleSources(registered, events ?? []),
+    ratings: registered.map((p) => ({
+      userId: p.user_id,
+      groupRating:
+        ratings?.find((r) => r.user_id === p.user_id)?.rating ?? INITIAL_RATING,
+      globalRating:
+        profiles?.find((pr) => pr.id === p.user_id)?.global_rating ?? INITIAL_RATING,
+    })),
     scoreA: game.score_a,
     scoreB: game.score_b,
+    matchId,
+    gameId,
   });
 
-  const contrib = computeContributions({
-    lineup: registered.map((p) => ({
-      userId: p.user_id!,
-      team: p.team as Team,
-      isGoalkeeper: p.is_goalkeeper,
-    })),
-    events: (events ?? []).map((e) => ({
-      type: e.type as "goal" | "own_goal" | "keeper_change",
-      team: e.team as Team | null,
-      scorerId: e.scorer_id,
-      assistId: e.assist_id,
-      elapsedSeconds: e.elapsed_seconds,
-      deletedAt: e.deleted_at,
-    })),
-  });
-
-  const withContrib = <T extends { userId: string; ratingBefore: number; ratingAfter: number }>(
-    updates: T[],
-  ) =>
-    updates.map((u) => {
-      const c = contrib.get(u.userId)?.clamped ?? 0;
-      return { ...u, ratingAfter: u.ratingAfter + c };
-    });
-
-  const groupUpdates = withContrib(group.updates);
-  const globalUpdates = withContrib(global.updates);
-
-  const historyRows = [
-    ...(!hasGroup
-      ? groupUpdates.map((u) => ({
-          match_id: matchId,
-          game_id: gameId,
-          user_id: u.userId,
-          scope: "group" as const,
-          rating_before: u.ratingBefore,
-          rating_after: u.ratingAfter,
-        }))
-      : []),
-    ...(!hasGlobal
-      ? globalUpdates.map((u) => ({
-          match_id: matchId,
-          game_id: gameId,
-          user_id: u.userId,
-          scope: "global" as const,
-          rating_before: u.ratingBefore,
-          rating_after: u.ratingAfter,
-        }))
-      : []),
-  ];
+  const groupUpdates = hasGroup ? [] : settled.groupUpdates;
+  const globalUpdates = hasGlobal ? [] : settled.globalUpdates;
+  const historyRows = settled.historyRows.filter(
+    (r) => (r.scope === "group" && !hasGroup) || (r.scope === "global" && !hasGlobal),
+  );
 
   if (historyRows.length === 0) return;
 
