@@ -1,3 +1,4 @@
+import { keeperAt, opposite } from "./keeper-at";
 import type { Team } from "./types";
 
 /** Max absolute individual contribution per game (after summing components). */
@@ -47,10 +48,6 @@ export type ContributionRow = {
   teamConcededPoints: number;
 };
 
-function opposite(team: Team): Team {
-  return team === "A" ? "B" : "A";
-}
-
 /**
  * Keeper contribution from goals conceded while in goal.
  * Soft bands — recreational matches often see many goals.
@@ -73,33 +70,6 @@ function teamConcededPoints(conceded: number): number {
   if (conceded < TEAM_CONCEDED_STEP) return 0;
   const steps = Math.floor(conceded / TEAM_CONCEDED_STEP);
   return -Math.min(TEAM_CONCEDED_PENALTY_CAP, steps);
-}
-
-function keeperAt(
-  lineup: ContributionLineup[],
-  events: ContributionEvent[],
-  team: Team,
-  elapsedSeconds: number,
-): string | null {
-  let keeper =
-    lineup.find((p) => p.team === team && p.isGoalkeeper)?.userId ?? null;
-
-  const changes = events
-    .filter(
-      (e) =>
-        e.type === "keeper_change" &&
-        e.team === team &&
-        e.deletedAt === null &&
-        e.scorerId !== null,
-    )
-    .sort((a, b) => a.elapsedSeconds - b.elapsedSeconds);
-
-  for (const c of changes) {
-    if (c.elapsedSeconds > elapsedSeconds) break;
-    keeper = c.scorerId;
-  }
-
-  return keeper;
 }
 
 function clamp(n: number): number {
@@ -176,7 +146,12 @@ export function computeContributions({
   for (const e of active) {
     if (e.type !== "goal" && e.type !== "own_goal") continue;
     if (e.team !== "A" && e.team !== "B") continue;
-    const keeperId = keeperAt(lineup, events, opposite(e.team), e.elapsedSeconds);
+    const keeperId = keeperAt({
+      lineup,
+      events,
+      team: opposite(e.team),
+      elapsedSeconds: e.elapsedSeconds,
+    });
     if (!keeperId || !byId.has(keeperId)) continue;
     byId.get(keeperId)!.conceded += 1;
   }
