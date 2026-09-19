@@ -20,7 +20,6 @@ export function PlayerButton({
   disabled,
   onGoal,
   onOwnGoal,
-  onGoalkeeper,
 }: {
   nickname: string;
   goals: number;
@@ -29,7 +28,6 @@ export function PlayerButton({
   disabled?: boolean;
   onGoal: () => void;
   onOwnGoal: () => void;
-  onGoalkeeper?: () => void;
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
@@ -68,7 +66,7 @@ export function PlayerButton({
   return (
     <div
       className={
-        "flex items-stretch gap-1 rounded-lg border " +
+        "flex items-stretch rounded-lg border " +
         (isGoalkeeper
           ? "border-emerald-400 bg-emerald-50 ring-1 ring-emerald-400/30"
           : teamTone)
@@ -84,10 +82,9 @@ export function PlayerButton({
         onPointerCancel={onPointerEnd}
         onContextMenu={(e) => e.preventDefault()}
         className={
-          "flex h-14 min-w-0 flex-1 items-center justify-between gap-2 px-3 " +
+          "flex h-14 min-w-0 flex-1 items-center justify-between gap-2 rounded-r-lg px-3 " +
           "text-left text-base font-bold uppercase tracking-tight " +
-          "transition select-none active:scale-[0.97] disabled:opacity-40 " +
-          (onGoalkeeper ? "" : "rounded-r-lg")
+          "transition select-none active:scale-[0.97] disabled:opacity-40"
         }
         style={{ WebkitTouchCallout: "none" }}
         aria-label={`Gol za ${nickname}. Dugi pritisak upisuje autogol.`}
@@ -99,22 +96,6 @@ export function PlayerButton({
           </span>
         )}
       </button>
-
-      {onGoalkeeper && (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={onGoalkeeper}
-          className={
-            "w-11 shrink-0 rounded-r-lg text-lg transition active:scale-95 disabled:opacity-40 " +
-            (isGoalkeeper ? "bg-emerald-100" : "opacity-25 hover:opacity-60")
-          }
-          aria-label={isGoalkeeper ? `${nickname} je golman` : `Postavi ${nickname} za golmana`}
-          title={isGoalkeeper ? "Golman" : "Postavi za golmana"}
-        >
-          🧤
-        </button>
-      )}
     </div>
   );
 }
