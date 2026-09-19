@@ -117,6 +117,49 @@ describe("computeSettledRatings", () => {
     expect(settled.historyRows.filter((r) => r.scope === "global")).toHaveLength(2);
   });
 
+  it("drops pause/resume rows instead of trusting the query filter", () => {
+    const sources = toSettleSources(
+      [{ user_id: "a", team: "A", is_goalkeeper: false }],
+      [
+        {
+          type: "goal",
+          team: "A",
+          scorer_id: "a",
+          assist_id: null,
+          elapsed_seconds: 12,
+          deleted_at: null,
+        },
+        {
+          type: "pause",
+          team: null,
+          scorer_id: null,
+          assist_id: null,
+          elapsed_seconds: 20,
+          deleted_at: null,
+        },
+        {
+          type: "resume",
+          team: null,
+          scorer_id: null,
+          assist_id: null,
+          elapsed_seconds: 30,
+          deleted_at: null,
+        },
+      ],
+    );
+
+    expect(sources.events).toEqual([
+      {
+        type: "goal",
+        team: "A",
+        scorerId: "a",
+        assistId: null,
+        elapsedSeconds: 12,
+        deletedAt: null,
+      },
+    ]);
+  });
+
   it("maps db lineup/event rows into the same settle sources", () => {
     const sources = toSettleSources(
       [

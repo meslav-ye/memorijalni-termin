@@ -87,15 +87,17 @@ export async function replayAllRatings(): Promise<{ games: number }> {
         .in("type", ["goal", "own_goal", "keeper_change"]),
     ]);
 
-    const registered = (lineup ?? []).filter((p) => p.user_id && !p.is_guest);
+    const registered = (lineup ?? []).filter(
+      (p): p is typeof p & { user_id: string } => Boolean(p.user_id) && !p.is_guest,
+    );
     if (registered.length === 0) continue;
 
     const settled = computeSettledRatings({
       ...toSettleSources(registered, events ?? []),
       ratings: registered.map((p) => ({
-        userId: p.user_id!,
-        groupRating: groupRating.get(key(groupId, p.user_id!)) ?? INITIAL_RATING,
-        globalRating: globalRating.get(p.user_id!) ?? INITIAL_RATING,
+        userId: p.user_id,
+        groupRating: groupRating.get(key(groupId, p.user_id)) ?? INITIAL_RATING,
+        globalRating: globalRating.get(p.user_id) ?? INITIAL_RATING,
       })),
       scoreA: game.score_a,
       scoreB: game.score_b,

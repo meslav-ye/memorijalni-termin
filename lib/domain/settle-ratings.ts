@@ -46,12 +46,22 @@ export type SettledRatings = {
   historyRows: SettledRatingHistoryRow[];
 };
 
+/**
+ * A match_lineup row that is already known to belong to a registered player.
+ * Guests and rows without a user carry no rating, so callers must filter them
+ * out before settling — the non-null `user_id` is how that is enforced.
+ */
 export type SettleLineupRow = {
-  user_id: string | null;
+  user_id: string;
   team: Team;
   is_goalkeeper: boolean;
 };
 
+/**
+ * A raw match_events row. `type` stays wide because the DB enum also carries
+ * `pause` / `resume`, which hold no settlement signal — toSettleSources drops
+ * them rather than trusting callers to have filtered the query.
+ */
 export type SettleEventRow = {
   type: string;
   team: Team | null;
@@ -61,24 +71,34 @@ export type SettleEventRow = {
   deleted_at: string | null;
 };
 
+function isSettleEventType(type: string): type is ContributionEvent["type"] {
+  return type === "goal" || type === "own_goal" || type === "keeper_change";
+}
+
 export function toSettleSources(
   lineup: SettleLineupRow[],
   events: SettleEventRow[],
 ): Pick<SettledRatingsInput, "lineup" | "events"> {
   return {
     lineup: lineup.map((p) => ({
-      userId: p.user_id!,
+      userId: p.user_id,
       team: p.team,
       isGoalkeeper: p.is_goalkeeper,
     })),
-    events: events.map((e) => ({
-      type: e.type as ContributionEvent["type"],
-      team: e.team,
-      scorerId: e.scorer_id,
-      assistId: e.assist_id,
-      elapsedSeconds: e.elapsed_seconds,
-      deletedAt: e.deleted_at,
-    })),
+    events: events.flatMap((e) =>
+      isSettleEventType(e.type)
+        ? [
+            {
+              type: e.type,
+              team: e.team,
+              scorerId: e.scorer_id,
+              assistId: e.assist_id,
+              elapsedSeconds: e.elapsed_seconds,
+              deletedAt: e.deleted_at,
+            },
+          ]
+        : [],
+    ),
   };
 }
 

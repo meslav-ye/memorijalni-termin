@@ -501,7 +501,9 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
 
   if (!game || !lineup?.length) return;
 
-  const registered = lineup.filter((p) => p.user_id && !p.is_guest);
+  const registered = lineup.filter(
+    (p): p is typeof p & { user_id: string } => Boolean(p.user_id) && !p.is_guest,
+  );
   if (registered.length === 0) return;
 
   const { data: events } = await admin
@@ -510,7 +512,7 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
     .eq("game_id", gameId)
     .in("type", ["goal", "own_goal", "keeper_change"]);
 
-  const userIds = registered.map((p) => p.user_id!);
+  const userIds = registered.map((p) => p.user_id);
 
   const { data: ratings } = !hasGroup
     ? await admin
@@ -527,7 +529,7 @@ async function settleRatings(groupId: string, matchId: string, gameId: string) {
   const settled = computeSettledRatings({
     ...toSettleSources(registered, events ?? []),
     ratings: registered.map((p) => ({
-      userId: p.user_id!,
+      userId: p.user_id,
       groupRating:
         ratings?.find((r) => r.user_id === p.user_id)?.rating ?? INITIAL_RATING,
       globalRating:
