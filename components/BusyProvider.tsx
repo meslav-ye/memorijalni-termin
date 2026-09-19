@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -114,7 +115,9 @@ export function BusyProvider({ children }: { children: ReactNode }) {
   return (
     <BusyContext.Provider value={value}>
       <TopBar busy={busy} />
-      <NavigationBusy />
+      <Suspense fallback={null}>
+        <NavigationBusy />
+      </Suspense>
       {children}
     </BusyContext.Provider>
   );
