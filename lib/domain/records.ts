@@ -1,44 +1,11 @@
-import type { MatchForStats, Team } from "./types";
+import { keeperAt, opposite } from "./keeper-at";
+import type { MatchForStats } from "./types";
 
 export type SingleGameRecord = {
   value: number;
   userId: string;
   startsAt: string | null;
 };
-
-function opposite(team: Team): Team {
-  return team === "A" ? "B" : "A";
-}
-
-/**
- * Who was in goal for `team` at `elapsedSeconds` (lineup starter + keeper_change).
- * Change at the same second as a goal counts as already applied.
- */
-function keeperAt(
-  match: MatchForStats,
-  team: Team,
-  elapsedSeconds: number,
-): string | null {
-  let keeper =
-    match.lineup.find((p) => p.team === team && p.isGoalkeeper)?.userId ?? null;
-
-  const changes = match.events
-    .filter(
-      (e) =>
-        e.type === "keeper_change" &&
-        e.team === team &&
-        e.deletedAt === null &&
-        e.scorerId !== null,
-    )
-    .sort((a, b) => a.elapsedSeconds - b.elapsedSeconds);
-
-  for (const c of changes) {
-    if (c.elapsedSeconds > elapsedSeconds) break;
-    keeper = c.scorerId;
-  }
-
-  return keeper;
-}
 
 function keepersWhoStood(match: MatchForStats): Set<string> {
   const ids = new Set<string>();
@@ -127,7 +94,12 @@ export function fewestGoalsAgainstInSingleGame(
       if (e.deletedAt !== null) continue;
       if (e.type !== "goal" && e.type !== "own_goal") continue;
       if (e.team !== "A" && e.team !== "B") continue;
-      const keeperId = keeperAt(m, opposite(e.team), e.elapsedSeconds);
+      const keeperId = keeperAt({
+        lineup: m.lineup,
+        events: m.events,
+        team: opposite(e.team),
+        elapsedSeconds: e.elapsedSeconds,
+      });
       if (!keeperId || !against.has(keeperId)) continue;
       against.set(keeperId, (against.get(keeperId) ?? 0) + 1);
     }

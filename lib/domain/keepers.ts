@@ -1,3 +1,4 @@
+import { keeperAt, opposite } from "./keeper-at";
 import type { KeeperStats, MatchForStats, Team } from "./types";
 
 function empty(userId: string): KeeperStats {
@@ -40,43 +41,6 @@ export function bestKeeperByGoalsAgainst(
     nickname: best.nickname,
     average: best.goalsAgainst / best.matchesAsKeeper,
   };
-}
-
-function opposite(team: Team): Team {
-  return team === "A" ? "B" : "A";
-}
-
-/**
- * Who was in goal for `team` at `elapsedSeconds`, from the starting lineup
- * and the keeper_change sequence.
- *
- * A change at exactly the same second as a goal counts as already applied —
- * the new keeper is the one who concedes.
- */
-function keeperAt(
-  match: MatchForStats,
-  team: Team,
-  elapsedSeconds: number,
-): string | null {
-  let keeper =
-    match.lineup.find((p) => p.team === team && p.isGoalkeeper)?.userId ?? null;
-
-  const changes = match.events
-    .filter(
-      (e) =>
-        e.type === "keeper_change" &&
-        e.team === team &&
-        e.deletedAt === null &&
-        e.scorerId !== null,
-    )
-    .sort((a, b) => a.elapsedSeconds - b.elapsedSeconds);
-
-  for (const c of changes) {
-    if (c.elapsedSeconds > elapsedSeconds) break;
-    keeper = c.scorerId;
-  }
-
-  return keeper;
 }
 
 /**
@@ -141,7 +105,12 @@ export function aggregateKeeperStats(
       if (e.team !== "A" && e.team !== "B") continue;
 
       const concedingTeam = opposite(e.team);
-      const keeperId = keeperAt(m, concedingTeam, e.elapsedSeconds);
+      const keeperId = keeperAt({
+        lineup: m.lineup,
+        events: m.events,
+        team: concedingTeam,
+        elapsedSeconds: e.elapsedSeconds,
+      });
       if (!keeperId || !profileKeeperIds.has(keeperId)) continue;
 
       keepersThisMatch.add(keeperId);
